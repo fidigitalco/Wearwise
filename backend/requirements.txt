@@ -1,0 +1,12 @@
+Django>=5.2,<5.3
+djangorestframework>=3.15
+django-cors-headers>=4.4
+django-filter>=24.0
+dj-database-url>=2.2
+python-dotenv>=1.0
+pillow>=11.0
+numpy>=2.0
+certifi
+# Postgres in production (DATABASE_URL=postgres://...). SQLite is used when unset.
+psycopg2-binary>=2.9
+gunicorn>=23.0
