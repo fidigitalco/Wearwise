@@ -6,7 +6,18 @@ dj-database-url>=2.2
 python-dotenv>=1.0
 pillow>=11.0
 numpy>=2.0
+# Frame extraction for closet videos.
+opencv-python-headless>=4.10
 certifi
+anthropic>=2.3
 # Postgres in production (DATABASE_URL=postgres://...). SQLite is used when unset.
 psycopg2-binary>=2.9
 gunicorn>=23.0
+faster-whisper>=1.2
+PyJWT[crypto]>=2.8
+google-auth>=2.30
+requests>=2.32
+# Background removal: uploaded pieces get a cutout in the background.
+# llvmlite/numba wheels (not a source build) come with numba>=0.61.
+rembg>=2.0.60
+numba>=0.61

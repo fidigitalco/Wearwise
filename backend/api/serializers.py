@@ -2,20 +2,62 @@ from django.contrib.auth import password_validation
 from rest_framework import serializers
 
 from . import taxonomy as tx
-from .models import Feedback, Garment, Outfit, OutfitSet, User
+from .models import Feedback, Garment, Outfit, OutfitSet, User, VideoScan
+
+
+def _choice_list(values, allowed, field):
+    """A list of known keys, de-duplicated in the order given."""
+    if not isinstance(values, list) or not all(isinstance(v, str) for v in values):
+        raise serializers.ValidationError('Must be a list of strings.')
+    bad = sorted(set(values) - set(allowed))
+    if bad:
+        raise serializers.ValidationError(f'Unknown {field}: {", ".join(bad)}')
+    return list(dict.fromkeys(values))
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'display_name', 'wardrobe_style', 'style_direction', 'latitude', 'longitude', 'date_joined']
-        read_only_fields = ['id', 'email', 'date_joined']
+        fields = [
+            'id', 'email', 'display_name', 'wardrobe_style', 'style_direction', 'main_occasion', 'onboarded',
+            'latitude', 'longitude', 'preferred_styles', 'favorite_colors', 'sizes', 'typical_occasions',
+            'units', 'notifications_enabled', 'plan', 'is_guest', 'date_joined',
+        ]
+        read_only_fields = ['id', 'email', 'plan', 'is_guest', 'date_joined']
+
+    def validate_preferred_styles(self, v):
+        return _choice_list(v, tx.STYLE_DIRECTIONS, 'style')
+
+    def validate_favorite_colors(self, v):
+        return _choice_list(v, tx.COLORS, 'colour')
+
+    def validate_typical_occasions(self, v):
+        return _choice_list(v, tx.OCCASIONS, 'occasion')
+
+    def validate_sizes(self, v):
+        if not isinstance(v, dict):
+            raise serializers.ValidationError('Must be an object.')
+        bad = sorted(set(v) - set(tx.SIZE_KEYS))
+        if bad:
+            raise serializers.ValidationError(f'Unknown size: {", ".join(bad)}')
+        for k, size in v.items():
+            if not isinstance(size, str) or len(size) > 12:
+                raise serializers.ValidationError({k: 'Must be text of at most 12 characters.'})
+        return {k: size.strip() for k, size in v.items()}
+
+    def validate(self, data):
+        # The scorer reads style_direction; keep it in step with the first preferred style.
+        if data.get('preferred_styles'):
+            data['style_direction'] = data['preferred_styles'][0]
+        return data
 
 
 class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    display_name = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    display_name = serializers.CharField(max_length=80, error_messages={
+        'required': 'Enter your name.', 'blank': 'Enter your name.',
+    })
 
     def validate_email(self, v):
         v = v.lower()
@@ -45,11 +87,18 @@ class GarmentSerializer(serializers.ModelSerializer):
             'id', 'image', 'cutout', 'name', 'category', 'subcategory', 'colors', 'primary_color',
             'pattern', 'material', 'surface', 'sheen', 'fit', 'length', 'season', 'warmth', 'rain_ok',
             'formality', 'occasion_tags', 'style_tags', 'attribute_confidence', 'times_worn',
-            'last_worn_at', 'status', 'created_at', 'updated_at',
+            'last_worn_at', 'status', 'favorite', 'is_sample', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'cutout', 'times_worn', 'last_worn_at', 'created_at', 'updated_at', 'attribute_confidence']
+        read_only_fields = [
+            'id', 'cutout', 'times_worn', 'last_worn_at', 'created_at', 'updated_at', 'attribute_confidence',
+            'is_sample',
+        ]
+        # With a photo the type can come from the AI tagger (see GarmentViewSet.perform_create).
+        extra_kwargs = {'category': {'required': False}}
 
     def validate(self, data):
+        if self.instance is None and not data.get('category') and not data.get('image'):
+            raise serializers.ValidationError({'category': 'Pick what kind of piece this is, or add a photo.'})
         cat = data.get('category', getattr(self.instance, 'category', None))
         sub = data.get('subcategory')
         if sub and cat and sub not in tx.CATEGORIES.get(cat, []):
@@ -87,7 +136,7 @@ class OutfitSerializer(serializers.ModelSerializer):
         model = Outfit
         fields = [
             'id', 'outfit_set', 'items', 'palette', 'materials', 'context', 'style_direction',
-            'scores', 'total_score', 'position', 'explanation', 'saved', 'created_at',
+            'scores', 'total_score', 'position', 'title', 'explanation', 'reasons', 'saved', 'created_at',
         ]
         read_only_fields = fields
 
@@ -118,6 +167,7 @@ class RecommendRequestSerializer(serializers.Serializer):
     precip_prob = serializers.FloatField(required=False, allow_null=True, min_value=0, max_value=1)
     latitude = serializers.FloatField(required=False, min_value=-90, max_value=90)
     longitude = serializers.FloatField(required=False, min_value=-180, max_value=180)
+    style = serializers.ChoiceField(choices=list(tx.STYLE_DIRECTIONS), required=False)
 
 
 class CheckOutfitSerializer(serializers.Serializer):
@@ -142,3 +192,12 @@ class FeedbackSerializer(serializers.ModelSerializer):
         if outfit.user_id != self.context['request'].user.id:
             raise serializers.ValidationError('Not found.')
         return outfit
+
+
+class VideoScanSerializer(serializers.ModelSerializer):
+    garments = GarmentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = VideoScan
+        fields = ['id', 'status', 'error', 'frames_used', 'garments', 'created_at', 'finished_at']
+        read_only_fields = fields

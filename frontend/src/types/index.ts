@@ -40,6 +40,8 @@ export interface Garment {
   times_worn: number;
   last_worn_at: string | null;
   status: 'available' | 'laundry' | 'stored' | 'archived';
+  favorite: boolean;
+  is_sample?: boolean;
   created_at: string;
 }
 
@@ -54,6 +56,7 @@ export interface OutfitContext {
   season: string;
   temp_c: number | null;
   precip_prob: number | null;
+  style?: string;
   weather?: Weather;
 }
 
@@ -66,6 +69,10 @@ export interface Outfit {
   total_score: number;
   position: number;
   explanation: string;
+  /** Editorial name from the server, e.g. "Effortless Smart Casual". */
+  title?: string;
+  /** Short grounded sentences for "Why this outfit works". */
+  reasons?: string[];
   saved: boolean;
   context: OutfitContext;
   created_at: string;
@@ -92,6 +99,17 @@ export interface User {
   display_name: string;
   wardrobe_style: 'menswear' | 'womenswear' | 'neutral';
   style_direction: string;
+  main_occasion: string;
+  onboarded: boolean;
+  preferred_styles?: string[];
+  favorite_colors?: string[];
+  sizes?: { top?: string; bottom?: string; shoes?: string };
+  typical_occasions?: string[];
+  units?: 'metric' | 'imperial';
+  notifications_enabled?: boolean;
+  plan?: 'free' | 'premium';
+  /** Looking around without an account; signing up keeps everything. */
+  is_guest?: boolean;
   latitude: number | null;
   longitude: number | null;
 }
@@ -119,10 +137,59 @@ export interface Stats {
   never_worn: number;
   most_worn: Garment[];
   outfits_saved: number;
+  worn_outfits?: number;
+  most_worn_categories?: { category: Category; count: number }[];
+  favorite_style?: string;
+  weekly_activity?: { date: string; count: number }[];
+  favorites?: number;
+  recently_added?: Garment[];
+}
+
+/** A piece worth buying to complete the closet, with store search links. */
+export interface ShoppingSuggestion {
+  id: string;
+  title: string;
+  reason: string;
+  category: string;
+  subcategory: string;
+  color: string;
+  rgb: [number, number, number];
+  links: { store: string; url: string }[];
+}
+
+/** One calendar day: what was worn, and the forecast when the day is within two weeks. */
+export interface CalendarDay {
+  date: string;
+  worn: Outfit[];
+  /** The outfit picked ahead for this day, if any. */
+  plan: Outfit | null;
+  weather: Weather | null;
+}
+
+export interface AssistantReply {
+  reply: string;
+  outfits: Outfit[];
+  /** Closet pieces that go with a photo the user shared. */
+  garments: Garment[];
+  suggestions: string[];
+  /** Garment fields of a recognised photo, ready to add to the closet. */
+  piece: Partial<Garment> | null;
+  /** The transcribed text of a voice question. */
+  heard: string | null;
+  /** Pieces to buy, when the question was about shopping. */
+  shopping: ShoppingSuggestion[];
 }
 
 export interface Paged<T> {
   count: number;
   next: string | null;
   results: T[];
+}
+
+export interface VideoScan {
+  id: string;
+  status: 'processing' | 'done' | 'failed';
+  error: '' | 'no_frames' | 'ai_unavailable' | 'ai_failed' | 'error';
+  frames_used: number;
+  garments: Garment[];
 }

@@ -72,8 +72,16 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Real hashing is deliberately slow; tests only need it to round-trip.
-if 'test' in sys.argv:
+TESTING = 'test' in sys.argv
+
+if TESTING:
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+    # Uploads and sample photos written by tests go to a throwaway folder, not media/.
+    import atexit
+    import shutil
+    import tempfile
+    MEDIA_ROOT_OVERRIDE = tempfile.mkdtemp(prefix='wearwise-test-media-')
+    atexit.register(shutil.rmtree, MEDIA_ROOT_OVERRIDE, ignore_errors=True)
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
@@ -83,7 +91,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = globals().get('MEDIA_ROOT_OVERRIDE') or BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -97,6 +105,10 @@ REST_FRAMEWORK = {
         'auth': '20/min',
     },
 }
+
+# The suite signs up dozens of users in a minute; keep the per-IP cap out of its way.
+if 'test' in sys.argv:
+    REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['auth'] = '10000/min'
 
 CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
 CORS_ALLOW_ALL_ORIGINS = DEBUG and not CORS_ALLOWED_ORIGINS

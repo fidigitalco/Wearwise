@@ -4,7 +4,7 @@ Your closet, styled for the day: three outfits that fit the weather, the occasio
 
 | Part | Folder | Stack |
 |---|---|---|
-| Mobile app (iOS + Android) | `frontend/` | React Native, Expo SDK 54, TypeScript, Expo Router |
+| Mobile app (iOS + Android) | `frontend/` | React Native, Expo SDK 58, TypeScript, Expo Router |
 | Web app | `web-app/` | React + Vite, TypeScript *(not started)* |
 | Admin panel | `admin/` | Next.js, TypeScript *(not started; Django admin at `/admin/` meanwhile)* |
 | Backend API | `backend/` | Python, Django 5.2 + Django REST Framework |
@@ -26,18 +26,36 @@ cp .env.example .env
 ```
 
 SQLite is used unless `DATABASE_URL` is set (Postgres in production).
-Background removal is optional: `pip install rembg` and uploads get a cutout automatically.
+Background removal (rembg, in requirements) runs in the background after an upload, so saving a photo never waits for it;
+the first run downloads the `isnet-general-use` model (~170 MB; `REMBG_MODEL` picks another).
+`python manage.py make_cutouts` gives existing pieces a cutout. Demo pieces ship with theirs in `api/sample_images/cutouts`.
 
 **Mobile app:**
 
+Needs Node 22.13+ (SDK 58). `frontend/.nvmrc` pins it for nvm.
+
 ```bash
 cd frontend
+nvm use
 npm install
-npx expo start
+npx expo start --lan
 ```
 
-Open it in Expo Go on a phone on the same Wi-Fi; the app finds the backend on the Mac's LAN IP at :8000.
+Open it in Expo Go (the store version supports SDK 58) on a phone on the same Wi-Fi; the app finds the backend on the Mac's LAN IP at :8000.
+If the phone cannot reach it, allow incoming connections for Python and node in the macOS firewall.
 For tunnel mode or a remote server, set `EXPO_PUBLIC_API_BASE_URL` (see `.env.example`).
+
+**Admin panel** (http://localhost:3002, Next.js, same design as the SaveDo admin):
+
+```bash
+cd admin
+npm install
+npm run dev
+```
+
+Sign in with a staff account (`is_staff`, e.g. one made by `createsuperuser`). It talks to `NEXT_PUBLIC_API_URL`
+(default `http://localhost:8000`) through the staff-only `/api/admin/…` endpoints: dashboard, analytics, users
+(plan, block, delete) and premium. Admins see counts and anonymous totals only, never a user's closet, photos, outfits or wear history.
 
 ## API
 
@@ -46,16 +64,19 @@ All endpoints are under `/api/` and use `Authorization: Token <token>`.
 | Endpoint | What it does |
 |---|---|
 | `POST auth/register/`, `auth/login/`, `auth/logout/` | Email + password auth, returns a token |
-| `GET/PATCH/DELETE auth/me/` | Profile, location, account deletion |
+| `GET/PATCH/DELETE auth/me/` | Profile, location, preferences (styles, favourite colours, sizes, occasions, units, notifications), account deletion |
 | `GET meta/` | Categories, 22 named colours, occasions and other enums |
-| `garments/` | Closet CRUD; photo upload extracts colours (k-means in CIELAB) |
+| `garments/` | Closet CRUD; photo upload extracts colours (k-means in CIELAB); `?favorite=true` filter |
+| `POST/DELETE garments/sample/` | Load (409 `already_loaded` if present) or remove the 16-piece sample wardrobe |
 | `POST garments/{id}/detect-colors/` | Re-run colour extraction |
-| `POST recommendations/` | Three diverse outfits for an occasion + weather |
+| `POST recommendations/` | Three diverse outfits for an occasion + weather, each with a title and reasons; asking again skips looks already shown that day |
+| `GET recommendations/latest/?occasion=` | Today's most recent suggestion set (404 if none) |
 | `POST check-outfit/` | "Will it work?" score and explanation for a user-built outfit |
 | `outfits/`, `POST outfits/{id}/save/`, `POST outfits/{id}/wear/` | Saved looks, history, wear log |
+| `POST assistant/` | Stylist chat: `{message}` → `{reply, outfits, suggestions}` (rule-based, English and Azerbaijani) |
 | `POST feedback/` | Like / dislike / rank / swap signals; updates the taste profile |
 | `GET weather/?lat=&lon=` | Day forecast (Open-Meteo) |
-| `GET stats/` | Closet size, 30-day rotation, never-worn count |
+| `GET stats/` | Closet size, 30-day rotation, never-worn count, wear activity, favourites, recently added |
 
 ## How suggestions work (Wearwise.md §4, stages 9–13)
 
@@ -65,4 +86,34 @@ All endpoints are under `/api/` and use `Authorization: Token <token>`.
 4. **Diversity**: MMR re-ranking so the three looks do not share a key piece.
 5. **Explanation**: one template sentence grounded on the top-scoring factors.
 
-Not built yet: garment detection/segmentation from video, FashionCLIP embeddings and dedup, vision-LLM attribute tagging, the learned compatibility head and global ranker.
+## Mobile app structure (`frontend/src`)
+
+| Folder | What lives there |
+|---|---|
+| `app/` | Expo Router screens: tabs (Home, Wardrobe, Outfits, Profile), welcome, auth, onboarding, garment add/review, outfit details, "Will it work?", AI stylist, search, saved, preferences |
+| `components/` | Reusable UI: buttons, chips, search field, section header, empty/error/loading states, bottom sheet, confirmation dialog, toast, garment card and image, outfit card, hero card and composition, compatibility score, weather summary, preference selectors, icons |
+| `services/` | `api.ts` (every backend call, one place) |
+| `lib/` | auth, i18n (`strings/en.ts`, `strings/az.ts`), taxonomy labels, small on-device lists |
+| `theme/` | colours, typography, spacing, radii, elevation |
+| `types/` | shared TypeScript models matching the API |
+
+Photos in `assets/images/` are from Unsplash (free licence); sources in `assets/images/CREDITS.md`.
+
+## What is real, what is a stand-in, what comes later
+
+Real today (backend + app):
+- Email sign-up and sign-in, onboarding preferences, profile and settings.
+- Wardrobe with photo, multi-photo and video adding; AI tagging of each piece (needs `ANTHROPIC_API_KEY`; without it the type is picked by hand).
+- Rule-based outfit engine with weather, occasion, style, colour harmony, rotation and taste learning; titles and "why it works" reasons.
+- Swapping a piece, likes, saves, marking as worn, search, saved items, stats.
+
+Stand-ins, behind service interfaces so they can be replaced:
+- **AI stylist** (`POST /api/assistant/`, `backend/api/assistant.py`): rule-based intent matching over the user's own wardrobe. An LLM can replace `answer()` without changing the app.
+- **Sample wardrobe** (`POST /api/garments/sample/`): 16 photo-less pieces for trying the app; removable from the Wardrobe screen.
+- **Apple sign-in**: shown disabled ("coming soon").
+- **Subscription**: shown disabled ("coming soon").
+
+Later (see Wearwise.md):
+- Garment segmentation (SAM 2) for clean cutouts from video, FashionCLIP embeddings and duplicate detection.
+- The learned compatibility head and global ranker.
+- Production background worker (Celery) for video scans instead of a thread.

@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { auth, loadToken, setToken, setUnauthorizedHandler } from './api';
-import type { User } from './types';
+import { auth, loadToken, setToken, setUnauthorizedHandler } from '../services/api';
+import type { User } from '../types';
 
 type AuthState = {
   user: User | null;
   ready: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
+  signInWith: (provider: 'apple' | 'google', idToken: string, name?: string) => Promise<void>;
+  continueAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -49,13 +51,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(r.user);
       },
       signUp: async (email, password, name) => {
-        const r = await auth.register(email.trim(), password, name?.trim());
+        // A guest signing up keeps the closet they built while looking around.
+        const r = user?.is_guest
+          ? await auth.claim(email.trim(), password, name?.trim() ?? '')
+          : await auth.register(email.trim(), password, name?.trim());
+        await setToken(r.token);
+        setUser(r.user);
+      },
+      signInWith: async (provider, idToken, name) => {
+        const r = await auth.social(provider, idToken, name);
+        await setToken(r.token);
+        setUser(r.user);
+      },
+      continueAsGuest: async () => {
+        const r = await auth.guest();
         await setToken(r.token);
         setUser(r.user);
       },
       signOut: async () => {
         try {
-          await auth.logout();
+          // A guest account cannot be signed back into, so leaving removes it.
+          if (user?.is_guest) await auth.deleteAccount();
+          else await auth.logout();
         } catch {}
         await clear();
       },

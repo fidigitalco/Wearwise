@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python manage.py shell -c ' *)",
+      "Bash(.venv/bin/python manage.py runserver 0.0.0.0:8000)",
+      "Bash(.venv/bin/python --version)",
+      "Bash(.venv/bin/pip show *)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python -c \"import rembg; print\\(rembg.__version__ if hasattr\\(rembg,'__version__'\\) else 'ok'\\)\")",
+      "Bash(.venv/bin/python -c \"from rembg import remove; print\\('ok'\\)\")",
+      "Bash(python3 -)",
+      "Bash(.venv/bin/python -)",
+      "Skill(fewer-permission-prompts)",
+      "Skill(fewer-permission-prompts:*)",
+      "Read(//Users/fuad/.claude/projects/**)",
+      "Bash(xargs -0 ls -t)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx expo lint)",
+      "Bash(npx next lint)",
+      "Bash(.venv/bin/python manage.py test api)",
+      "Bash(.venv/bin/python manage.py check)",
+      "Bash(ipconfig getifaddr en0)",
+      "Bash(tail -c 600 /private/tmp/claude-501/-Users-fuad-Projects-Wearwise/34832b87-a613-44be-8691-8e821c5da532/tasks/ba5q8203u.output | tr '\\\\r' '\\\\n' | tail -8; ls /Users/fuad/Projects/Wearwise/backend/api/sample_images/cutouts | wc -l; ls ~/.u2net 2>/dev/null)",
+      "Read(//Users/fuad/**)",
+      "Bash(ls /Users/fuad/Projects/Wearwise/backend/api/sample_images/cutouts | wc -l; tail -c 300 /private/tmp/claude-501/-Users-fuad-Projects-Wearwise/34832b87-a613-44be-8691-8e821c5da532/tasks/ba5q8203u.output | tr '\\\\r' '\\\\n' | tail -3; ls -la ~/.u2net/)",
+      "Bash(grep -q \"problem\\\\|error\\\\|✖\\\\|^$\" /private/tmp/claude-501/-Users-fuad-Projects-Wearwise/34832b87-a613-44be-8691-8e821c5da532/tasks/b7vgm57ft.output)",
+      "Bash(git check-ignore *)"
+    ]
+  }
+}

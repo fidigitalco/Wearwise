@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { getMeta } from './api';
-import type { Category, Meta } from './types';
+import { getMeta } from '../services/api';
+import { LIGHT } from '../theme';
+import type { Category, Meta } from '../types';
 
 /**
  * The taxonomy the server accepts. A copy ships with the app so pickers work
@@ -57,16 +58,19 @@ export function useMeta(): Meta {
 
 export const CATEGORY_ORDER: Category[] = ['top', 'bottom', 'dress', 'outerwear', 'shoes', 'accessory', 'bag'];
 
-/** "rain_jacket" → "Rain jacket" */
-export function humanize(v: string | null | undefined): string {
-  if (!v) return '';
-  const s = v.replace(/_/g, ' ');
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 export function rgbCss(rgb: [number, number, number] | undefined): string {
-  return rgb ? `rgb(${rgb[0]},${rgb[1]},${rgb[2]})` : '#ccc';
+  // Garment colours are data, not theme; unknown ones fall back to the border tone.
+  return rgb ? `rgb(${rgb[0]},${rgb[1]},${rgb[2]})` : LIGHT.swatchFallback;
 }
 
-export const FORMALITY_LABELS = ['', 'Lounge', 'Casual', 'Smart', 'Business', 'Black tie'];
-export const WARMTH_LABELS = ['Very light', 'Light', 'Medium', 'Warm', 'Very warm', 'Arctic'];
+/** Kinds hidden from a men's wardrobe when adding a piece (Settings → What do you wear?). */
+const WOMENSWEAR_ONLY = new Set(['blouse', 'skirt', 'leggings', 'day_dress', 'evening_dress', 'jumpsuit', 'heels', 'flats', 'clutch']);
+
+export function categoriesFor(wardrobe: string | undefined): Category[] {
+  return wardrobe === 'menswear' ? CATEGORY_ORDER.filter((c) => c !== 'dress') : CATEGORY_ORDER;
+}
+
+export function subcategoriesFor(meta: Meta, category: Category, wardrobe: string | undefined): string[] {
+  const all = meta.categories[category] ?? [];
+  return wardrobe === 'menswear' ? all.filter((s) => !WOMENSWEAR_ONLY.has(s)) : all;
+}

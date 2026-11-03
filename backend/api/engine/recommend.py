@@ -1,7 +1,8 @@
 """
 Outfit suggestions (KB section 4, stages 9–13).
 
-  candidates  slot templates filtered by hard constraints, never empty
+  candidates  slot templates filtered by hard constraints, never empty;
+              optionally built around one fixed piece
   scoring     rule priors + personal taste (scoring.py)
   diversity   MMR so the three suggestions do not share a key piece
   explanation one grounded sentence from the top factors
@@ -9,7 +10,7 @@ Outfit suggestions (KB section 4, stages 9–13).
 import random
 from itertools import product
 
-from ..taxonomy import OCCASIONS
+from ..taxonomy import COLOR_AZ, KIND_AZ, NEUTRALS, OCCASION_AZ, OCCASIONS
 from .harmony import relationship
 from .scoring import score_outfit
 
@@ -52,32 +53,41 @@ def needs_outerwear(ctx):
     return (t is not None and t < 14) or (p is not None and p >= 0.5)
 
 
-def build_candidates(garments, ctx, rng):
+def build_candidates(garments, ctx, rng, fixed=None):
+    """All outfit combinations worth scoring; with `fixed`, only those that wear that piece."""
     pool = _by_category(garments)
     sl = {cat: _shortlist(items, ctx) for cat, items in pool.items()}
+    if fixed is not None:
+        # The chosen piece skips the formality and heat filters: the user asked for it.
+        sl[fixed.category] = [fixed]
     shoes = sl.get('shoes') or [None]
 
     outer_opts = sl.get('outerwear', [])
     t = ctx.get('temp_c')
-    if t is not None and t > 25:
+    if t is not None and t > 25 and not (fixed is not None and fixed.category == 'outerwear'):
         # Hard constraint: no heavy layer in the heat.
         outer_opts = [g for g in outer_opts if g.warmth <= 1]
     outer = outer_opts if needs_outerwear(ctx) and outer_opts else [None] + outer_opts
+    if fixed is not None and fixed.category == 'outerwear':
+        outer = [fixed]
 
-    acc = [None] + sl.get('accessory', [])[:4]
+    acc = [fixed] if fixed is not None and fixed.category == 'accessory' else [None] + sl.get('accessory', [])[:4]
+    extra = [('bag', [fixed])] if fixed is not None and fixed.category == 'bag' else []
 
     templates = []
     if sl.get('top') and sl.get('bottom'):
         templates.append((('top', sl['top']), ('bottom', sl['bottom'])))
     if sl.get('dress'):
         templates.append((('dress', sl['dress']),))
+    if fixed is not None and fixed.category in KEY_SLOTS:
+        templates = [tpl for tpl in templates if fixed.category in [s for s, _ in tpl]]
     if not templates:
         raise NotEnoughGarments('Add at least a top and a bottom, or a dress.')
 
     combos = []
     for tpl in templates:
-        slots = [s for s, _ in tpl] + ['shoes', 'outerwear', 'accessory']
-        lists = [items for _, items in tpl] + [shoes, outer, acc]
+        slots = [s for s, _ in tpl] + ['shoes', 'outerwear', 'accessory'] + [s for s, _ in extra]
+        lists = [items for _, items in tpl] + [shoes, outer, acc] + [items for _, items in extra]
         for picks in product(*lists):
             combos.append({s: g for s, g in zip(slots, picks) if g is not None})
     if len(combos) > MAX_CANDIDATES:
@@ -109,40 +119,79 @@ def mmr(scored, k=3, lam=0.7):
     return chosen
 
 
-def _label(g):
-    color = (g.primary_color or '').replace('_', ' ')
-    kind = (g.subcategory or g.category).replace('_', ' ')
-    return g.name or f'{color} {kind}'.strip()
+def _label(g, lang):
+    if g.name:
+        return g.name
+    if lang == 'az':
+        color = COLOR_AZ.get(g.primary_color or '', '')
+        kind = KIND_AZ.get(g.subcategory or g.category, '')
+    else:
+        color = (g.primary_color or '').replace('_', ' ')
+        kind = (g.subcategory or g.category).replace('_', ' ')
+    return f'{color} {kind}'.strip()
+
+
+def _lower_first(text):
+    return text[:1].lower() + text[1:]
+
+
+_COLOR_PHRASES = {
+    'en': {
+        'tonal': 'a tonal look that reads calm and long',
+        'neutral': 'an easy neutral pairing',
+        'neutral_base': 'lets the {accent} do the talking over a neutral base',
+        'analogous': 'neighbouring colours that blend smoothly',
+        'complementary': 'a confident complementary contrast',
+        'contrasting': 'a bold colour contrast',
+    },
+    'az': {
+        'tonal': 'eyni rəng çalarları sakit və bütöv görünür',
+        'neutral': 'rahat neytral birləşmə',
+        'neutral_base': 'neytral fonda {accent} rəng önə çıxır',
+        'analogous': 'bir-birinə yaxın rənglər yumşaq keçid yaradır',
+        'complementary': 'bir-birini tamamlayan cəsarətli kontrast',
+        'contrasting': 'cəsarətli rəng kontrastı',
+    },
+}
 
 
 def explain(outfit, scores, ctx):
-    """One sentence, grounded only on the top-scoring factors."""
+    """One sentence, grounded only on the top-scoring factors, in the app's language."""
+    lang = 'az' if ctx.get('lang') == 'az' else 'en'
+    az = lang == 'az'
     parts = []
     body = [outfit[s] for s in ('top', 'dress', 'bottom') if s in outfit]
     if len(body) >= 2 and body[0].primary_color and body[1].primary_color:
         a, b = body[0].primary_color, body[1].primary_color
         rel = relationship(a, b)
-        phrase = {
-            'tonal': 'a tonal look that reads calm and long',
-            'neutral': 'an easy neutral pairing',
-            'neutral_base': f'lets the {a if a != b else b} do the talking over a neutral base',
-            'analogous': 'neighbouring colours that blend smoothly',
-            'complementary': 'a confident complementary contrast',
-            'contrasting': 'a bold colour contrast',
-        }[rel]
-        parts.append((scores['color'], f"{_label(body[0]).capitalize()} with {_label(body[1])}: {phrase}"))
+        accent = b if a in NEUTRALS else a
+        accent_name = COLOR_AZ.get(accent, accent) if az else accent.replace('_', ' ')
+        phrase = _COLOR_PHRASES[lang][rel].format(accent=accent_name)
+        first, second = _label(body[0], lang), _lower_first(_label(body[1], lang))
+        joiner = 'və' if az else 'with'
+        parts.append((scores['color'], f'{first} {joiner} {second}: {phrase}'))
 
     outer = outfit.get('outerwear')
     p, t = ctx.get('precip_prob'), ctx.get('temp_c')
     if outer and outer.rain_ok and p is not None and p >= 0.5:
-        parts.append((scores['weather'] + 5, f'the {_label(outer)} covers the {round(p * 100)}% rain chance'))
+        pct = round(p * 100)
+        text = (f'{_lower_first(_label(outer, lang))} {pct}% yağış ehtimalına qarşı qoruyur' if az
+                else f'the {_lower_first(_label(outer, lang))} covers the {pct}% rain chance')
+        parts.append((scores['weather'] + 5, text))
     elif t is not None:
-        parts.append((scores['weather'], f'warm enough for {round(t)}°C' if t < 18 else f'light enough for {round(t)}°C'))
+        deg = round(t)
+        if az:
+            text = f'{deg}°C üçün kifayət qədər istidir' if t < 18 else f'{deg}°C üçün kifayət qədər yüngüldür'
+        else:
+            text = f'warm enough for {deg}°C' if t < 18 else f'light enough for {deg}°C'
+        parts.append((scores['weather'], text))
 
-    occ = ctx['occasion'].replace('_', ' ')
-    parts.append((scores['occasion'], f'right on the formality for {occ}'))
+    occ = ctx['occasion']
+    parts.append((scores['occasion'], f'{OCCASION_AZ.get(occ, occ)} üçün tam uyğundur' if az
+                  else f"right on the formality for {occ.replace('_', ' ')}"))
     if scores['rotation'] >= 90:
-        parts.append((scores['rotation'] - 5, 'it brings back pieces you have not worn lately'))
+        parts.append((scores['rotation'] - 5, 'çoxdan geyinmədiyin paltarları da yenidən ortaya çıxarır' if az
+                      else 'it brings back pieces you have not worn lately'))
 
     parts.sort(key=lambda x: -x[0])
     lead, *rest = [text for _, text in parts[:2]]
@@ -150,11 +199,31 @@ def explain(outfit, scores, ctx):
     return sentence[0].upper() + sentence[1:] + '.'
 
 
-def recommend(garments, ctx, pairs, taste, k=3, seed=None):
+def combo_key(outfit):
+    """An outfit's identity for "already suggested": the set of its garment ids."""
+    return frozenset(g.id for g in outfit.values())
+
+
+def recommend(garments, ctx, pairs, taste, k=3, seed=None, exclude=(), fixed_garment_id=None):
+    """
+    Top-k diverse outfits. `exclude` holds combo_keys already shown today; they
+    are only used to top up when too few new looks remain. `fixed_garment_id`
+    builds every look around that piece.
+    """
     rng = random.Random(seed)
-    candidates = build_candidates(garments, ctx, rng)
+    fixed = None
+    if fixed_garment_id is not None:
+        fixed = next((g for g in garments if g.id == fixed_garment_id), None)
+        if fixed is None:
+            raise NotEnoughGarments('That piece is not in the closet.')
+    candidates = build_candidates(garments, ctx, rng, fixed=fixed)
     scored = [(o, score_outfit(o, ctx, pairs, taste)) for o in candidates]
-    top = mmr(scored, k=k)
+    seen = set(exclude)
+    fresh = [x for x in scored if combo_key(x[0]) not in seen]
+    top = mmr(fresh, k=k)
+    if len(top) < k:
+        # Nothing (or too little) new left: allow repeats rather than come back empty.
+        top += mmr([x for x in scored if combo_key(x[0]) in seen], k=k - len(top))
     return [
         {'outfit': o, 'scores': s, 'explanation': explain(o, s, ctx)}
         for o, s in top

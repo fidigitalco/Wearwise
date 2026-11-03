@@ -1,95 +1,120 @@
-import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { CalendarDays, Search, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { OutfitCard } from '../../components/OutfitCard';
-import { Body, Button, Card, Chip, ChipRow, Empty, Label } from '../../components/ui';
-import { errorMessage, getWeather, outfits as outfitsApi } from '../../lib/api';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Hanger } from '../../components/icons';
+import { GuestBanner } from '../../components/GuestBanner';
+import { useToast } from '../../components/Overlays';
+import { ShoppingRow } from '../../components/Shopping';
+import { TomorrowCard } from '../../components/Tomorrow';
+import { OutfitHeroCard, WeatherLine } from '../../components/Outfit';
+import { Button, EmptyState, IconButton, LoadingSkeleton, SectionHeader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
-import { humanize, useMeta } from '../../lib/meta';
-import { space, useTheme } from '../../lib/theme';
-import type { Outfit, OutfitSet, Weather } from '../../lib/types';
+import { useI18n } from '../../lib/i18n';
+import { readWeather, type WeatherInfo } from '../../lib/weather';
+import { calendar, errorMessage, garments as garmentsApi, getShopping, getStats, outfits as outfitsApi } from '../../services/api';
+import { gutter, radius, space, type, useTheme } from '../../theme';
+import type { Outfit, OutfitSet, ShoppingSuggestion, Stats } from '../../types';
 
-export default function TodayScreen() {
+/** `plan` is the outfit picked ahead for today, shown instead of the suggestion. */
+type HomeData = { stats: Stats | null; weather: WeatherInfo | null; set: OutfitSet | null; notEnough: boolean; plan: Outfit | null };
+
+/** YYYY-MM-DD in local time. */
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export default function HomeScreen() {
   const t = useTheme();
-  const meta = useMeta();
+  const { t: s, lang } = useI18n();
+  const toast = useToast();
   const { user, updateUser } = useAuth();
-  const [occasion, setOccasion] = useState('casual');
-  const [weather, setWeather] = useState<Weather | null>(null);
-  const [weatherNote, setWeatherNote] = useState<string | null>(null);
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [set, setSet] = useState<OutfitSet | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [needsCloset, setNeedsCloset] = useState(false);
-  const [liked, setLiked] = useState<Record<string, boolean | null>>({});
+  const [plan, setPlan] = useState<Outfit | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [another, setAnother] = useState(false);
+  const [notEnough, setNotEnough] = useState(false);
   const [worn, setWorn] = useState<string | null>(null);
+  const [shop, setShop] = useState<ShoppingSuggestion[]>([]);
+  const occasion = user?.main_occasion || 'casual';
 
-  const loadWeather = useCallback(async () => {
-    try {
-      const perm = await Location.requestForegroundPermissionsAsync();
-      let lat = user?.latitude ?? null;
-      let lon = user?.longitude ?? null;
-      if (perm.granted) {
-        const pos =
-          (await Location.getLastKnownPositionAsync()) ??
-          (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }));
-        // City-level is all the forecast needs; never store more than that.
-        lat = Math.round(pos.coords.latitude * 100) / 100;
-        lon = Math.round(pos.coords.longitude * 100) / 100;
-        if (lat !== user?.latitude || lon !== user?.longitude) updateUser({ latitude: lat, longitude: lon }).catch(() => {});
+  // Fetchers only fetch and return; state is set from their results (react-hooks/set-state-in-effect).
+  const fetchSuggestions = useCallback(
+    async (fresh: boolean, wx: WeatherInfo | null): Promise<Pick<HomeData, 'set' | 'notEnough'>> => {
+      try {
+        const latest = fresh ? null : await outfitsApi.latest(occasion);
+        const set =
+          latest ?? (await outfitsApi.recommend({ occasion, temp_c: wx?.temp_c ?? null, precip_prob: wx?.precip_prob ?? null }));
+        return { set, notEnough: false };
+      } catch (e: any) {
+        if (e?.response?.data?.code === 'not_enough_garments') return { set: null, notEnough: true };
+        throw e;
       }
-      if (lat == null || lon == null) {
-        setWeatherNote('Allow location to match outfits to the weather.');
-        return;
-      }
-      setWeather(await getWeather(lat, lon));
-      setWeatherNote(null);
-    } catch {
-      setWeatherNote('Weather is unavailable right now.');
-    }
-  }, [user?.latitude, user?.longitude, updateUser]);
+    },
+    [occasion],
+  );
 
-  useEffect(() => {
-    loadWeather();
-    // Location is asked for once per visit, not on every user update.
+  const fetchHome = useCallback(async (): Promise<HomeData> => {
+    const [st, wx, today] = await Promise.all([
+      getStats().catch(() => null),
+      readWeather(user, updateUser),
+      calendar.day(isoDate(new Date())).catch(() => null),
+    ]);
+    const suggestion = st && st.total > 0 ? await fetchSuggestions(false, wx).catch(() => ({ set: null, notEnough: false })) : { set: null, notEnough: false };
+    return { stats: st, weather: wx, ...suggestion, plan: today?.plan ?? null };
+    // The user object changes when the location is saved; refetching then would loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchSuggestions]);
 
-  const styleMe = async () => {
-    setLoading(true);
-    setNeedsCloset(false);
-    try {
-      const s = await outfitsApi.recommend({
-        occasion,
-        temp_c: weather?.temp_c ?? null,
-        precip_prob: weather?.precip_prob ?? null,
-      });
-      setSet(s);
-      setLiked({});
-      setWorn(null);
-    } catch (e: any) {
-      if (e?.response?.data?.code === 'not_enough_garments') setNeedsCloset(true);
-      else Alert.alert('Could not build outfits', errorMessage(e));
-    } finally {
-      setLoading(false);
-    }
+  const apply = (d: HomeData) => {
+    setStats(d.stats);
+    setWeather(d.weather);
+    setSet(d.set);
+    setPlan(d.plan);
+    setNotEnough(d.notEnough);
+    setLoading(false);
   };
 
-  const react = async (o: Outfit, value: boolean) => {
-    const next = liked[o.id] === value ? null : value;
-    setLiked((l) => ({ ...l, [o.id]: next }));
-    if (next === null) return;
-    try {
-      await outfitsApi.feedback({ outfit: o.id, liked: next, rank: o.position + 1 });
-    } catch {}
+  const load = () => fetchHome().then(apply);
+
+  useEffect(() => {
+    fetchHome().then(apply);
+  }, [fetchHome]);
+
+  // Counts change when clothes are added elsewhere; keep the summary fresh.
+  useFocusEffect(
+    useCallback(() => {
+      getStats().then(setStats).catch(() => {});
+      getShopping().then(setShop).catch(() => {});
+    }, []),
+  );
+
+  const tryAnother = () => {
+    setAnother(true);
+    fetchSuggestions(true, weather)
+      .then((r) => {
+        setSet(r.set);
+        setNotEnough(r.notEnough);
+      })
+      .catch((e) => toast(errorMessage(e), 'error'))
+      .finally(() => setAnother(false));
+  };
+
+  const replaceOutfit = (o: Outfit) => {
+    setSet((cur) => cur && { ...cur, outfits: cur.outfits.map((x) => (x.id === o.id ? o : x)) });
+    setPlan((cur) => (cur?.id === o.id ? o : cur));
   };
 
   const toggleSave = async (o: Outfit) => {
     try {
       const updated = await outfitsApi.setSaved(o.id, !o.saved);
-      setSet((s) => s && { ...s, outfits: s.outfits.map((x) => (x.id === o.id ? updated : x)) });
+      replaceOutfit(updated);
+      toast(updated.saved ? s.looks.savedToast : s.looks.unsavedToast);
     } catch (e) {
-      Alert.alert('Could not save', errorMessage(e));
+      toast(errorMessage(e), 'error');
     }
   };
 
@@ -97,79 +122,109 @@ export default function TodayScreen() {
     try {
       await outfitsApi.wear(o.id);
       setWorn(o.id);
+      toast(s.home.wornToast);
     } catch (e) {
-      Alert.alert('Could not log it', errorMessage(e));
+      toast(errorMessage(e), 'error');
     }
   };
 
-  const greeting = user?.display_name ? `Hi ${user.display_name.split(' ')[0]}` : 'Good to see you';
+  const loadSample = async () => {
+    try {
+      await garmentsApi.loadSample();
+      toast(s.home.sampleLoaded);
+      setLoading(true);
+      apply(await fetchHome());
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    }
+  };
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? s.home.morning : hour < 18 ? s.home.afternoon : s.home.evening;
+  const date = new Date().toLocaleDateString(lang === 'az' ? 'az-AZ' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const empty = stats !== null && stats.total === 0;
+  const look = plan ?? set?.outfits[0];
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.wrap}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={loadWeather} tintColor={t.textMuted} />}
-    >
-      <Text style={[styles.hello, { color: t.text }]}>{greeting}</Text>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+      <ScrollView
+        contentContainerStyle={styles.wrap}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={t.textSecondary} />}
+      >
+        <View style={styles.header}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={[type.caption, { color: t.textMuted, textTransform: 'capitalize' }]}>{date}</Text>
+            <Text style={[type.display, { color: t.text }]}>
+              {greeting}
+              {user?.display_name ? `, ${user.display_name.split(' ')[0]}` : ''}
+            </Text>
+            {weather ? <WeatherLine info={weather} /> : null}
+          </View>
+          <IconButton icon={<CalendarDays size={22} color={t.text} strokeWidth={1.6} />} label={s.calendar.open} onPress={() => router.push('/calendar')} />
+          <IconButton icon={<Search size={22} color={t.text} strokeWidth={1.6} />} label={s.search.title} onPress={() => router.push('/search')} />
+          <IconButton icon={<Sparkles size={22} color={t.text} strokeWidth={1.6} />} label={s.home.askStylist} onPress={() => router.push('/assistant')} />
+        </View>
 
-      <Card style={styles.weather}>
-        {weather ? (
-          <>
-            <Ionicons
-              name={weather.precip_prob >= 0.5 ? 'rainy-outline' : weather.temp_c >= 20 ? 'sunny-outline' : 'partly-sunny-outline'}
-              size={34}
-              color={t.highlight}
+        <GuestBanner />
+
+        {loading ? (
+          <View style={{ gap: space.md }}>
+            <LoadingSkeleton height={380} radius={radius.lg} />
+            <LoadingSkeleton height={22} width="55%" />
+            <LoadingSkeleton height={16} width="80%" />
+          </View>
+        ) : empty ? (
+          <EmptyState
+            illustration={<Hanger size={48} color={t.textSecondary} strokeWidth={1.2} />}
+            title={s.home.emptyTitle}
+            body={s.home.emptyBody}
+            action={
+              <View style={{ gap: space.sm, alignSelf: 'stretch' }}>
+                <Button title={s.wardrobe.emptyAction} onPress={() => router.push('/garment/new')} />
+                <Button title={s.home.sample} variant="ghost" onPress={loadSample} />
+              </View>
+            }
+          />
+        ) : notEnough ? (
+          <EmptyState
+            title={s.today.needClosetTitle}
+            body={s.today.needClosetBody}
+            action={<Button title={s.home.addClothing} onPress={() => router.push('/garment/new')} />}
+          />
+        ) : look ? (
+          <View style={{ gap: space.md }}>
+            <Text style={[type.overline, { color: t.accent }]}>{plan ? s.home.plannedLook : s.home.todayLook}</Text>
+            <OutfitHeroCard
+              outfit={look}
+              fallbackTitle={s.looks.fallbackTitle}
+              onOpen={() => router.push({ pathname: '/outfit/[id]', params: { id: look.id } })}
+              onAnother={plan ? undefined : tryAnother}
+              loadingAnother={another}
+              onToggleSave={() => toggleSave(look)}
+              onWear={() => wear(look)}
+              worn={worn === look.id}
             />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.temp, { color: t.text }]}>{Math.round(weather.temp_c)}°C</Text>
-              <Body muted>
-                {Math.round(weather.temp_min_c)}° – {Math.round(weather.temp_max_c)}° · {Math.round(weather.precip_prob * 100)}% rain
-              </Body>
+          </View>
+        ) : null}
+
+        {!empty && !notEnough && !loading ? <TomorrowCard /> : null}
+
+        {shop.length && !empty && !loading ? (
+          <View style={{ gap: space.md }}>
+            <View style={{ gap: 2 }}>
+              <SectionHeader title={s.shop.title} />
+              <Text style={[type.caption, { color: t.textMuted }]}>{s.shop.hint}</Text>
             </View>
-          </>
-        ) : (
-          <Body muted>{weatherNote ?? 'Checking the weather…'}</Body>
-        )}
-      </Card>
+            <ShoppingRow items={shop} inset={gutter} />
+          </View>
+        ) : null}
 
-      <View style={{ gap: space.sm }}>
-        <Label>Where are you going?</Label>
-        <ChipRow>
-          {Object.keys(meta.occasions).map((o) => (
-            <Chip key={o} label={humanize(o)} selected={o === occasion} onPress={() => setOccasion(o)} />
-          ))}
-        </ChipRow>
-      </View>
-
-      <Button title={set ? 'Show me three more' : 'Style me'} onPress={styleMe} loading={loading} />
-
-      {needsCloset ? (
-        <Empty
-          title="Your closet needs a few pieces"
-          body="Add at least a top and a bottom (or a dress) and some shoes, and WearWise can put looks together."
-          action={<Button title="Add a piece" onPress={() => router.push('/garment/new')} />}
-        />
-      ) : null}
-
-      {set?.outfits.map((o, i) => (
-        <OutfitCard
-          key={o.id}
-          outfit={o}
-          index={i}
-          liked={liked[o.id]}
-          onLike={() => react(o, true)}
-          onDislike={() => react(o, false)}
-          onToggleSave={() => toggleSave(o)}
-          onWear={() => wear(o)}
-          worn={worn === o.id}
-        />
-      ))}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { padding: space.lg, gap: space.lg, paddingBottom: space.xxl },
-  hello: { fontSize: 26, fontWeight: '800' },
-  weather: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
-  temp: { fontSize: 28, fontWeight: '700' },
+  wrap: { paddingHorizontal: gutter, paddingTop: space.lg, gap: space.xxl, paddingBottom: space.xxl * 2 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 0 },
 });

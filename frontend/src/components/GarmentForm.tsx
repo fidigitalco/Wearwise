@@ -1,15 +1,22 @@
-import { Switch, View } from 'react-native';
-import type { GarmentInput } from '../lib/api';
-import { CATEGORY_ORDER, FORMALITY_LABELS, WARMTH_LABELS, humanize, rgbCss, useMeta } from '../lib/meta';
-import { space, useTheme } from '../lib/theme';
-import type { Category, GarmentColor } from '../lib/types';
+import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import type { GarmentInput } from '../services/api';
+import { useAuth } from '../lib/auth';
+import { useI18n, useLabel } from '../lib/i18n';
+import { categoriesFor, rgbCss, subcategoriesFor, useMeta } from '../lib/meta';
+import { radius, space, useTheme } from '../theme';
+import type { Category, Garment, GarmentColor, Material } from '../types';
 import { Body, Chip, ChipRow, ChipWrap, Field, Label, Stepper } from './ui';
 
 export type GarmentDraft = Required<
-  Pick<GarmentInput, 'name' | 'category' | 'subcategory' | 'pattern' | 'fit' | 'formality' | 'warmth' | 'rain_ok' | 'season' | 'colors'>
-> & { materialValue: string };
+  Pick<GarmentInput, 'name' | 'category' | 'subcategory' | 'pattern' | 'fit' | 'formality' | 'warmth' | 'rain_ok' | 'season' | 'colors' | 'occasion_tags'>
+> & { materialValue: string; materialOriginal: Material };
 
-/** What a typical piece of each kind is like, so most users never touch the steppers. */
+/** Below this the AI's guess is flagged "Check this" (KB section 4, stage 5). */
+const CHECK_BELOW = 0.75;
+
+/** What a typical piece of each kind is like, for pieces added by hand. */
 const PRESETS: Record<string, Partial<GarmentDraft>> = {
   t_shirt: { warmth: 1, formality: 1 }, tank_top: { warmth: 0, formality: 1 }, polo: { warmth: 1, formality: 2 },
   shirt: { warmth: 1, formality: 3 }, blouse: { warmth: 1, formality: 3 }, sweater: { warmth: 3, formality: 3 },
@@ -30,24 +37,50 @@ const PRESETS: Record<string, Partial<GarmentDraft>> = {
 export function emptyDraft(): GarmentDraft {
   return {
     name: '', category: 'top', subcategory: '', pattern: 'solid', fit: 'regular',
-    formality: 2, warmth: 1, rain_ok: false, season: [], colors: [], materialValue: '',
+    formality: 2, warmth: 1, rain_ok: false, season: [], colors: [], occasion_tags: [], materialValue: '', materialOriginal: {},
+  };
+}
+
+export function draftFromGarment(g: Garment): GarmentDraft {
+  return {
+    name: g.name, category: g.category, subcategory: g.subcategory, pattern: g.pattern, fit: g.fit,
+    formality: g.formality, warmth: g.warmth, rain_ok: g.rain_ok, season: g.season, colors: g.colors, occasion_tags: g.occasion_tags,
+    materialValue: g.material?.value ?? '', materialOriginal: g.material ?? {},
   };
 }
 
 export function draftToInput(d: GarmentDraft): GarmentInput {
-  const { materialValue, ...rest } = d;
-  return {
-    ...rest,
-    material: materialValue.trim() ? { value: materialValue.trim().toLowerCase(), source: 'user', confidence: 1 } : {},
-  };
+  const { materialValue, materialOriginal, ...rest } = d;
+  const value = materialValue.trim().toLowerCase();
+  // An unchanged AI estimate stays an estimate; only a value the user typed counts as theirs.
+  const material: Material = !value
+    ? {}
+    : value === materialOriginal.value
+      ? materialOriginal
+      : { value, source: 'user', confidence: 1 };
+  return { ...rest, material };
 }
 
 export function GarmentForm({
-  draft, onChange, colorsHint,
-}: { draft: GarmentDraft; onChange: (d: GarmentDraft) => void; colorsHint?: string }) {
+  draft, onChange, confidence, colorsHint,
+}: {
+  draft: GarmentDraft;
+  onChange: (d: GarmentDraft) => void;
+  /** Per-attribute confidence from the AI tagger; fields under 0.75 are flagged. */
+  confidence?: Record<string, number>;
+  colorsHint?: string;
+}) {
   const t = useTheme();
   const meta = useMeta();
+  const { user } = useAuth();
+  const { t: s } = useI18n();
+  const label = useLabel();
+  const [editColors, setEditColors] = useState(draft.colors.length === 0);
+  const [more, setMore] = useState(false);
   const set = (patch: Partial<GarmentDraft>) => onChange({ ...draft, ...patch });
+  const unsure = (k: string) => confidence?.[k] !== undefined && confidence[k] < CHECK_BELOW;
+  // Filled in by the AI tagger (confidently); the label stays until the user saves their own value.
+  const ai = (k: string) => confidence?.[k] !== undefined && !unsure(k);
 
   const pickCategory = (c: Category) => set({ category: c, subcategory: '' });
   const pickSub = (s: string) => set({ subcategory: s, ...(PRESETS[s] ?? {}) });
@@ -65,98 +98,187 @@ export function GarmentForm({
   const toggleSeason = (s: string) =>
     set({ season: draft.season.includes(s) ? draft.season.filter((x) => x !== s) : [...draft.season, s] });
 
+  const moreNeedsCheck = unsure('pattern') || unsure('material');
+
   return (
     <View style={{ gap: space.xl }}>
       <View style={{ gap: space.sm }}>
-        <Label>Type</Label>
+        <Heading label={s.form.type} check={unsure('category')} ai={ai('category')} />
         <ChipRow>
-          {CATEGORY_ORDER.map((c) => (
-            <Chip key={c} label={humanize(c)} selected={draft.category === c} onPress={() => pickCategory(c)} />
+          {categoriesFor(user?.wardrobe_style).map((c) => (
+            <Chip key={c} label={label('categories', c)} selected={draft.category === c} onPress={() => pickCategory(c)} />
           ))}
         </ChipRow>
         <ChipWrap>
-          {(meta.categories[draft.category as Category] ?? []).map((s) => (
-            <Chip key={s} label={humanize(s)} selected={draft.subcategory === s} onPress={() => pickSub(s)} />
+          {subcategoriesFor(meta, draft.category as Category, user?.wardrobe_style).map((sub) => (
+            <Chip key={sub} label={label('subcategories', sub)} selected={draft.subcategory === sub} onPress={() => pickSub(sub)} />
           ))}
         </ChipWrap>
       </View>
 
-      <Field label="Name" value={draft.name} onChangeText={(name) => set({ name })} placeholder="e.g. Yellow rain jacket (optional)" />
+      <Field label={s.form.name} value={draft.name} onChangeText={(name) => set({ name })} placeholder={s.form.namePlaceholder} />
 
       <View style={{ gap: space.sm }}>
-        <Label>Colours</Label>
-        {colorsHint ? <Body muted>{colorsHint}</Body> : null}
-        <ChipWrap>
-          {Object.entries(meta.colors).map(([name, rgb]) => (
-            <Chip
-              key={name}
-              label={humanize(name)}
-              swatch={rgbCss(rgb)}
-              selected={draft.colors.some((c) => c.name === name)}
-              onPress={() => toggleColor(name)}
-            />
-          ))}
-        </ChipWrap>
-      </View>
-
-      <View style={{ gap: space.sm }}>
-        <Label>Pattern</Label>
-        <ChipWrap>
-          {meta.patterns.map((p) => (
-            <Chip key={p} label={humanize(p)} selected={draft.pattern === p} onPress={() => set({ pattern: p })} />
-          ))}
-        </ChipWrap>
-      </View>
-
-      <View style={{ gap: space.sm }}>
-        <Label>Fit</Label>
-        <ChipRow>
-          {meta.fits.map((f) => (
-            <Chip key={f} label={humanize(f)} selected={draft.fit === f} onPress={() => set({ fit: f })} />
-          ))}
-        </ChipRow>
-      </View>
-
-      <View style={{ gap: space.sm }}>
-        <Label>Formality</Label>
-        <Stepper value={draft.formality} min={1} max={5} onChange={(formality) => set({ formality })} labels={FORMALITY_LABELS} />
-      </View>
-
-      <View style={{ gap: space.sm }}>
-        <Label>Warmth</Label>
-        <Stepper value={draft.warmth} min={0} max={5} onChange={(warmth) => set({ warmth })} labels={WARMTH_LABELS} />
-      </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flex: 1 }}>
-          <Label>Rain-proof</Label>
-          <Body muted>Suggested first on wet days.</Body>
+        <View style={styles.rowBetween}>
+          <Heading label={s.form.colors} check={unsure('color')} ai={ai('color')} />
+          {draft.colors.length > 0 ? (
+            <Pressable onPress={() => setEditColors((e) => !e)} hitSlop={8} accessibilityRole="button">
+              <Text style={{ color: t.highlight, fontWeight: '600' }}>{editColors ? s.common.done : s.common.change}</Text>
+            </Pressable>
+          ) : null}
         </View>
-        <Switch
-          value={draft.rain_ok}
-          onValueChange={(rain_ok) => set({ rain_ok })}
-          trackColor={{ true: t.highlight, false: t.cardAlt }}
-          accessibilityLabel="Rain-proof"
-        />
+        {colorsHint ? <Body muted>{colorsHint}</Body> : null}
+        {editColors ? (
+          <ChipWrap>
+            {Object.entries(meta.colors).map(([name, rgb]) => (
+              <Chip
+                key={name}
+                label={label('colors', name)}
+                swatch={rgbCss(rgb)}
+                selected={draft.colors.some((c) => c.name === name)}
+                onPress={() => toggleColor(name)}
+              />
+            ))}
+          </ChipWrap>
+        ) : (
+          <ChipWrap>
+            {draft.colors.map((c) => (
+              <Chip key={c.name} label={label('colors', c.name)} swatch={rgbCss(c.rgb ?? meta.colors[c.name])} />
+            ))}
+          </ChipWrap>
+        )}
       </View>
 
-      <View style={{ gap: space.sm }}>
-        <Label>Seasons</Label>
-        <Body muted>Leave empty if you wear it all year.</Body>
-        <ChipRow>
-          {meta.seasons.map((s) => (
-            <Chip key={s} label={humanize(s)} selected={draft.season.includes(s)} onPress={() => toggleSeason(s)} />
-          ))}
-        </ChipRow>
-      </View>
+      <Pressable
+        onPress={() => setMore((m) => !m)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: more }}
+        style={[styles.moreToggle, { borderColor: t.border }]}
+      >
+        <Text style={{ color: t.text, fontWeight: '600', fontSize: 15 }}>{s.form.moreDetails}</Text>
+        {moreNeedsCheck && !more ? <CheckBadge /> : null}
+        <View style={{ flex: 1 }} />
+        {more ? <ChevronUp size={18} color={t.textMuted} /> : <ChevronDown size={18} color={t.textMuted} />}
+      </Pressable>
 
-      <Field
-        label="Material (from the care label)"
-        value={draft.materialValue}
-        onChangeText={(materialValue) => set({ materialValue })}
-        placeholder="e.g. merino, cotton, nylon"
-        autoCapitalize="none"
-      />
+      {more ? (
+        <View style={{ gap: space.xl }}>
+          <View style={{ gap: space.sm }}>
+            <Heading label={s.form.pattern} check={unsure('pattern')} ai={ai('pattern')} />
+            <Body muted>{s.form.patternHint}</Body>
+            <ChipWrap>
+              {meta.patterns.map((p) => (
+                <Chip key={p} label={label('patterns', p)} selected={draft.pattern === p} onPress={() => set({ pattern: p })} />
+              ))}
+            </ChipWrap>
+          </View>
+
+          <View style={{ gap: space.sm }}>
+            <Label>{s.form.fit}</Label>
+            <ChipRow>
+              {meta.fits.map((f) => (
+                <Chip key={f} label={label('fits', f)} selected={draft.fit === f} onPress={() => set({ fit: f })} />
+              ))}
+            </ChipRow>
+          </View>
+
+          <View style={{ gap: space.sm }}>
+            <Label>{s.form.formality}</Label>
+            <Stepper value={draft.formality} min={1} max={5} onChange={(formality) => set({ formality })} labels={s.form.formalityLevels} />
+          </View>
+
+          <View style={{ gap: space.sm }}>
+            <Label>{s.form.warmth}</Label>
+            <Stepper value={draft.warmth} min={0} max={5} onChange={(warmth) => set({ warmth })} labels={s.form.warmthLevels} />
+          </View>
+
+          <View style={styles.rowBetween}>
+            <View style={{ flex: 1 }}>
+              <Label>{s.form.rainProof}</Label>
+              <Body muted>{s.form.rainProofHint}</Body>
+            </View>
+            <Switch
+              value={draft.rain_ok}
+              onValueChange={(rain_ok) => set({ rain_ok })}
+              trackColor={{ true: t.highlight, false: t.cardAlt }}
+              accessibilityLabel={s.form.rainProof}
+            />
+          </View>
+
+          <View style={{ gap: space.sm }}>
+            <Label>{s.form.seasons}</Label>
+            <Body muted>{s.form.seasonsHint}</Body>
+            <ChipRow>
+              {meta.seasons.map((x) => (
+                <Chip key={x} label={label('seasons', x)} selected={draft.season.includes(x)} onPress={() => toggleSeason(x)} />
+              ))}
+            </ChipRow>
+          </View>
+
+          <View style={{ gap: space.sm }}>
+            <Label>{s.form.occasions}</Label>
+            <ChipWrap>
+              {Object.keys(meta.occasions).map((o) => (
+                <Chip key={o} label={label('occasions', o)} selected={draft.occasion_tags.includes(o)}
+                  onPress={() => set({ occasion_tags: draft.occasion_tags.includes(o) ? draft.occasion_tags.filter((x) => x !== o) : [...draft.occasion_tags, o] })} />
+              ))}
+            </ChipWrap>
+          </View>
+
+          <View style={{ gap: space.xs }}>
+            <Heading label={s.form.material} check={unsure('material')} ai={ai('material')} />
+            {draft.materialOriginal.source === 'visual_estimate' && draft.materialValue === draft.materialOriginal.value ? (
+              <Body muted>{s.form.materialGuessed}</Body>
+            ) : null}
+            <Field
+              value={draft.materialValue}
+              onChangeText={(materialValue) => set({ materialValue })}
+              placeholder={s.form.materialPlaceholder}
+              autoCapitalize="none"
+            />
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
+
+function Heading({ label, check, ai }: { label: string; check?: boolean; ai?: boolean }) {
+  return (
+    <View style={styles.row}>
+      <Label>{label}</Label>
+      {check ? <CheckBadge /> : ai ? <AiBadge /> : null}
+    </View>
+  );
+}
+
+function AiBadge() {
+  const t = useTheme();
+  const { t: s } = useI18n();
+  return (
+    <View style={[styles.badge, styles.row, { backgroundColor: t.cardAlt, gap: 4 }]}>
+      <Sparkles size={11} color={t.textMuted} />
+      <Text style={{ color: t.textMuted, fontSize: 11, fontWeight: '600' }}>{s.common.aiSuggestion}</Text>
+    </View>
+  );
+}
+
+function CheckBadge() {
+  const t = useTheme();
+  const { t: s } = useI18n();
+  return (
+    <View style={[styles.badge, { backgroundColor: t.highlightBg }]}>
+      <Text style={{ color: t.highlight, fontSize: 11, fontWeight: '700' }}>{s.common.checkThis}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  moreToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 48,
+    borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: space.sm,
+  },
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },
+});

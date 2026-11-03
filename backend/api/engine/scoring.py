@@ -41,7 +41,12 @@ def colors_of(outfit):
     return [g.primary_color for g in outfit.values() if g.primary_color]
 
 
-def score_color(outfit, pairs, taste):
+# Colours the user picked as favourites in Settings: a small nudge, capped so
+# a palette never wins on favourites alone.
+FAVORITE_BONUS, FAVORITE_CAP = 3, 6
+
+
+def score_color(outfit, pairs, taste, favorites=()):
     names = colors_of(outfit)
     if len(names) < 2:
         return 75.0
@@ -54,6 +59,8 @@ def score_color(outfit, pairs, taste):
     if len(patterned) > 1:
         s -= 10 * (len(patterned) - 1)
     s += 4 * len(set(names) & set(taste.liked_colors)) - 8 * len(set(names) & set(taste.disliked_colors))
+    fav = (set(names) & set(favorites)) - set(taste.liked_colors)  # liked colours already counted
+    s += min(FAVORITE_CAP, FAVORITE_BONUS * len(fav))
     return _clamp(s)
 
 
@@ -153,6 +160,33 @@ def score_taste(outfit, taste):
     return _clamp(60 + 40 * math.tanh(s / 3))
 
 
+# Where each everyday style (Settings) sits on the 1–5 formality scale.
+STYLE_FORMALITY = {
+    'casual': 2.0, 'smart_casual': 3.0, 'business': 4.0, 'formal': 4.5,
+    'sporty': 1.5, 'streetwear': 2.0, 'minimal': 3.0, 'classic': 3.5, 'bohemian': 2.5,
+}
+
+
+def style_bonus(outfit, style):
+    """A nudge (−10…+10) towards the user's everyday style; the occasion still rules."""
+    center = STYLE_FORMALITY.get(style)
+    if center is None:
+        return 0.0
+    body = [g for slot, g in outfit.items() if slot in WARMTH_SLOTS] or list(outfit.values())
+    mean = sum(g.formality for g in body) / len(body)
+    b = 6 - 5 * abs(mean - center)
+    if style == 'minimal':
+        plain = all(g.pattern == 'solid' for g in outfit.values())
+        neutral = all((g.primary_color or 'black') in NEUTRALS for g in outfit.values())
+        b += 4 if plain and neutral else -2
+    elif style == 'streetwear':
+        b += 4 if any(g.fit in ('oversized', 'relaxed') for s, g in outfit.items() if s in ('top', 'outerwear')) else 0
+    elif style == 'sporty':
+        shoes = outfit.get('shoes')
+        b += 4 if shoes and shoes.subcategory == 'sneakers' else 0
+    return max(-10.0, min(10.0, b))
+
+
 def score_rotation(outfit, today):
     vals = []
     for g in outfit.values():
@@ -166,13 +200,13 @@ def score_rotation(outfit, today):
 
 def score_outfit(outfit, ctx, pairs, taste):
     scores = {
-        'color': score_color(outfit, pairs, taste),
+        'color': score_color(outfit, pairs, taste, ctx.get('favorite_colors') or ()),
         'occasion': score_occasion(outfit, ctx['occasion']),
         'weather': score_weather(outfit, ctx.get('temp_c'), ctx.get('precip_prob'), ctx['season']),
         'silhouette': score_silhouette(outfit),
         'material': score_material(outfit, pairs),
         'accessories': score_accessories(outfit),
-        'taste': score_taste(outfit, taste),
+        'taste': _clamp(score_taste(outfit, taste) + style_bonus(outfit, ctx.get('style'))),
         'rotation': score_rotation(outfit, ctx['today']),
     }
     scores = {k: round(v) for k, v in scores.items()}

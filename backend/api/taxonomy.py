@@ -53,7 +53,11 @@ FITS = ['slim', 'regular', 'relaxed', 'oversized']
 SEASONS = ['spring', 'summer', 'autumn', 'winter']
 STATUSES = ['available', 'laundry', 'stored', 'archived']
 MATERIAL_SOURCES = ['care_label', 'user', 'visual_estimate']
-STYLE_DIRECTIONS = ['casual', 'smart_casual', 'business', 'formal', 'sporty', 'streetwear', 'minimal']
+STYLE_DIRECTIONS = [
+    'casual', 'smart_casual', 'business', 'formal', 'sporty', 'streetwear', 'minimal', 'classic', 'bohemian',
+]
+UNITS = ['metric', 'imperial']
+SIZE_KEYS = ['top', 'bottom', 'shoes']
 
 # Occasion → acceptable formality band (1 = loungewear … 5 = black tie).
 OCCASIONS = {
@@ -72,3 +76,35 @@ LABEL_SOURCES = ['expert', 'sourced', 'synthetic', 'user_feedback', 'illustrativ
 
 def choices(values):
     return [(v, v.replace('_', ' ').capitalize()) for v in values]
+
+
+# Azerbaijani names for the server-written explanation sentence (the app has
+# its own copy for display).
+COLOR_AZ = {
+    'black': 'qara', 'white': 'ağ', 'cream': 'krem', 'grey': 'boz', 'charcoal': 'tünd boz', 'navy': 'tünd göy',
+    'blue': 'göy', 'light_blue': 'açıq göy', 'teal': 'firuzəyi', 'green': 'yaşıl', 'olive': 'zeytuni', 'khaki': 'xaki',
+    'beige': 'bej', 'camel': 'dəvəyunu', 'brown': 'qəhvəyi', 'burgundy': 'bordo', 'red': 'qırmızı', 'pink': 'çəhrayı',
+    'purple': 'bənövşəyi', 'yellow': 'sarı', 'orange': 'narıncı', 'mustard': 'xardal',
+}
+KIND_AZ = {
+    'top': 'üst', 'bottom': 'alt', 'dress': 'don', 'outerwear': 'gödəkçə', 'shoes': 'ayaqqabı', 'accessory': 'aksesuar',
+    'bag': 'çanta',
+    't_shirt': 'futbolka', 'shirt': 'köynək', 'blouse': 'bluzka', 'polo': 'polo', 'sweater': 'sviter', 'hoodie': 'hudi',
+    'cardigan': 'kardiqan', 'tank_top': 'mayka', 'jeans': 'cins', 'trousers': 'şalvar', 'chinos': 'çinos',
+    'shorts': 'şort', 'skirt': 'ətək', 'joggers': 'idman şalvarı', 'leggings': 'losin', 'day_dress': 'gündəlik don',
+    'evening_dress': 'axşam donu', 'jumpsuit': 'kombinezon', 'blazer': 'pencək', 'jacket': 'gödəkçə',
+    'rain_jacket': 'yağış gödəkçəsi', 'coat': 'palto', 'puffer': 'puxovik', 'trench': 'trençkot',
+    'denim_jacket': 'cins gödəkçə', 'sneakers': 'krossovka', 'loafers': 'lofer', 'boots': 'çəkmə',
+    'heels': 'dabanlı ayaqqabı', 'sandals': 'sandal', 'oxfords': 'klassik ayaqqabı', 'flats': 'balerina',
+    'belt': 'kəmər', 'scarf': 'şərf', 'hat': 'papaq', 'watch': 'saat', 'jewellery': 'zinət əşyası', 'tie': 'qalstuk',
+    'sunglasses': 'gün eynəyi', 'tote': 'böyük çanta', 'backpack': 'bel çantası', 'crossbody': 'çiyin çantası',
+    'clutch': 'klatç', 'briefcase': 'portfel',
+}
+OCCASION_AZ = {
+    'casual': 'gündəlik gəzinti', 'work': 'iş', 'client_meeting': 'müştəri görüşü', 'date': 'görüş',
+    'party': 'qonaqlıq', 'formal': 'rəsmi tədbir', 'sport': 'idman', 'travel': 'səyahət',
+}
+STYLE_AZ = {
+    'casual': 'gündəlik', 'smart_casual': 'smart casual', 'business': 'biznes', 'formal': 'rəsmi',
+    'sporty': 'idman', 'streetwear': 'küçə', 'minimal': 'minimal', 'classic': 'klassik', 'bohemian': 'bohem',
+}

@@ -6,6 +6,9 @@ of the 22 named colours. Background pixels are dropped first: by alpha when the
 image is a cutout, otherwise by distance from the border colour (good enough for
 flat-lays on a plain surface; rembg cutouts do better when installed).
 """
+import io
+import os
+
 import numpy as np
 from PIL import Image, ImageOps
 
@@ -110,11 +113,49 @@ def extract_colors(image_file):
     return out, low_light
 
 
+_session = None
+
+
+def _rembg_session():
+    """
+    One rembg model, loaded once per process. isnet-general-use is about a
+    tenth of rembg's default (bria, 1 GB) and seconds instead of minutes on a
+    CPU, sharp enough for clothes; REMBG_MODEL picks another.
+    """
+    global _session
+    if _session is None:
+        try:
+            from rembg import new_session  # optional, heavy (onnxruntime)
+        except ImportError:
+            return None
+        _session = new_session(os.environ.get('REMBG_MODEL', 'isnet-general-use'))
+    return _session
+
+
 def remove_background(image_file):
-    """PNG bytes of the cutout via rembg when it is installed, else None."""
-    try:
-        from rembg import remove  # optional, heavy (onnxruntime)
-    except ImportError:
+    """
+    PNG bytes of the piece on a transparent background, trimmed to the piece
+    with a small margin so every cutout fills its tile alike; via rembg when it
+    is installed, else None. Returns None too when the model found nothing.
+    """
+    session = _rembg_session()
+    if session is None:
         return None
-    image_file.seek(0)
-    return remove(image_file.read())
+    from rembg import remove
+    if isinstance(image_file, bytes):
+        raw = image_file
+    else:
+        image_file.seek(0)
+        raw = image_file.read()
+    img = Image.open(io.BytesIO(remove(raw, session=session))).convert('RGBA')
+    # Faint halo pixels would stop the trim at the photo's edge.
+    box = img.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
+    if not box:
+        return None
+    margin = round(max(box[2] - box[0], box[3] - box[1]) * 0.04)
+    img = img.crop((max(box[0] - margin, 0), max(box[1] - margin, 0),
+                    min(box[2] + margin, img.width), min(box[3] + margin, img.height)))
+    img.thumbnail((1200, 1200))
+    out = io.BytesIO()
+    img.save(out, 'PNG', optimize=True)
+    return out.getvalue()

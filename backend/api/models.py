@@ -28,6 +28,14 @@ def feedback_id():
     return make_id('f')
 
 
+def scan_id():
+    return make_id('scan')
+
+
+def plan_id():
+    return make_id('plan')
+
+
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
@@ -62,9 +70,26 @@ class User(AbstractUser):
         choices=tx.choices(['menswear', 'womenswear', 'neutral']),
     )
     style_direction = models.CharField(max_length=24, default='smart_casual', choices=tx.choices(tx.STYLE_DIRECTIONS))
+    # The occasion they dress for most; Today opens on it.
+    main_occasion = models.CharField(max_length=24, default='casual', choices=tx.choices(tx.OCCASIONS))
+    # Set once the first-run questions (wardrobe, style, main occasion) are answered.
+    onboarded = models.BooleanField(default=False)
+    # A look-around account made without sign-up; claiming it keeps everything added meanwhile.
+    is_guest = models.BooleanField(default=False)
     # Last known location, only to look up the day's weather.
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
+    # Settings preferences. The first preferred style is mirrored into
+    # style_direction, which is what the scorer reads.
+    preferred_styles = models.JSONField(default=list, blank=True)
+    favorite_colors = models.JSONField(default=list, blank=True)
+    sizes = models.JSONField(default=dict, blank=True)  # {"top": "M", "bottom": "32", "shoes": "43"}
+    typical_occasions = models.JSONField(default=list, blank=True)
+    units = models.CharField(max_length=8, default='metric', choices=tx.choices(tx.UNITS))
+    notifications_enabled = models.BooleanField(default=True)
+
+    # Set by store billing once it is connected; everyone is on the free plan until then.
+    plan = models.CharField(max_length=16, default='free', choices=[('free', 'Free'), ('premium', 'Premium')])
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -73,6 +98,19 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class SocialAccount(models.Model):
+    """A Sign in with Apple / Google identity linked to a user (`sub` is the provider's stable user id)."""
+
+    PROVIDERS = [('apple', 'Apple'), ('google', 'Google')]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='social_accounts')
+    provider = models.CharField(max_length=16, choices=PROVIDERS)
+    sub = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['provider', 'sub'], name='unique_social_identity')]
 
 
 def garment_upload_to(instance, filename):
@@ -117,6 +155,9 @@ class Garment(models.Model):
     times_worn = models.PositiveIntegerField(default=0)
     last_worn_at = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=16, default='available', choices=tx.choices(tx.STATUSES))
+    favorite = models.BooleanField(default=False)
+    # Part of the demo wardrobe from POST /garments/sample/; removable in one go.
+    is_sample = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -141,6 +182,8 @@ class OutfitSet(models.Model):
     date = models.DateField()
     occasion = models.CharField(max_length=24, choices=tx.choices(tx.OCCASIONS))
     context = models.JSONField(default=dict, blank=True)
+    # Who asked: the Today screen or the stylist assistant.
+    source = models.CharField(max_length=12, default='recommend', choices=tx.choices(['recommend', 'assistant']))
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -161,6 +204,8 @@ class Outfit(models.Model):
     position = models.PositiveSmallIntegerField(default=0)  # order shown in its set
     expert_rating = models.FloatField(null=True, blank=True)
     explanation = models.TextField(blank=True)
+    title = models.CharField(max_length=60, blank=True)  # short editorial name, e.g. "Rainy Day Layers"
+    reasons = models.JSONField(default=list, blank=True)  # "Why this outfit works" sentences
     label_source = models.CharField(max_length=16, default='user_feedback', choices=tx.choices(tx.LABEL_SOURCES))
     provenance = models.JSONField(default=dict, blank=True)
     saved = models.BooleanField(default=False)
@@ -208,6 +253,20 @@ class WearLog(models.Model):
 
     class Meta:
         ordering = ['-worn_on', '-created_at']
+
+
+class OutfitPlan(models.Model):
+    """An outfit picked ahead for one day, so the morning needs no deciding. One per user per day."""
+
+    id = models.CharField(primary_key=True, max_length=40, default=plan_id, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='plans')
+    outfit = models.ForeignKey(Outfit, on_delete=models.CASCADE, related_name='plans')
+    date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date']
+        constraints = [models.UniqueConstraint(fields=['user', 'date'], name='one_plan_per_day')]
 
 
 class TasteProfile(models.Model):
@@ -271,3 +330,32 @@ class Label(models.Model):
     label_source = models.CharField(max_length=16, choices=tx.choices(tx.LABEL_SOURCES))
     validated = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+def scan_upload_to(instance, filename):
+    ext = (filename.rsplit('.', 1)[-1] if '.' in filename else 'mp4').lower()
+    return f'scans/{instance.user_id}/{instance.id}.{ext}'
+
+
+class VideoScan(models.Model):
+    """
+    A closet video turned into garments (KB section 4, stages 1–5).
+
+    The video is deleted once processed; only the garments cut from its frames
+    are kept.
+    """
+
+    id = models.CharField(primary_key=True, max_length=40, default=scan_id, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scans')
+    video = models.FileField(upload_to=scan_upload_to, null=True, blank=True)
+    lang = models.CharField(max_length=2, default='en')
+    status = models.CharField(max_length=12, default='processing', choices=tx.choices(['processing', 'done', 'failed']))
+    # Machine-readable reason when failed: no_frames, ai_unavailable, ai_failed, error.
+    error = models.CharField(max_length=24, blank=True)
+    frames_used = models.PositiveSmallIntegerField(default=0)
+    garments = models.ManyToManyField(Garment, blank=True, related_name='scans')
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']

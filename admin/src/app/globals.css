@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+/* ── The palette ──────────────────────────────────────────────────────────
+   Two sets of values for one set of names; tailwind.config.js maps every
+   colour class onto them, so `bg-card`, `text-slate-900` and `bg-amber-100`
+   all mean the right thing in either theme without a `dark:` twin anywhere.
+
+   The values are WearWise's own (frontend/src/theme): warm ivory pages,
+   white cards, charcoal type and a muted olive accent. The class names keep
+   the Tailwind words they were written with — `indigo` IS the olive accent,
+   `slate` the warm greys, `red`/`emerald`/`amber` the brand error, success
+   and warning — so the pages did not have to change to change colour.
+   Dark is the light scale read backwards; a filled button (indigo-600,
+   red-600) is the same button in both.
+   ------------------------------------------------------------------------ */
+:root {
+  --card: 255 255 255;
+  --page: 246 244 239;
+  --slate-50: 246 244 239;
+  --slate-100: 239 236 229;
+  --slate-200: 228 224 216;
+  --slate-300: 207 202 192;
+  --slate-400: 149 146 137;
+  --slate-500: 110 108 100;
+  --slate-600: 90 89 82;
+  --slate-700: 69 70 63;
+  --slate-800: 50 52 47;
+  --slate-900: 36 39 34;
+  --indigo-50: 233 236 228;
+  --indigo-100: 221 226 213;
+  --indigo-200: 200 207 189;
+  --indigo-300: 163 172 146;
+  --indigo-500: 125 134 109;
+  /* The primary accent, olive #68705A; 700 is its pressed/hover shade. */
+  --indigo-600: 104 112 90;
+  --indigo-700: 81 89 68;
+  --red-50: 247 236 234;
+  --red-100: 240 218 214;
+  --red-200: 230 195 189;
+  --red-600: 166 79 70;
+  --red-700: 140 63 55;
+  --amber-50: 246 239 228;
+  --amber-100: 239 226 204;
+  --amber-200: 227 207 174;
+  --amber-400: 167 123 64;
+  --amber-700: 126 90 43;
+  --emerald-50: 234 240 234;
+  --emerald-100: 217 229 218;
+  --emerald-600: 85 118 91;
+  --emerald-700: 68 97 74;
+  --sky-100: 224 242 254;
+  --sky-700: 3 105 161;
+  --violet-100: 237 233 254;
+  --violet-700: 109 40 217;
+  --teal-100: 204 251 241;
+  --teal-700: 15 118 110;
+  --blue-100: 219 234 254;
+  --blue-700: 29 78 216;
+  --green-100: 220 252 231;
+  --green-700: 21 128 61;
+  --orange-100: 255 237 213;
+  --orange-700: 194 65 12;
+  --purple-100: 243 232 255;
+  --purple-700: 126 34 206;
+  --rose-100: 255 228 230;
+  --rose-700: 190 18 60;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --card: 31 34 29;
+  --page: 22 24 20;
+  --slate-50: 18 20 16;
+  /* Above the card, not below it. The inversion put this under the card
+     colour, so a slate-100 chip on a card was invisible — and so was every
+     divide-slate-100 row line in a table. */
+  --slate-100: 42 45 39;
+  --slate-200: 51 55 47;
+  /* Faint TEXT as often as it is a border (a placeholder dash, a hint),
+     so it cannot sit in the border half of the scale: 4.7:1 on a card rather
+     than 1.6:1. */
+  --slate-300: 143 140 131;
+  --slate-400: 156 153 143;
+  --slate-500: 169 166 156;
+  --slate-600: 189 186 177;
+  --slate-700: 214 211 203;
+  --slate-800: 230 228 221;
+  --slate-900: 241 239 233;
+  --indigo-50: 44 50 39;
+  --indigo-100: 53 60 47;
+  /* NOT inverted: this one is only ever text, and only on the indigo
+     banner at the top of a user's card — which is indigo in both themes. As a
+     dark navy it was invisible there (1.4:1). */
+  --indigo-200: 200 207 189;
+  --indigo-300: 76 85 64;
+  --indigo-500: 163 172 146;
+  --indigo-600: 104 112 90;
+  --indigo-700: 182 190 166;
+  --red-50: 46 28 26;
+  --red-100: 60 36 34;
+  --red-200: 77 46 43;
+  --red-600: 166 79 70;
+  --red-700: 207 128 119;
+  --amber-50: 44 36 22;
+  --amber-100: 58 47 28;
+  --amber-200: 74 60 36;
+  --amber-400: 201 160 106;
+  --amber-700: 201 160 106;
+  --emerald-50: 28 42 30;
+  --emerald-100: 34 51 37;
+  --emerald-600: 85 118 91;
+  --emerald-700: 134 169 139;
+  --sky-100: 14 36 54;
+  --sky-700: 125 211 252;
+  --violet-100: 37 28 61;
+  --violet-700: 196 181 253;
+  --teal-100: 13 42 40;
+  --teal-700: 94 234 212;
+  --blue-100: 18 35 61;
+  --blue-700: 147 197 253;
+  --green-100: 18 42 25;
+  --green-700: 134 239 172;
+  --orange-100: 46 29 14;
+  --orange-700: 253 186 116;
+  --purple-100: 37 26 51;
+  --purple-700: 216 180 254;
+  --rose-100: 46 19 25;
+  --rose-700: 253 164 175;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: rgb(var(--page));
+  color: rgb(var(--slate-900));
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--slate-300));
+  border-radius: 3px;
+}

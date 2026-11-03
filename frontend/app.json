@@ -1,29 +1,23 @@
 {
   "expo": {
-    "name": "WearWise",
+    "name": "WearWise AI",
     "slug": "wearwise",
     "scheme": "wearwise",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FAF8F5"
-    },
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.wearwise"
+      "bundleIdentifier": "app.wearwise",
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "app.wearwise",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FAF8F5"
+        "backgroundColor": "#F6F4EF"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -31,6 +25,19 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F6F4EF",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#161814"
+          }
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -44,7 +51,16 @@
           "locationWhenInUsePermission": "WearWise uses your approximate location to match outfits to today's weather."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "WearWise uses the microphone so you can ask the stylist with your voice."
+        }
+      ],
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

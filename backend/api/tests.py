@@ -9,7 +9,7 @@ from .colors import extract_colors
 from .engine.harmony import PairTable
 from .engine.recommend import NotEnoughGarments, build_candidates, recommend
 from .engine.scoring import score_weather
-from .models import Garment, TasteProfile, User
+from .models import Feedback, Garment, Outfit, TasteProfile, User
 
 
 def png(color, size=(80, 80), bg=(250, 250, 250)):
@@ -100,7 +100,7 @@ class EngineTests(APITestCase):
 
 class ApiFlowTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'Me@Example.com', 'password': 'wardrobe-123'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'Me@Example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
         self.assertEqual(r.status_code, 201, r.data)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
@@ -157,7 +157,7 @@ class ApiFlowTests(APITestCase):
     def test_other_users_garments_are_hidden(self):
         g = self.add('top', (30, 40, 80))
         self.client.credentials()
-        r = self.client.post('/api/auth/register/', {'email': 'b@example.com', 'password': 'wardrobe-456'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'b@example.com', 'password': 'wardrobe-456', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         self.assertEqual(self.client.get(f"/api/garments/{g['id']}/").status_code, 404)
         r = self.client.post('/api/check-outfit/', {'garment_ids': [g['id']], 'occasion': 'work'}, format='json')
@@ -168,3 +168,929 @@ class LowLightTests(APITestCase):
     def test_dark_frame_is_flagged(self):
         _, low_light = extract_colors(png((30, 40, 80), bg=(25, 25, 28)))
         self.assertTrue(low_light)
+
+
+AI_RESULT = {
+    'is_garment': True, 'category': 'outerwear', 'subcategory': 'rain_jacket', 'name': 'Yellow rain jacket',
+    'colors': [{'name': 'yellow', 'rgb': [217, 169, 51], 'share': 0.9}], 'pattern': 'solid',
+    'material': {'value': 'nylon', 'source': 'visual_estimate', 'confidence': 0.6},
+    'surface': 'smooth', 'sheen': 'low', 'fit': 'regular', 'formality': 2, 'warmth': 2, 'rain_ok': True,
+    'season': ['spring', 'autumn'],
+    'attribute_confidence': {'category': 0.95, 'color': 0.9, 'pattern': 0.9, 'material': 0.6},
+}
+
+
+class AiTaggingTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'ai@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def upload(self, **fields):
+        data = {'image': SimpleUploadedFile('g.png', png((217, 169, 51)).read(), 'image/png'), **fields}
+        return self.client.post('/api/garments/', data, format='multipart')
+
+    def test_photo_only_is_filled_in_by_ai(self):
+        from unittest import mock
+        with mock.patch('api.views.analyse_garment', return_value=dict(AI_RESULT)):
+            r = self.upload()
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data['category'], 'outerwear')
+        self.assertEqual(r.data['name'], 'Yellow rain jacket')
+        self.assertTrue(r.data['rain_ok'])
+        self.assertEqual(r.data['material']['source'], 'visual_estimate')
+        self.assertEqual(r.data['attribute_confidence']['material'], 0.6)
+
+    def test_what_the_user_sent_wins_over_ai(self):
+        from unittest import mock
+        with mock.patch('api.views.analyse_garment', return_value=dict(AI_RESULT)):
+            r = self.upload(name='My jacket', rain_ok='false')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data['name'], 'My jacket')
+        self.assertFalse(r.data['rain_ok'])
+
+    def test_no_ai_and_no_type_asks_for_type(self):
+        from unittest import mock
+        with mock.patch('api.views.analyse_garment', return_value=None):
+            r = self.upload()
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('category', r.data)
+        self.assertEqual(Garment.objects.count(), 0)
+
+    def test_no_ai_with_type_still_detects_colours(self):
+        from unittest import mock
+        with mock.patch('api.views.analyse_garment', return_value=None):
+            r = self.upload(category='top')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data['primary_color'], 'yellow')
+
+    def test_photo_without_clothing_is_rejected(self):
+        from unittest import mock
+        with mock.patch('api.views.analyse_garment', return_value={**AI_RESULT, 'is_garment': False}):
+            r = self.upload()
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('image', r.data)
+
+
+class VisionCleanTests(APITestCase):
+    def test_clamps_and_drops_bad_values(self):
+        from .vision import _clean
+        out = _clean({
+            'is_garment': True, 'category': 'top', 'subcategory': 'jeans', 'name': ' Blue tee ',
+            'colors': [{'name': 'blue', 'share': 1.4}, {'name': 'blue', 'share': 0.1}],
+            'pattern': 'solid', 'material': '', 'surface': 'smooth', 'sheen': 'low', 'fit': 'regular',
+            'formality': 9, 'warmth': -2, 'rain_ok': False, 'season': ['winter', 'summer'],
+            'confidence': {'category': 0.9, 'color': 1.2, 'pattern': 0.8, 'material': 0.1},
+        })
+        self.assertEqual(out['subcategory'], '')  # jeans is not a kind of top
+        self.assertLessEqual(out['attribute_confidence']['category'], 0.6)
+        self.assertEqual([c['name'] for c in out['colors']], ['blue'])
+        self.assertEqual(out['colors'][0]['share'], 1.0)
+        self.assertEqual((out['formality'], out['warmth']), (5, 0))
+        self.assertEqual(out['season'], ['summer', 'winter'])
+        self.assertEqual(out['material'], {})
+        self.assertEqual(out['name'], 'Blue tee')
+
+    def test_without_key_returns_none(self):
+        import os
+        from unittest import mock
+        from .vision import analyse_garment
+        with mock.patch.dict(os.environ, {'ANTHROPIC_API_KEY': ''}):
+            self.assertIsNone(analyse_garment(png((1, 2, 3))))
+
+
+class LanguageAndStyleTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('ls@example.com', 'pw-12345678')
+        self.taste = TasteProfile.objects.create(user=self.user)
+
+    def test_explanation_in_azerbaijani(self):
+        from .engine.recommend import explain
+        u = self.user
+        outfit = {
+            'top': garment(u, 'top', 'navy', subcategory='sweater'),
+            'bottom': garment(u, 'bottom', 'beige', subcategory='chinos'),
+            'outerwear': garment(u, 'outerwear', 'yellow', subcategory='rain_jacket', rain_ok=True),
+        }
+        scores = {'color': 90, 'weather': 95, 'occasion': 80, 'rotation': 50}
+        az = explain(outfit, scores, ctx(lang='az'))
+        self.assertIn('yağış gödəkçəsi', az)
+        self.assertIn('70% yağış', az)
+        en = explain(outfit, scores, ctx(lang='en'))
+        self.assertIn('rain chance', en)
+
+    def test_neutral_base_names_the_accent(self):
+        from .engine.recommend import explain
+        u = self.user
+        outfit = {'top': garment(u, 'top', 'white', subcategory='shirt'), 'bottom': garment(u, 'bottom', 'red', subcategory='skirt')}
+        text = explain(outfit, {'color': 99, 'weather': 10, 'occasion': 10, 'rotation': 0}, ctx(lang='en', temp_c=None))
+        self.assertIn('lets the red do the talking', text)
+
+    def test_style_nudges_formality(self):
+        from .engine.scoring import style_bonus
+        u = self.user
+        smart = {'top': garment(u, 'top', 'white', formality=4), 'bottom': garment(u, 'bottom', 'navy', formality=4)}
+        loose = {'top': garment(u, 'top', 'grey', formality=1), 'bottom': garment(u, 'bottom', 'blue', formality=2)}
+        self.assertGreater(style_bonus(smart, 'business'), style_bonus(loose, 'business'))
+        self.assertGreater(style_bonus(loose, 'casual'), style_bonus(smart, 'casual'))
+        self.assertEqual(style_bonus(smart, None), 0)
+
+    def test_api_answers_in_the_requested_language(self):
+        r = self.client.post('/api/auth/register/', {'email': 'lang@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}", HTTP_ACCEPT_LANGUAGE='az')
+        for cat, color in [('top', 'navy'), ('bottom', 'beige'), ('shoes', 'brown')]:
+            self.client.post('/api/garments/', {'category': cat, 'colors': [{'name': color, 'share': 1}], 'formality': 3}, format='json')
+        r = self.client.post('/api/recommendations/', {'occasion': 'work', 'temp_c': 10, 'precip_prob': 0}, format='json')
+        self.assertEqual(r.status_code, 201, r.data)
+        text = r.data['outfits'][0]['explanation']
+        self.assertTrue(any(w in text for w in ('üçün', 'və', 'rəng')), text)
+        self.assertNotIn('lang', r.data['context'])
+
+
+class SwapAndOnboardingTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'swap@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.assertFalse(r.data['user']['onboarded'])
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def add(self, category, color, formality=3):
+        r = self.client.post('/api/garments/', {'category': category, 'colors': [{'name': color, 'share': 1}], 'formality': formality}, format='json')
+        return r.data['id']
+
+    def test_onboarding_answers_are_saved(self):
+        r = self.client.patch('/api/auth/me/', {
+            'wardrobe_style': 'menswear', 'style_direction': 'business', 'main_occasion': 'work', 'onboarded': True,
+        }, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual((r.data['main_occasion'], r.data['onboarded']), ('work', True))
+
+    def test_alternatives_and_swap(self):
+        self.add('top', 'white')
+        self.add('top', 'navy')
+        self.add('top', 'grey')
+        self.add('bottom', 'beige')
+        self.add('shoes', 'brown')
+        r = self.client.post('/api/recommendations/', {'occasion': 'work', 'temp_c': 18, 'precip_prob': 0}, format='json')
+        outfit = r.data['outfits'][0]
+        top = next(i['garment']['id'] for i in outfit['items'] if i['slot'] == 'top')
+
+        r = self.client.get(f"/api/outfits/{outfit['id']}/alternatives/?slot=top")
+        self.assertEqual(r.status_code, 200, r.data)
+        ids = [o['garment']['id'] for o in r.data['options']]
+        self.assertEqual(len(ids), 2)
+        self.assertNotIn(top, ids)
+        totals = [o['total'] for o in r.data['options']]
+        self.assertEqual(totals, sorted(totals, reverse=True))
+
+        r = self.client.post(f"/api/outfits/{outfit['id']}/swap/", {'slot': 'top', 'garment_id': ids[1]}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        new_top = next(i['garment']['id'] for i in r.data['items'] if i['slot'] == 'top')
+        self.assertEqual(new_top, ids[1])
+        self.assertTrue(r.data['explanation'])
+        fb = Feedback.objects.filter(outfit_id=outfit['id']).latest('created_at')
+        self.assertEqual(fb.replaced, [{'from': top, 'to': ids[1]}])
+        w = TasteProfile.objects.get(user__email='swap@example.com').weights
+        self.assertGreater(w[f'g:{ids[1]}'], 0)
+        self.assertLess(w[f'g:{top}'], 0)
+
+    def test_swap_rejects_wrong_kind(self):
+        self.add('top', 'white')
+        shoes = self.add('shoes', 'brown')
+        self.add('bottom', 'beige')
+        r = self.client.post('/api/recommendations/', {'occasion': 'work', 'temp_c': 18}, format='json')
+        oid = r.data['outfits'][0]['id']
+        r = self.client.post(f'/api/outfits/{oid}/swap/', {'slot': 'top', 'garment_id': shoes}, format='json')
+        self.assertEqual(r.status_code, 400)
+
+
+class VideoScanTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'video@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}", HTTP_ACCEPT_LANGUAGE='az')
+
+    def video(self):
+        return SimpleUploadedFile('closet.mp4', b'\x00\x00\x00\x18ftypmp42' + b'\x00' * 64, 'video/mp4')
+
+    def test_needs_ai(self):
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {'ANTHROPIC_API_KEY': ''}):
+            r = self.client.post('/api/scans/', {'video': self.video()}, format='multipart')
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(r.data['code'], 'ai_unavailable')
+
+    def run_scan(self, items):
+        import os
+        import numpy as np
+        from unittest import mock
+        from .scans import process_scan
+        frames = [np.full((200, 300, 3), c, np.uint8) for c in ((30, 40, 80), (217, 169, 51))]
+        with mock.patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test'}), \
+                mock.patch('api.views.start_scan', side_effect=lambda scan: process_scan(scan.pk)), \
+                mock.patch('api.scans.extract_frames', return_value=frames), \
+                mock.patch('api.scans.analyse_frames', return_value=items) as af:
+            r = self.client.post('/api/scans/', {'video': self.video()}, format='multipart')
+        self.assertEqual(r.status_code, 202, r.data)
+        return self.client.get(f"/api/scans/{r.data['id']}/"), af
+
+    def test_scan_creates_a_garment_per_item(self):
+        items = [
+            {**AI_RESULT, 'name': 'Sarı yağış gödəkçəsi', 'frame': 1, 'box': {'x': 0.2, 'y': 0.1, 'w': 0.5, 'h': 0.8}},
+            {**AI_RESULT, 'category': 'top', 'subcategory': 'sweater', 'name': 'Tünd göy sviter', 'rain_ok': False,
+             'colors': [{'name': 'navy', 'rgb': [30, 40, 80], 'share': 1.0}], 'frame': 0,
+             'box': {'x': 0, 'y': 0, 'w': 1, 'h': 1}},
+        ]
+        r, af = self.run_scan(items)
+        self.assertEqual(r.data['status'], 'done', r.data)
+        self.assertEqual(r.data['frames_used'], 2)
+        self.assertEqual(af.call_args.args[1], 'az')
+        names = sorted(g['name'] for g in r.data['garments'])
+        self.assertEqual(names, ['Sarı yağış gödəkçəsi', 'Tünd göy sviter'])
+        self.assertTrue(all(g['image'] for g in r.data['garments']))
+        from .models import VideoScan
+        self.assertFalse(VideoScan.objects.get(pk=r.data['id']).video)  # footage is not kept
+
+    def test_ai_failure_marks_scan_failed(self):
+        r, _ = self.run_scan(None)
+        self.assertEqual((r.data['status'], r.data['error']), ('failed', 'ai_failed'))
+        self.assertEqual(r.data['garments'], [])
+
+    def test_crop_handles_edges(self):
+        import io
+        import numpy as np
+        from .video import crop
+        frame = np.zeros((100, 200, 3), np.uint8)
+        img = Image.open(io.BytesIO(crop(frame, {'x': 0.9, 'y': 0.9, 'w': 0.5, 'h': 0.5})))
+        self.assertLessEqual(img.size[0], 200)
+        img = Image.open(io.BytesIO(crop(frame, {'x': 0.5, 'y': 0.5, 'w': 0.0, 'h': 0.0})))
+        self.assertEqual(img.size, (200, 100))  # degenerate box falls back to the whole frame
+
+
+class PreferencesTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'prefs@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_defaults(self):
+        r = self.client.get('/api/auth/me/')
+        self.assertEqual(r.data['preferred_styles'], [])
+        self.assertEqual(r.data['sizes'], {})
+        self.assertEqual((r.data['units'], r.data['notifications_enabled']), ('metric', True))
+
+    def test_preferences_save_and_mirror_style(self):
+        r = self.client.patch('/api/auth/me/', {
+            'preferred_styles': ['classic', 'minimal', 'classic'], 'favorite_colors': ['navy', 'camel'],
+            'sizes': {'top': 'M', 'shoes': '43'}, 'typical_occasions': ['work', 'date'], 'units': 'imperial',
+            'notifications_enabled': False,
+        }, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data['preferred_styles'], ['classic', 'minimal'])
+        self.assertEqual(r.data['style_direction'], 'classic')
+        self.assertEqual(r.data['sizes'], {'top': 'M', 'shoes': '43'})
+        self.assertEqual(r.data['units'], 'imperial')
+        self.assertFalse(r.data['notifications_enabled'])
+
+    def test_empty_styles_keep_style_direction(self):
+        self.client.patch('/api/auth/me/', {'style_direction': 'business'}, format='json')
+        r = self.client.patch('/api/auth/me/', {'preferred_styles': []}, format='json')
+        self.assertEqual(r.data['style_direction'], 'business')
+
+    def test_rejects_unknown_values(self):
+        for body in (
+            {'preferred_styles': ['goth']}, {'favorite_colors': ['magenta']}, {'typical_occasions': ['picnic']},
+            {'sizes': {'hat': 'L'}}, {'sizes': {'top': 'x' * 13}}, {'units': 'stones'}, {'preferred_styles': 'casual'},
+        ):
+            r = self.client.patch('/api/auth/me/', body, format='json')
+            self.assertEqual(r.status_code, 400, body)
+            self.assertIn(next(iter(body)), r.data)
+
+    def test_meta_lists_new_styles(self):
+        styles = self.client.get('/api/meta/').data['style_directions']
+        self.assertIn('classic', styles)
+        self.assertIn('bohemian', styles)
+
+    def test_favorite_colors_nudge_score(self):
+        from .engine.scoring import FAVORITE_CAP, score_color
+        u = User.objects.get(email='prefs@example.com')
+        taste = TasteProfile.objects.get(user=u)
+        outfit = {'top': garment(u, 'top', 'navy'), 'bottom': garment(u, 'bottom', 'beige'),
+                  'shoes': garment(u, 'shoes', 'camel')}
+        plain = score_color(outfit, PairTable(), taste)
+        fav = score_color(outfit, PairTable(), taste, favorites=['navy', 'beige', 'camel'])
+        self.assertEqual(round(fav - plain), FAVORITE_CAP)  # capped, not 3 × bonus
+
+
+class GarmentFavoriteAndSampleTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'sample@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_favorite_flag_and_filter(self):
+        a = self.client.post('/api/garments/', {'category': 'top', 'colors': [{'name': 'navy'}]}, format='json').data
+        self.client.post('/api/garments/', {'category': 'top', 'colors': [{'name': 'grey'}]}, format='json')
+        self.assertFalse(a['favorite'])
+        r = self.client.patch(f"/api/garments/{a['id']}/", {'favorite': True, 'is_sample': True}, format='json')
+        self.assertTrue(r.data['favorite'])
+        self.assertFalse(r.data['is_sample'])  # read-only
+        r = self.client.get('/api/garments/?favorite=true')
+        self.assertEqual([g['id'] for g in r.data['results']], [a['id']])
+
+    def test_load_and_delete_sample(self):
+        r = self.client.post('/api/garments/sample/')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertGreaterEqual(len(r.data), 15)
+        self.assertTrue(all(g['is_sample'] and g['colors'][0]['rgb'] for g in r.data))
+        self.assertIn('White shirt', [g['name'] for g in r.data])
+        self.assertTrue(all(g['image'] for g in r.data))  # every sample piece has its photo
+        self.assertEqual(self.client.post('/api/garments/sample/').data['code'], 'already_loaded')
+        self.assertEqual(self.client.post('/api/garments/sample/').status_code, 409)
+        mine = self.client.post('/api/garments/', {'category': 'top', 'colors': [{'name': 'red'}]}, format='json').data
+        r = self.client.delete('/api/garments/sample/')
+        self.assertEqual(r.status_code, 204)
+        self.assertEqual([g['id'] for g in self.client.get('/api/garments/').data['results']], [mine['id']])
+
+    def test_sample_names_in_azerbaijani_and_usable(self):
+        self.client.credentials(HTTP_AUTHORIZATION=self.client._credentials['HTTP_AUTHORIZATION'], HTTP_ACCEPT_LANGUAGE='az')
+        r = self.client.post('/api/garments/sample/')
+        self.assertIn('Ağ köynək', [g['name'] for g in r.data])
+        r = self.client.post('/api/recommendations/', {'occasion': 'work', 'temp_c': 9, 'precip_prob': 0.8}, format='json')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(len(r.data['outfits']), 3)
+
+    def test_sample_photos_restored_and_outdated_pieces_swapped(self):
+        self.client.post('/api/garments/sample/')
+        user = User.objects.get(email='sample@example.com')
+        shirt = Garment.objects.get(user=user, subcategory='shirt', is_sample=True)
+        shirt.image.delete(save=True)  # photo lost
+        Garment.objects.filter(user=user, subcategory='jeans', colors__0__name='black').delete()
+        old = garment(user, 'outerwear', 'camel', subcategory='coat', is_sample=True)  # from an older list
+        r = self.client.get('/api/garments/')
+        names = [g['name'] for g in r.data['results']]
+        self.assertTrue(all(g['image'] for g in r.data['results']))
+        self.assertIn('Black jeans', names)
+        self.assertFalse(Garment.objects.filter(id=old.id).exists())
+        self.assertEqual(len(names), 16)
+
+
+class TitleAndReasonTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('title@example.com', 'pw-12345678')
+        u = self.user
+        self.top = garment(u, 'top', 'navy', subcategory='sweater', formality=3, warmth=2)
+        self.bottom = garment(u, 'bottom', 'beige', subcategory='chinos', formality=3, warmth=2)
+        self.shoes = garment(u, 'shoes', 'brown', subcategory='loafers', formality=3, warmth=0)
+        self.rain = garment(u, 'outerwear', 'yellow', subcategory='rain_jacket', formality=2, warmth=2, rain_ok=True)
+
+    def outfit(self, **extra):
+        return {'top': self.top, 'bottom': self.bottom, 'shoes': self.shoes, **extra}
+
+    def test_titles_follow_context(self):
+        from .engine.describe import title_for
+        self.assertEqual(title_for(self.outfit(), ctx(precip_prob=0.1, lang='en')), 'Effortless Smart Casual')
+        self.assertEqual(title_for(self.outfit(), ctx(precip_prob=0.1, lang='az')), 'Rahat smart casual')
+        self.assertEqual(title_for(self.outfit(outerwear=self.rain), ctx(lang='en')), 'Rainy Day Layers')
+        self.assertEqual(title_for(self.outfit(outerwear=self.rain), ctx(lang='az')), 'Yağışlı gün qatları')
+        self.assertEqual(title_for(self.outfit(), ctx(occasion='date', precip_prob=0, lang='en')), 'Evening Out')
+        self.assertEqual(title_for(self.outfit(), ctx(occasion='sport', precip_prob=0, lang='az')), 'Aktiv gün')
+
+    def test_titles_in_a_set_are_distinct(self):
+        from .engine.describe import titles_for
+        other = {'top': garment(self.user, 'top', 'white', formality=3), 'bottom': self.bottom}
+        en = titles_for([self.outfit(), other, self.outfit()], ctx(precip_prob=0, lang='en'))
+        self.assertEqual(en[:2], ['Effortless Smart Casual', 'White Smart Casual'])
+        self.assertEqual(len(set(en)), 3)
+        az = titles_for([self.outfit(), self.outfit()], ctx(precip_prob=0, lang='az'))
+        self.assertEqual(az, ['Rahat smart casual', 'Tünd göy smart casual'])
+
+    def test_reasons_are_grounded(self):
+        from .engine.describe import reasons_for
+        scores = {'color': 90, 'occasion': 95, 'weather': 90, 'silhouette': 80, 'rotation': 100}
+        en = reasons_for(self.outfit(outerwear=self.rain), scores, ctx(lang='en', style='smart_casual'))
+        self.assertTrue(2 <= len(en) <= 4)
+        self.assertIn('Navy and beige create a balanced, versatile palette.', en)
+        self.assertTrue(any('70% chance of rain' in r for r in en))
+        self.assertTrue(any('Smart Casual preference' in r for r in en))
+        az = reasons_for(self.outfit(outerwear=self.rain), scores, ctx(lang='az', style='smart_casual'))
+        self.assertIn('Tünd göy və bej balanslı, universal palitra yaradır.', az)
+        self.assertTrue(any('yağış' in r for r in az))
+
+    def test_no_weather_claims_without_weather(self):
+        from .engine.describe import reasons_for
+        scores = {'color': 90, 'occasion': 95, 'weather': 100, 'silhouette': 80, 'rotation': 100}
+        for lang in ('en', 'az'):
+            out = reasons_for(self.outfit(), scores, ctx(lang=lang, temp_c=None, precip_prob=None, style='sporty'))
+            self.assertGreaterEqual(len(out), 2)
+            self.assertFalse(any('°C' in r or 'rain' in r or 'yağış' in r for r in out), out)
+            self.assertFalse(any('preference' in r or 'üslub' in r for r in out), out)  # no style bonus for sporty
+
+    def test_api_outfits_carry_title_and_reasons(self):
+        r = self.client.post('/api/auth/register/', {'email': 't2@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.client.post('/api/garments/sample/')
+        r = self.client.post('/api/recommendations/', {'occasion': 'casual', 'temp_c': 16, 'precip_prob': 0}, format='json')
+        titles = [o['title'] for o in r.data['outfits']]
+        self.assertTrue(all(titles))
+        self.assertEqual(len(set(titles)), len(titles))
+        self.assertTrue(all(2 <= len(o['reasons']) <= 4 for o in r.data['outfits']), r.data['outfits'])
+        ids = [g['id'] for g in self.client.get('/api/garments/?category=top').data['results'][:1]]
+        ids += [g['id'] for g in self.client.get('/api/garments/?category=bottom').data['results'][:1]]
+        r = self.client.post('/api/check-outfit/', {'garment_ids': ids, 'occasion': 'work', 'save': True}, format='json')
+        self.assertTrue(r.data['title'])
+        self.assertEqual(r.data['outfit']['title'], r.data['title'])
+        self.assertTrue(r.data['outfit']['reasons'])
+
+
+class VarietyTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'variety@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def add(self, category, color):
+        return self.client.post('/api/garments/', {'category': category, 'colors': [{'name': color}], 'formality': 3},
+                                format='json').data['id']
+
+    def combos(self, r):
+        return {frozenset(i['garment']['id'] for i in o['items']) for o in r.data['outfits']}
+
+    def test_another_look_skips_earlier_combinations(self):
+        for c in ('white', 'navy', 'grey'):
+            self.add('top', c)
+        for c in ('beige', 'charcoal'):
+            self.add('bottom', c)
+        self.add('shoes', 'brown')  # 3 × 2 = 6 possible looks
+        body = {'occasion': 'work', 'temp_c': 18, 'precip_prob': 0}
+        first = self.combos(self.client.post('/api/recommendations/', body, format='json'))
+        second = self.combos(self.client.post('/api/recommendations/', body, format='json'))
+        self.assertEqual(len(first), 3)
+        self.assertEqual(len(second), 3)
+        self.assertFalse(first & second)
+        # Every look has been shown: repeats come back rather than nothing.
+        third = self.client.post('/api/recommendations/', body, format='json')
+        self.assertEqual(third.status_code, 201)
+        self.assertEqual(len(third.data['outfits']), 3)
+        # A different occasion starts fresh.
+        other = self.combos(self.client.post('/api/recommendations/', {**body, 'occasion': 'casual'}, format='json'))
+        self.assertTrue(other & (first | second))
+
+    def test_latest(self):
+        self.assertEqual(self.client.get('/api/recommendations/latest/?occasion=work').status_code, 404)
+        self.add('top', 'white')
+        self.add('bottom', 'beige')
+        r = self.client.post('/api/recommendations/', {'occasion': 'work', 'temp_c': 18}, format='json')
+        latest = self.client.get('/api/recommendations/latest/?occasion=work')
+        self.assertEqual(latest.status_code, 200)
+        self.assertEqual(latest.data['id'], r.data['id'])
+        self.assertEqual(latest.data['outfits'][0]['id'], r.data['outfits'][0]['id'])
+        self.assertEqual(self.client.get('/api/recommendations/latest/?occasion=date').status_code, 404)
+        self.assertEqual(self.client.get('/api/recommendations/latest/?occasion=nope').status_code, 400)
+
+    def test_fixed_garment(self):
+        u = User.objects.get(email='variety@example.com')
+        for c in ('white', 'navy'):
+            self.add('top', c)
+        jeans = self.add('bottom', 'blue')
+        self.add('bottom', 'beige')
+        self.add('dress', 'red')
+        garments = list(Garment.objects.filter(user=u))
+        res = recommend(garments, ctx(precip_prob=0, temp_c=18), PairTable(), TasteProfile.objects.get(user=u),
+                        fixed_garment_id=jeans)
+        self.assertEqual(len(res), 2)  # two tops, each with the jeans
+        self.assertTrue(all(r['outfit']['bottom'].id == jeans for r in res))
+
+
+class StatsTests(APITestCase):
+    def test_extended_keys(self):
+        r = self.client.post('/api/auth/register/', {'email': 'stats@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.client.patch('/api/auth/me/', {'preferred_styles': ['bohemian']}, format='json')
+        self.client.post('/api/garments/sample/')
+        g = self.client.get('/api/garments/').data['results'][0]
+        self.client.patch(f"/api/garments/{g['id']}/", {'favorite': True}, format='json')
+        r = self.client.post('/api/recommendations/', {'occasion': 'work', 'temp_c': 15}, format='json')
+        self.client.post(f"/api/outfits/{r.data['outfits'][0]['id']}/wear/")
+        s = self.client.get('/api/stats/').data
+        for key in ('total', 'by_category', 'rotation_pct', 'most_worn', 'outfits_saved'):
+            self.assertIn(key, s)
+        self.assertEqual(s['worn_outfits'], 1)
+        self.assertEqual(s['favorite_style'], 'bohemian')
+        self.assertEqual(s['favorites'], 1)
+        self.assertEqual(len(s['recently_added']), 5)
+        self.assertEqual(len(s['weekly_activity']), 7)
+        self.assertEqual(s['weekly_activity'][-1]['count'], 1)
+        self.assertLess(s['weekly_activity'][0]['date'], s['weekly_activity'][-1]['date'])
+        self.assertTrue(1 <= len(s['most_worn_categories']) <= 3)
+        self.assertTrue(all(c['count'] > 0 for c in s['most_worn_categories']))
+
+
+class AssistantTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'chat@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.token = r.data['token']
+        self.lang('en')
+
+    def lang(self, lang):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token}', HTTP_ACCEPT_LANGUAGE=lang)
+
+    def ask(self, message):
+        r = self.client.post('/api/assistant/', {'message': message}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertTrue(3 <= len(r.data['suggestions']) <= 4, r.data['suggestions'])
+        return r.data
+
+    def test_intents(self):
+        from .assistant import _norm, detect_intent, detect_occasion
+        cases = {
+            'What should I wear tomorrow?': 'tomorrow', 'Sabah nə geyinim?': 'tomorrow', 'sabah ne geyinim': 'tomorrow',
+            'Outfits for a dinner date': 'occasion', 'şam yeməyi üçün': 'occasion', 'Style these trousers in three ways': 'style_piece',
+            'bu şalvarı 3 cür kombinlə': 'style_piece', 'bu salvari 3 cur': 'style_piece',
+            'Which colors go with this jacket?': 'colors', 'bu gödəkçəyə hansı rənglər yaraşır': 'colors',
+            'bu godekceye hansi rengler yarasir': 'colors', 'hello': 'unknown', 'nə geyinim': 'today',
+        }
+        for text, intent in cases.items():
+            self.assertEqual(detect_intent(*_norm(text)), intent, text)
+        self.assertEqual(detect_occasion(*_norm('what is good for the gym')), 'sport')
+        self.assertEqual(detect_occasion(*_norm('İşə nə geyinim')), 'work')
+        self.assertIsNone(detect_occasion(*_norm('this is it')))  # "is" is not "iş"
+
+    def test_empty_closet(self):
+        d = self.ask('What should I wear tomorrow?')
+        self.assertEqual(d['outfits'], [])
+        self.assertIn('closet is empty', d['reply'])
+        self.lang('az')
+        d = self.ask('sabah ne geyinim')
+        self.assertIn('boşdur', d['reply'])
+
+    def test_too_small_closet_names_what_to_add(self):
+        self.client.post('/api/garments/', {'category': 'top', 'colors': [{'name': 'navy'}]}, format='json')
+        d = self.ask('Outfits for work')
+        self.assertIn('a bottom (or a dress)', d['reply'])
+        self.assertIn('shoes', d['reply'])
+
+    def test_tomorrow_without_location_never_mentions_weather(self):
+        from unittest import mock
+        self.client.post('/api/garments/sample/')
+        with mock.patch('api.services.forecast') as fc:
+            d = self.ask('What should I wear tomorrow?')
+        fc.assert_not_called()
+        self.assertEqual(len(d['outfits']), 3)
+        self.assertIn('tomorrow', d['reply'])
+        self.assertNotIn('°C', d['reply'])
+        tomorrow = (__import__('django.utils.timezone', fromlist=['x']).localdate()
+                    + __import__('datetime').timedelta(days=1)).isoformat()
+        self.assertEqual(d['outfits'][0]['context']['date'], tomorrow)
+        self.assertTrue(d['outfits'][0]['title'])
+
+    def test_tomorrow_with_forecast_mentions_temperature(self):
+        from unittest import mock
+        self.client.patch('/api/auth/me/', {'latitude': 40.4, 'longitude': 49.9}, format='json')
+        self.client.post('/api/garments/sample/')
+        self.lang('az')
+        wx = {'temp_c': 12.4, 'temp_min_c': 8, 'temp_max_c': 15, 'precip_prob': 0.6}
+        with mock.patch('api.services.forecast', return_value=wx):
+            d = self.ask('Sabah nə geyinim?')
+        self.assertIn('12°C', d['reply'])
+        self.assertIn('Sabah', d['reply'])
+        self.assertIn('yağış ehtimalı 60%', d['reply'])
+        with mock.patch('api.services.forecast', return_value=None):
+            d = self.ask('sabah ne geyinim')
+        self.assertNotIn('°C', d['reply'])
+
+    def test_occasion_looks(self):
+        self.client.post('/api/garments/sample/')
+        d = self.ask('I have a dinner date tonight')
+        self.assertEqual(len(d['outfits']), 3)
+        self.assertTrue(all(o['context']['occasion'] == 'date' for o in d['outfits']))
+        self.assertIn('for a date', d['reply'])
+        self.lang('az')
+        d = self.ask('ofis üçün nə geyinim')
+        self.assertTrue(all(o['context']['occasion'] == 'work' for o in d['outfits']))
+        self.assertIn('İş üçün', d['reply'])
+        # Assistant sets do not replace the Today screen's latest set.
+        self.assertEqual(self.client.get('/api/recommendations/latest/?occasion=work').status_code, 404)
+
+    def test_style_a_piece_three_ways(self):
+        self.client.post('/api/garments/sample/')
+        chinos = Garment.objects.get(user__email='chat@example.com', subcategory='chinos')
+        d = self.ask('Style my beige chinos in three ways')
+        self.assertEqual(len(d['outfits']), 3)
+        for o in d['outfits']:
+            self.assertIn(chinos.id, [i['garment']['id'] for i in o['items']])
+        self.assertIn('beige chinos', d['reply'])
+        self.lang('az')
+        jeans = set(Garment.objects.filter(user__email='chat@example.com', subcategory='jeans').values_list('id', flat=True))
+        d = self.ask('bu cinsi 3 cür kombinlə')
+        self.assertTrue(d['outfits'])
+        for o in d['outfits']:
+            self.assertTrue(jeans & {i['garment']['id'] for i in o['items']})
+        self.assertIn('kombin', d['reply'])
+
+    def test_style_missing_piece(self):
+        self.client.post('/api/garments/sample/')
+        d = self.ask('Style my skirt in three ways')
+        self.assertEqual(d['outfits'], [])
+        self.assertIn("couldn't find", d['reply'])
+        self.lang('az')
+        self.assertIn('tapa bilmədim', self.ask('ətəyi 3 cür kombinlə')['reply'])
+
+    def test_colors_for_a_piece(self):
+        self.client.post('/api/garments/sample/')
+        d = self.ask('Which colors go with my black blazer?')
+        self.assertEqual(d['outfits'], [])
+        self.assertIn('black blazer (black)', d['reply'])
+        self.assertIn('white', d['reply'])
+        self.assertIn('You already own', d['reply'])
+        self.lang('az')
+        d = self.ask('bu pencəyə hansı rənglər yaraşır')
+        self.assertIn('qara', d['reply'])
+        self.assertIn('ağ', d['reply'])
+        self.assertIn('Bunlardan səndə artıq', d['reply'])
+
+    def test_colors_for_a_named_colour_without_closet(self):
+        d = self.ask('What colours go with navy?')
+        self.assertIn('beige', d['reply'])
+        self.assertIn("You don't own any of these yet.", d['reply'])
+
+    def test_unknown_lists_capabilities(self):
+        self.client.post('/api/garments/sample/')
+        d = self.ask('hello there')
+        self.assertIn('I can pick what to wear tomorrow', d['reply'])
+        self.assertEqual(d['outfits'], [])
+        self.lang('az')
+        d = self.ask('')
+        self.assertIn('Sabah nə geyinəcəyini', d['reply'])
+        self.assertTrue(all(any(ch in s for ch in 'əğışçöü') or s for s in d['suggestions']))
+
+    def test_suggestions_are_understood(self):
+        from .assistant import _norm, detect_intent, suggestions
+        self.client.post('/api/garments/sample/')
+        garments = list(Garment.objects.filter(user__email='chat@example.com'))
+        for lang in ('en', 'az'):
+            for s in suggestions(garments, lang, 'unknown'):
+                self.assertNotEqual(detect_intent(*_norm(s)), 'unknown', s)
+
+
+    def test_photo_question_names_colour_and_matching_pieces(self):
+        self.client.post('/api/garments/sample/')
+        photo = SimpleUploadedFile('q.png', png((20, 30, 70)).read(), content_type='image/png')
+        r = self.client.post('/api/assistant/', {'message': '', 'image': photo}, format='multipart')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertIn('navy', r.data['reply'])
+        self.assertTrue(r.data['garments'])
+        self.assertTrue(all(g['image'] for g in r.data['garments']))
+        self.assertIsNone(r.data['piece'])  # no AI tagging in tests, so the kind is unknown
+
+    def test_photo_must_be_an_image(self):
+        bad = SimpleUploadedFile('q.png', b'not an image', content_type='image/png')
+        r = self.client.post('/api/assistant/', {'image': bad}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+
+    def test_voice_question_is_transcribed_and_answered(self):
+        from unittest import mock
+        audio = SimpleUploadedFile('q.m4a', b'fake audio', content_type='audio/m4a')
+        with mock.patch('api.views.transcribe', return_value='What should I wear tomorrow?'):
+            r = self.client.post('/api/assistant/', {'audio': audio}, format='multipart')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data['heard'], 'What should I wear tomorrow?')
+        with mock.patch('api.views.transcribe', return_value=None):
+            audio.seek(0)
+            r = self.client.post('/api/assistant/', {'audio': audio}, format='multipart')
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(r.data['code'], 'voice_unavailable')
+
+class StyleFilterTests(APITestCase):
+    def test_style_override_is_used_and_stored(self):
+        r = self.client.post('/api/auth/register/', {'email': 'stylef@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        for cat, color in [('top', 'navy'), ('bottom', 'beige'), ('shoes', 'brown')]:
+            self.client.post('/api/garments/', {'category': cat, 'colors': [{'name': color, 'share': 1}]}, format='json')
+        r = self.client.post('/api/recommendations/', {'occasion': 'casual', 'temp_c': 20, 'style': 'minimal'}, format='json')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data['outfits'][0]['context']['style'], 'minimal')
+        r = self.client.post('/api/recommendations/', {'occasion': 'casual', 'style': 'nope'}, format='json')
+        self.assertEqual(r.status_code, 400)
+
+
+class SocialLoginTests(APITestCase):
+    def post(self, provider='google', token='tok', **extra):
+        return self.client.post('/api/auth/social/', {'provider': provider, 'id_token': token, **extra}, format='json')
+
+    def test_new_user_then_same_user_again(self):
+        from unittest import mock
+        claims = {'sub': 'g-123', 'email': 'New@Example.com', 'email_verified': True, 'name': 'Aysel'}
+        with mock.patch.dict('api.social.VERIFY', {'google': lambda t: claims}):
+            r = self.post()
+            self.assertEqual(r.status_code, 201, r.data)
+            self.assertTrue(r.data['created'])
+            self.assertEqual(r.data['user']['email'], 'new@example.com')
+            self.assertEqual(r.data['user']['display_name'], 'Aysel')
+            again = self.post()
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(again.data['user']['id'], r.data['user']['id'])
+        self.assertFalse(User.objects.get(email='new@example.com').has_usable_password())
+
+    def test_links_existing_email_account_and_finds_it_without_email_later(self):
+        from unittest import mock
+        existing = User.objects.create_user('me@example.com', 'pw-12345678')
+        first = {'sub': 'a-1', 'email': 'me@example.com', 'email_verified': 'true'}
+        with mock.patch.dict('api.social.VERIFY', {'apple': lambda t: first}):
+            self.assertEqual(self.post('apple').data['user']['id'], existing.id)
+        # Apple omits the email on later sign-ins; the linked sub still finds the user.
+        with mock.patch.dict('api.social.VERIFY', {'apple': lambda t: {'sub': 'a-1'}}):
+            self.assertEqual(self.post('apple').data['user']['id'], existing.id)
+
+    def test_errors(self):
+        from unittest import mock
+        from . import social
+
+        self.assertEqual(self.post('facebook').status_code, 400)
+        with mock.patch.dict('os.environ', {'GOOGLE_CLIENT_IDS': ''}):
+            r = self.post('google')
+        self.assertEqual((r.status_code, r.data['code']), (503, 'not_configured'))
+
+        def bad(token):
+            raise social.InvalidToken('nope')
+        with mock.patch.dict('api.social.VERIFY', {'google': bad}):
+            self.assertEqual(self.post().data['code'], 'invalid_token')
+        with mock.patch.dict('api.social.VERIFY', {'google': lambda t: {'sub': 'x', 'email': 'u@x.com', 'email_verified': False}}):
+            self.assertEqual(self.post().status_code, 400)
+
+
+class ShoppingTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'shop@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}", HTTP_ACCEPT_LANGUAGE='az')
+        self.user = User.objects.get(email='shop@example.com')
+
+    def test_missing_essentials_come_first_with_store_links(self):
+        garment(self.user, 'top', 'navy', subcategory='sweater')
+        r = self.client.get('/api/shopping/')
+        items = r.data['suggestions']
+        self.assertTrue(1 <= len(items) <= 4)
+        self.assertEqual(items[0]['subcategory'], 'sneakers')  # no shoes yet
+        self.assertEqual(items[0]['title'], 'Ağ krossovka')
+        self.assertTrue(all(i['links'] and i['links'][0]['url'].startswith('https://') for i in items))
+        self.assertIn('white+sneakers', items[0]['links'][0]['url'])
+
+    def test_never_suggests_what_is_owned_and_stylist_answers(self):
+        self.client.post('/api/garments/sample/')
+        items = self.client.get('/api/shopping/').data['suggestions']
+        owned = {(g.subcategory, g.primary_color) for g in Garment.objects.filter(user=self.user)}
+        self.assertFalse({(i['subcategory'], i['color']) for i in items} & owned)
+        r = self.client.post('/api/assistant/', {'message': 'Qarderobuma nə almalıyam?'}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.data['shopping']), len(items))
+
+
+class AppleWebFlowTests(APITestCase):
+    def test_start_needs_config_then_builds_url_and_callback_returns_to_app(self):
+        from unittest import mock
+        from urllib.parse import parse_qs, urlsplit
+
+        self.assertEqual(self.client.get('/api/auth/apple/start/?return=exp://x/--/auth').data['code'], 'not_configured')
+        env = {'APPLE_SERVICES_ID': 'app.wearwise.web', 'APPLE_REDIRECT_URI': 'https://api.example.com/api/auth/apple/callback/'}
+        with mock.patch.dict('os.environ', env):
+            self.assertEqual(self.client.get('/api/auth/apple/start/?return=https://evil.example').status_code, 400)
+            url = self.client.get('/api/auth/apple/start/?return=exp://x/--/auth').data['url']
+        q = parse_qs(urlsplit(url).query)
+        self.assertEqual(q['client_id'], ['app.wearwise.web'])
+        self.assertEqual(q['response_mode'], ['form_post'])
+        r = self.client.post('/api/auth/apple/callback/', {
+            'state': q['state'][0], 'id_token': 'tok', 'user': '{"name": {"firstName": "Aysel", "lastName": "M"}}',
+        })
+        self.assertEqual(r.status_code, 302)
+        back = urlsplit(r['Location'])
+        self.assertEqual(back.scheme, 'exp')
+        self.assertEqual(parse_qs(back.query), {'id_token': ['tok'], 'name': ['Aysel M']})
+        self.assertEqual(self.client.post('/api/auth/apple/callback/', {'state': 'forged', 'id_token': 't'}).status_code, 400)
+
+    def test_register_requires_a_name(self):
+        r = self.client.post('/api/auth/register/', {'email': 'n@example.com', 'password': 'wardrobe-123', 'display_name': '  '}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('display_name', r.data)
+        r = self.client.post('/api/auth/register/', {'email': 'n@example.com', 'password': 'wardrobe-123', 'display_name': 'Nər'}, format='json')
+        self.assertEqual((r.status_code, r.data['user']['plan']), (201, 'free'))
+
+
+class GuestTests(APITestCase):
+    def test_guest_looks_around_then_signs_up_keeping_everything(self):
+        r = self.client.post('/api/auth/guest/', HTTP_ACCEPT_LANGUAGE='az')
+        self.assertEqual(r.status_code, 201)
+        self.assertTrue(r.data['user']['is_guest'])
+        self.assertTrue(r.data['user']['onboarded'])
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        closet = self.client.get('/api/garments/').data['results']
+        self.assertEqual(len(closet), 16)
+        self.assertEqual(self.client.post('/api/recommendations/', {'occasion': 'casual'}, format='json').status_code, 201)
+
+        bad = self.client.post('/api/auth/claim/', {'email': 'g@example.com', 'password': 'wardrobe-123'}, format='json')
+        self.assertIn('display_name', bad.data)
+        ok = self.client.post('/api/auth/claim/', {'email': 'G@example.com', 'password': 'wardrobe-123', 'display_name': 'Leyla'}, format='json')
+        self.assertEqual(ok.status_code, 200, ok.data)
+        self.assertFalse(ok.data['user']['is_guest'])
+        self.assertEqual(ok.data['user']['email'], 'g@example.com')
+        self.assertEqual(len(self.client.get('/api/garments/').data['results']), 16)
+        self.assertEqual(self.client.post('/api/auth/claim/', {}, format='json').status_code, 400)  # already claimed
+        self.client.credentials()
+        login = self.client.post('/api/auth/login/', {'email': 'g@example.com', 'password': 'wardrobe-123'}, format='json')
+        self.assertEqual(login.status_code, 200)
+
+    def test_social_sign_in_from_a_guest_claims_it(self):
+        from unittest import mock
+        token = self.client.post('/api/auth/guest/').data['token']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        claims = {'sub': 'g-9', 'email': 'soc@example.com', 'email_verified': True, 'name': 'Soc'}
+        with mock.patch.dict('api.social.VERIFY', {'google': lambda t: claims}):
+            r = self.client.post('/api/auth/social/', {'provider': 'google', 'id_token': 't'}, format='json')
+        self.assertEqual(r.data['token'], token)
+        self.assertFalse(r.data['user']['is_guest'])
+        self.assertEqual(Garment.objects.filter(user__email='soc@example.com').count(), 16)
+
+
+class CalendarTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'cal@example.com', 'password': 'wardrobe-123', 'display_name': 'Cal'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.client.post('/api/garments/sample/')
+
+    def test_worn_outfit_shows_on_its_day_and_month(self):
+        from django.utils import timezone
+        outfit = self.client.post('/api/recommendations/', {'occasion': 'casual'}, format='json').data['outfits'][0]
+        self.client.post(f"/api/outfits/{outfit['id']}/wear/")
+        today = timezone.localdate()
+        month = self.client.get(f'/api/calendar/?month={today:%Y-%m}').data['days']
+        self.assertEqual(month, {today.isoformat(): 1})
+        day = self.client.get(f'/api/calendar/day/?date={today.isoformat()}').data
+        self.assertEqual([o['id'] for o in day['worn']], [outfit['id']])
+        self.assertEqual(self.client.get('/api/calendar/?month=bad').status_code, 400)
+
+    def test_weather_only_for_the_forecast_window(self):
+        from datetime import timedelta
+        from unittest import mock
+        from django.utils import timezone
+        today = timezone.localdate()
+        wx = {'temp_c': 12.0, 'temp_min_c': 9.0, 'temp_max_c': 14.0, 'precip_prob': 0.2}
+        with mock.patch('api.views.forecast', return_value=wx) as f:
+            soon = self.client.get(f'/api/calendar/day/?date={today + timedelta(days=3)}&lat=40.4&lon=49.9').data
+            far = self.client.get(f'/api/calendar/day/?date={today + timedelta(days=40)}&lat=40.4&lon=49.9').data
+            past = self.client.get(f'/api/calendar/day/?date={today - timedelta(days=2)}&lat=40.4&lon=49.9').data
+        self.assertEqual(soon['weather'], wx)
+        self.assertIsNone(far['weather'])
+        self.assertIsNone(past['weather'])
+        self.assertEqual(f.call_count, 1)
+
+    def test_plan_tomorrow_then_change_and_drop_it(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        looks = self.client.post('/api/recommendations/', {'occasion': 'casual', 'date': tomorrow.isoformat()}, format='json').data['outfits']
+        r = self.client.post('/api/calendar/plan/', {'date': tomorrow.isoformat(), 'outfit': looks[0]['id']}, format='json')
+        self.assertEqual(r.status_code, 201)
+        self.assertTrue(r.data['plan']['saved'])
+        self.client.post('/api/calendar/plan/', {'date': tomorrow.isoformat(), 'outfit': looks[1]['id']}, format='json')
+        day = self.client.get(f'/api/calendar/day/?date={tomorrow}').data
+        self.assertEqual(day['plan']['id'], looks[1]['id'])
+        month = self.client.get(f'/api/calendar/?month={tomorrow:%Y-%m}').data
+        self.assertEqual(month['planned'], [tomorrow.isoformat()])
+        self.assertEqual(self.client.delete(f'/api/calendar/plan/?date={tomorrow}').status_code, 204)
+        self.assertIsNone(self.client.get(f'/api/calendar/day/?date={tomorrow}').data['plan'])
+
+    def test_cannot_plan_a_past_day_or_someone_elses_outfit(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        outfit = self.client.post('/api/recommendations/', {'occasion': 'casual'}, format='json').data['outfits'][0]
+        yesterday = timezone.localdate() - timedelta(days=1)
+        self.assertEqual(self.client.post('/api/calendar/plan/', {'date': yesterday.isoformat(), 'outfit': outfit['id']}, format='json').status_code, 400)
+        self.assertEqual(self.client.post('/api/calendar/plan/', {'date': timezone.localdate().isoformat(), 'outfit': 'o_nope'}, format='json').status_code, 400)
+
+
+class AdminPanelTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(email='boss@example.com', password='admin-pass-1', is_staff=True)
+        r = self.client.post('/api/auth/register/', {'email': 'member@example.com', 'password': 'wardrobe-123', 'display_name': 'Mem'}, format='json')
+        self.member_token = r.data['token']
+        self.member_id = r.data['user']['id']
+
+    def login(self):
+        r = self.client.post('/api/admin/login/', {'email': 'boss@example.com', 'password': 'admin-pass-1'}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_only_staff_get_in(self):
+        r = self.client.post('/api/admin/login/', {'email': 'member@example.com', 'password': 'wardrobe-123'}, format='json')
+        self.assertEqual(r.status_code, 403)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.member_token}')
+        self.assertEqual(self.client.get('/api/admin/stats/').status_code, 403)
+
+    def test_stats_users_and_actions(self):
+        self.login()
+        self.assertEqual(self.client.get('/api/admin/stats/').data['total_users'], 1)
+        self.assertEqual(self.client.get('/api/admin/analytics/').status_code, 200)
+        users = self.client.get('/api/admin/users/?q=member').data
+        self.assertEqual([u['id'] for u in users['results']], [self.member_id])
+        r = self.client.patch(f'/api/admin/users/{self.member_id}/', {'plan': 'premium', 'is_active': False}, format='json')
+        self.assertEqual((r.data['plan'], r.data['is_active']), ('premium', False))
+        self.assertEqual(self.client.get('/api/admin/premium/').data['premium'], 1)
+        detail = self.client.get(f'/api/admin/users/{self.member_id}/').data
+        self.assertFalse({'garments', 'outfits', 'wear_log', 'plans', 'categories'} & set(detail))
+        self.assertEqual(self.client.get('/api/admin/garments/').status_code, 404)
+        self.assertEqual(self.client.delete(f'/api/admin/users/{self.member_id}/').status_code, 204)
+        self.assertFalse(User.objects.filter(pk=self.member_id).exists())

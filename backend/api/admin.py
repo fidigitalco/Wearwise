@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import ColorPair, Feedback, Garment, Label, MaterialPair, Outfit, OutfitItem, OutfitSet, TasteProfile, User, WearLog
+from .models import (
+    ColorPair, Feedback, Garment, Label, MaterialPair, Outfit, OutfitItem, OutfitPlan, OutfitSet, TasteProfile, User,
+    VideoScan, WearLog,
+)
 
 
 @admin.register(User)
@@ -12,6 +15,9 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Profile', {'fields': ('display_name', 'wardrobe_style', 'style_direction', 'latitude', 'longitude')}),
+        ('Preferences', {'fields': (
+            'preferred_styles', 'favorite_colors', 'sizes', 'typical_occasions', 'units', 'notifications_enabled',
+        )}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Dates', {'fields': ('last_login', 'date_joined')}),
     )
@@ -21,7 +27,7 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(Garment)
 class GarmentAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'category', 'subcategory', 'pattern', 'formality', 'warmth', 'times_worn', 'status']
-    list_filter = ['category', 'status', 'pattern']
+    list_filter = ['category', 'status', 'pattern', 'favorite', 'is_sample']
     search_fields = ['id', 'name', 'user__email']
 
 
@@ -41,7 +47,14 @@ class OutfitAdmin(admin.ModelAdmin):
 admin.site.register(OutfitSet)
 admin.site.register(Feedback)
 admin.site.register(WearLog)
+admin.site.register(OutfitPlan)
 admin.site.register(TasteProfile)
 admin.site.register(ColorPair)
 admin.site.register(MaterialPair)
 admin.site.register(Label)
+
+
+@admin.register(VideoScan)
+class VideoScanAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'status', 'error', 'frames_used', 'created_at']
+    list_filter = ['status']
