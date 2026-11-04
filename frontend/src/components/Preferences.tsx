@@ -17,6 +17,13 @@ const STYLE_PHOTOS: Record<string, number> = {
   formal: require('../../assets/images/style-formal.jpg'),
 };
 
+// Styles without a photo yet show their palette instead.
+const STYLE_PALETTES: Record<string, string[]> = {
+  old_money: ['navy', 'cream', 'camel', 'brown'],
+  preppy: ['navy', 'white', 'red', 'khaki'],
+  romantic: ['pink', 'cream', 'burgundy', 'light_blue'],
+};
+
 function toggle(list: string[], v: string) {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
@@ -45,6 +52,10 @@ export function PreferenceSelector({ value, onChange }: { value: string[]; onCha
             <View>
               {STYLE_PHOTOS[st] ? (
                 <Image source={STYLE_PHOTOS[st]} style={styles.photo} contentFit="cover" transition={120} />
+              ) : STYLE_PALETTES[st] ? (
+                <View style={[styles.photo, styles.palette]}>
+                  {STYLE_PALETTES[st].map((c) => <View key={c} style={{ flex: 1, backgroundColor: rgbCss(meta.colors[c]) }} />)}
+                </View>
               ) : (
                 <View style={[styles.photo, { backgroundColor: t.cardAlt }]} />
               )}
@@ -94,6 +105,7 @@ export function ColorSelector({ value, onChange }: { value: string[]; onChange: 
 }
 
 const styles = StyleSheet.create({
+  palette: { flexDirection: 'row', overflow: 'hidden' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   card: { borderRadius: radius.lg, borderWidth: 2, overflow: 'hidden' },
   photo: { width: '100%', aspectRatio: 1.1 },

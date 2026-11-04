@@ -3,11 +3,13 @@ import { Bookmark, Check, Heart, RefreshCw, Repeat, Share2 } from 'lucide-react-
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Avatar } from '../../components/Avatar';
 import { GarmentImage } from '../../components/Garment';
 import { useToast } from '../../components/Overlays';
 import { OutfitCollage, WeatherSummary } from '../../components/Outfit';
 import { SwapSheet } from '../../components/SwapSheet';
-import { Button, CompatibilityScore, ErrorState, IconButton, ScoreBar } from '../../components/ui';
+import { Button, Chip, CompatibilityScore, ErrorState, IconButton, ScoreBar } from '../../components/ui';
+import { useAvatar } from '../../lib/avatar';
 import { useI18n, useLabel } from '../../lib/i18n';
 import { recentlyViewed } from '../../lib/local';
 import { rgbCss } from '../../lib/meta';
@@ -32,6 +34,8 @@ export default function OutfitDetailScreen() {
   const [worn, setWorn] = useState(false);
   const [swapSlot, setSwapSlot] = useState<string | null>(null);
   const [busy, setBusy] = useState<'another' | 'wear' | null>(null);
+  const [view, setView] = useState<'collage' | 'avatar'>('collage');
+  const avatar = useAvatar();
 
   useEffect(() => {
     outfitsApi
@@ -126,7 +130,24 @@ export default function OutfitDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <ScrollView contentContainerStyle={[styles.wrap, { paddingBottom: 120 + insets.bottom }]}>
-        <OutfitCollage outfit={outfit} style={{ aspectRatio: 0.9 }} gap={8} />
+        <View style={{ gap: space.sm }}>
+          <View style={styles.viewToggle}>
+            <Chip label={s.avatar.collage} selected={view === 'collage'} onPress={() => setView('collage')} />
+            <Chip label={s.avatar.fittingRoom} selected={view === 'avatar'} onPress={() => setView('avatar')} />
+            {view === 'avatar' ? (
+              <Pressable onPress={() => router.push('/avatar')} accessibilityRole="button" hitSlop={8} style={{ marginLeft: 'auto' }}>
+                <Text style={[type.label, { color: t.primary, fontWeight: '600' }]}>{s.avatar.edit}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {view === 'collage' ? (
+            <OutfitCollage outfit={outfit} style={{ aspectRatio: 0.9 }} gap={8} />
+          ) : (
+            <View style={[styles.stage, { backgroundColor: t.tile }]}>
+              <Avatar profile={avatar} items={outfit.items} width={210} />
+            </View>
+          )}
+        </View>
 
         <View style={{ gap: space.sm }}>
           <View style={styles.titleRow}>
@@ -222,6 +243,8 @@ function MetaPill({ text }: { text: string }) {
 }
 
 const styles = StyleSheet.create({
+  viewToggle: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  stage: { aspectRatio: 0.9, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
   wrap: { paddingHorizontal: gutter, paddingTop: space.md, gap: space.xxl },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },

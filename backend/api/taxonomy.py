@@ -16,6 +16,8 @@ CATEGORIES = {
     'bag': ['tote', 'backpack', 'crossbody', 'clutch', 'briefcase'],
 }
 
+ALL_SUBCATEGORIES = {sub for subs in CATEGORIES.values() for sub in subs}
+
 # 22 named colours → 231 unordered pairs, the size of the colour-pair matrix the
 # stylists rate (KB section 5.2). RGB is the swatch; k-means centres are mapped
 # to the nearest of these in CIELAB.
@@ -55,6 +57,7 @@ STATUSES = ['available', 'laundry', 'stored', 'archived']
 MATERIAL_SOURCES = ['care_label', 'user', 'visual_estimate']
 STYLE_DIRECTIONS = [
     'casual', 'smart_casual', 'business', 'formal', 'sporty', 'streetwear', 'minimal', 'classic', 'bohemian',
+    'old_money', 'preppy', 'romantic',
 ]
 UNITS = ['metric', 'imperial']
 SIZE_KEYS = ['top', 'bottom', 'shoes']
@@ -107,4 +110,5 @@ OCCASION_AZ = {
 STYLE_AZ = {
     'casual': 'gündəlik', 'smart_casual': 'smart casual', 'business': 'biznes', 'formal': 'rəsmi',
     'sporty': 'idman', 'streetwear': 'küçə', 'minimal': 'minimal', 'classic': 'klassik', 'bohemian': 'bohem',
+    'old_money': 'old money', 'preppy': 'preppy', 'romantic': 'romantik',
 }

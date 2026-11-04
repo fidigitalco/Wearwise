@@ -1,12 +1,51 @@
-import { ExternalLink } from 'lucide-react-native';
+import { ExternalLink, Sparkles } from 'lucide-react-native';
+import { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useI18n } from '../lib/i18n';
+import { shopping } from '../services/api';
 import { radius, space, type, useTheme } from '../theme';
 import type { ShoppingSuggestion } from '../types';
 import { CategoryIcon } from './icons';
+import { BottomSheet } from './Overlays';
+import { Button } from './ui';
 
-/** One piece to buy: what and why, plus a chip per store that opens a search for it. */
-export function ShoppingCard({ item, width = 260 }: { item: ShoppingSuggestion; width?: number }) {
+type Links = ShoppingSuggestion['links'];
+export type ShopTarget = { title: string; subcategory: string; color: string; links: Links; source: 'gap' | 'check' | 'assistant' };
+
+/**
+ * The step between "Find it" and the store (prototype spec §2.4): the stores to
+ * search, under an "Affiliate link" label as App Store and FTC rules ask. The
+ * tap is logged before the link opens; a failed log never blocks it.
+ */
+export function AffiliateSheet({ target, onClose }: { target: ShopTarget | null; onClose: () => void }) {
+  const t = useTheme();
+  const { t: s } = useI18n();
+  const open = (store: string, url: string) => {
+    if (target) shopping.click({ store, subcategory: target.subcategory, color: target.color, source: target.source }).catch(() => {});
+    Linking.openURL(url).catch(() => {});
+    onClose();
+  };
+  return (
+    <BottomSheet visible={!!target} onClose={onClose} title={target?.title ?? s.shop.sheetTitle} closeLabel={s.common.close}>
+      <View style={{ gap: space.md }}>
+        <View style={[styles.tag, { backgroundColor: t.cardAlt }]}>
+          <Text style={[type.caption, { color: t.textSub, fontWeight: '600' }]}>{s.shop.affiliate}</Text>
+        </View>
+        <Text style={[type.caption, { color: t.textMuted }]}>{s.shop.affiliateBody}</Text>
+        {target?.links.map((l) => (
+          <Pressable key={l.store} onPress={() => open(l.store, l.url)} accessibilityRole="link" accessibilityLabel={s.shop.searchIn(l.store)}
+            style={({ pressed }) => [styles.storeRow, { borderColor: t.border, backgroundColor: pressed ? t.cardAlt : t.card }]}>
+            <Text style={[type.bodyStrong, { color: t.text, flex: 1 }]}>{s.shop.searchIn(l.store)}</Text>
+            <ExternalLink size={16} color={t.textSecondary} />
+          </Pressable>
+        ))}
+      </View>
+    </BottomSheet>
+  );
+}
+
+/** One piece to buy: what, why, how many outfits it opens, and a button to find it. */
+export function ShoppingCard({ item, width, onFind }: { item: ShoppingSuggestion; width?: number; onFind: (i: ShoppingSuggestion) => void }) {
   const t = useTheme();
   const { t: s } = useI18n();
   return (
@@ -21,31 +60,28 @@ export function ShoppingCard({ item, width = 260 }: { item: ShoppingSuggestion; 
           <Text style={[type.caption, { color: t.textMuted }]} numberOfLines={3}>{item.reason}</Text>
         </View>
       </View>
-      <View style={styles.stores}>
-        {item.links.map((l) => (
-          <Pressable
-            key={l.store}
-            onPress={() => Linking.openURL(l.url)}
-            accessibilityRole="link"
-            accessibilityLabel={s.shop.searchIn(l.store)}
-            style={({ pressed }) => [styles.store, { borderColor: t.border, backgroundColor: pressed ? t.cardAlt : t.card }]}
-          >
-            <Text style={[type.caption, { color: t.text, fontWeight: '600' }]}>{l.store}</Text>
-            <ExternalLink size={12} color={t.textSecondary} />
-          </Pressable>
-        ))}
-      </View>
+      {item.unlocks > 0 ? (
+        <View style={styles.unlocks}>
+          <Sparkles size={14} color={t.accent} />
+          <Text style={[type.caption, { color: t.accent, fontWeight: '600' }]}>{s.shop.unlocks(item.unlocks)}</Text>
+        </View>
+      ) : null}
+      <Button title={s.shop.find} variant="secondary" size="sm" onPress={() => onFind(item)} />
     </View>
   );
 }
 
-/** A horizontal row of shopping cards, bleeding to the screen edge. */
+/** A horizontal row of shopping cards, bleeding to the screen edge, with its own store sheet. */
 export function ShoppingRow({ items, inset = 0 }: { items: ShoppingSuggestion[]; inset?: number }) {
+  const [target, setTarget] = useState<ShopTarget | null>(null);
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.md, paddingHorizontal: inset }}
-      style={inset ? { marginHorizontal: -inset } : undefined}>
-      {items.map((i) => <ShoppingCard key={i.id} item={i} />)}
-    </ScrollView>
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.md, paddingHorizontal: inset }}
+        style={inset ? { marginHorizontal: -inset } : undefined}>
+        {items.map((i) => <ShoppingCard key={i.id} item={i} width={260} onFind={(x) => setTarget({ ...x, source: 'gap' })} />)}
+      </ScrollView>
+      <AffiliateSheet target={target} onClose={() => setTarget(null)} />
+    </>
   );
 }
 
@@ -54,6 +90,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', gap: space.md },
   well: { width: 56, height: 56, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', right: 5, bottom: 5, width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
-  stores: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
-  store: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 30, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1 },
+  unlocks: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  storeRow: { flexDirection: 'row', alignItems: 'center', minHeight: 50, paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1 },
 });

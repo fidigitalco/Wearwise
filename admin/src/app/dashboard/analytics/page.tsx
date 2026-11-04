@@ -63,6 +63,14 @@ export default function AnalyticsPage() {
         <Card title={t('wears')}>
           <TrendChart series={[{ name: t('wears'), data: data.wears }, { name: t('uploads'), data: data.uploads }]} />
         </Card>
+        <Card title={t('affiliateClicks')}>
+          {data.stores.length
+            ? <TrendChart series={[{ name: t('affiliateClicks'), data: data.clicks }]} />
+            : <div className="py-10 text-center text-sm text-slate-400">{t('noData')}</div>}
+          {data.stores.length > 0 && (
+            <p className="mt-3 text-xs text-slate-500">{data.stores.map((x) => `${x.name}: ${x.value}`).join(' · ')}</p>
+          )}
+        </Card>
         <Card title={t('garmentCategories')}>
           <BarList data={data.categories} label={(n) => label('cat', n)} />
         </Card>

@@ -1,17 +1,17 @@
 import Constants from 'expo-constants';
 import { router, useFocusEffect } from 'expo-router';
-import { Bookmark, ChevronRight, Compass, Crown, Globe, Lock, LogOut, Palette, Ruler, Search, Sparkles, Trash } from 'lucide-react-native';
+import { Bookmark, ChevronRight, CircleUserRound, Compass, Crown, Globe, Lock, LogOut, MessageSquare, Palette, ShoppingBag, Search, Sparkles, Star, Thermometer, Trash } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/AppHeader';
-import { Row, Section } from '../../components/ListRows';
+import { Choice, Row, Section } from '../../components/ListRows';
 import { BottomSheet, ConfirmationDialog, useToast } from '../../components/Overlays';
-import { Chip, ChipWrap } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { useI18n, useLabel, type Lang } from '../../lib/i18n';
 import { rgbCss, useMeta } from '../../lib/meta';
 import { formatPrice, PRICING } from '../../lib/pricing';
+import { openStoreReview } from '../../lib/rate';
 import { errorMessage, getStats } from '../../services/api';
 import { gutter, space, type, useTheme } from '../../theme';
 import type { Stats, User } from '../../types';
@@ -141,17 +141,25 @@ export default function MyStyleScreen() {
             value={premium ? s.premium.premiumPlan : s.premium.freePlan} onPress={() => router.push('/premium')} />
           <Row icon={<Sparkles size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.stylist} onPress={() => router.push('/assistant')} />
           <Row icon={<Bookmark size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.saved} onPress={() => router.push('/saved')} />
+          <Row icon={<ShoppingBag size={20} color={t.text} strokeWidth={1.6} />} title={s.shop.screen} onPress={() => router.push('/shop')} />
           <Row icon={<Search size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.search} onPress={() => router.push('/search')} />
           <Row icon={<Compass size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.howItWorks} onPress={() => router.push('/tour')} />
         </Section>
 
         <Section title={s.profile.settings}>
           <Row first icon={<Palette size={20} color={t.text} strokeWidth={1.6} />} title={s.prefs.title} onPress={() => router.push('/preferences')} />
+          <Row icon={<CircleUserRound size={20} color={t.text} strokeWidth={1.6} />} title={s.avatar.title} onPress={() => router.push('/avatar')} />
           <Row icon={<Globe size={20} color={t.text} strokeWidth={1.6} />} title={s.settings.language}
             value={LANGUAGES.find((l) => l.code === lang)?.name} onPress={() => setSheet('language')} />
-          <Row icon={<Ruler size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.units}
+          <Row icon={<Thermometer size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.units}
             value={user?.units === 'imperial' ? s.prefs.imperial : s.prefs.metric} onPress={() => setSheet('units')} />
           <Row icon={<Lock size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.privacy} onPress={() => setSheet('privacy')} />
+        </Section>
+
+        <Section title={s.profile.support}>
+          <Row first icon={<MessageSquare size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.feedback} onPress={() => router.push('/feedback')} />
+          <Row icon={<Star size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.rate}
+            onPress={() => openStoreReview().then((opened) => { if (!opened) toast(s.profile.rateSoon); }).catch((e) => toast(errorMessage(e), 'error'))} />
         </Section>
 
         <Section title={s.settings.account}>
@@ -166,19 +174,19 @@ export default function MyStyleScreen() {
       </ScrollView>
 
       <BottomSheet visible={sheet === 'language'} onClose={() => setSheet(null)} title={s.settings.language} closeLabel={s.common.close}>
-        <ChipWrap>
-          {LANGUAGES.map((l) => (
-            <Chip key={l.code} label={l.name} selected={lang === l.code} onPress={() => { setLang(l.code); setSheet(null); }} />
+        <Section>
+          {LANGUAGES.map((l, i) => (
+            <Choice key={l.code} first={i === 0} title={l.name} selected={lang === l.code} onPress={() => { setLang(l.code); setSheet(null); }} />
           ))}
-        </ChipWrap>
+        </Section>
       </BottomSheet>
       <BottomSheet visible={sheet === 'units'} onClose={() => setSheet(null)} title={s.profile.units} closeLabel={s.common.close}>
-        <ChipWrap>
-          {(['metric', 'imperial'] as const).map((u) => (
-            <Chip key={u} label={u === 'metric' ? s.prefs.metric : s.prefs.imperial} selected={(user?.units ?? 'metric') === u}
+        <Section>
+          {(['metric', 'imperial'] as const).map((u, i) => (
+            <Choice key={u} first={i === 0} title={u === 'metric' ? s.prefs.metric : s.prefs.imperial} selected={(user?.units ?? 'metric') === u}
               onPress={() => { update({ units: u }); setSheet(null); }} />
           ))}
-        </ChipWrap>
+        </Section>
       </BottomSheet>
       <BottomSheet visible={sheet === 'privacy'} onClose={() => setSheet(null)} title={s.profile.privacy} closeLabel={s.common.close}>
         <Text style={[type.body, { color: t.textSub }]}>{s.profile.privacyBody}</Text>

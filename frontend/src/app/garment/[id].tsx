@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { GarmentForm, draftFromGarment, draftToInput, type GarmentDraft } from '../../components/GarmentForm';
 import { Body, Button, Card, Chip, ChipRow, Label } from '../../components/ui';
+import { formatTemp } from '../../components/Outfit';
+import { useAuth } from '../../lib/auth';
 import { errorMessage, garments as garmentsApi, mediaUrl } from '../../services/api';
 import { useI18n, useLabel } from '../../lib/i18n';
 import { useMeta } from '../../lib/meta';
@@ -18,6 +20,7 @@ export default function GarmentScreen() {
   const navigation = useNavigation();
   const { t: s } = useI18n();
   const label = useLabel();
+  const { user } = useAuth();
   const [garment, setGarment] = useState<Garment | null>(null);
   const [draft, setDraft] = useState<GarmentDraft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -102,6 +105,17 @@ export default function GarmentScreen() {
             {garment.last_worn_at ? s.garment.lastOn(garment.last_worn_at) : ''}
           </Body>
         )}
+
+        {garment.weather_fit && (garment.weather_fit.min_temp_c !== null || garment.weather_fit.rain_suitable) ? (
+          <Body muted>
+            {[
+              garment.weather_fit.min_temp_c !== null
+                ? s.garment.comfy(`${formatTemp(garment.weather_fit.min_temp_c, user?.units)} – ${formatTemp(garment.weather_fit.max_temp_c, user?.units)}`)
+                : null,
+              garment.weather_fit.rain_suitable ? s.garment.rainOk : null,
+            ].filter(Boolean).join(' · ')}
+          </Body>
+        ) : null}
 
         <View style={{ gap: space.sm }}>
           <Label>{s.garment.status}</Label>

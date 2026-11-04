@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useLang } from '@/lib/i18n'
 import { useTheme } from '@/lib/theme'
 import {
-  LayoutGrid, BarChart3, Users, Shirt, Crown, Menu, X, Sun, Moon, ChevronDown, LogOut,
+  LayoutGrid, BarChart3, Users, Shirt, Crown, MessageSquare, Menu, X, Sun, Moon, ChevronDown, LogOut,
 } from 'lucide-react'
 
 const TOP_NAV = [
@@ -15,6 +15,7 @@ const TOP_NAV = [
 ] as const
 
 const BOTTOM_NAV = [
+  { href: '/dashboard/feedback', key: 'navFeedback', icon: MessageSquare },
   { href: '/dashboard/premium', key: 'navPremium', icon: Crown },
 ] as const
 

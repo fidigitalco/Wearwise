@@ -75,7 +75,12 @@ All endpoints are under `/api/` and use `Authorization: Token <token>`.
 | `outfits/`, `POST outfits/{id}/save/`, `POST outfits/{id}/wear/` | Saved looks, history, wear log |
 | `POST assistant/` | Stylist chat: `{message}` → `{reply, outfits, suggestions}` (rule-based, English and Azerbaijani) |
 | `POST feedback/` | Like / dislike / rank / swap signals; updates the taste profile |
-| `GET weather/?lat=&lon=` | Day forecast (Open-Meteo) |
+| `GET weather/?lat=&lon=` | Day forecast (Open-Meteo): temperature, rain chance, wind, snow |
+| `POST plan/read/` | The day's plan in words → occasion and formality (`{text}` → `{occasion, level}`) |
+| `GET shopping/` | What the closet is missing, each with the colour that unlocks the most outfits and how many |
+| `POST shopping/check/` | "Will this fit my wardrobe?": `{subcategory, color}` → Great buy / Works / Skip it, with a better colour |
+| `POST shopping/click/` | Logs a store tap (affiliate reporting; admins see totals only) |
+| `POST app-feedback/` | Settings → Send feedback; staff read it in the admin panel |
 | `GET stats/` | Closet size, 30-day rotation, never-worn count, wear activity, favourites, recently added |
 
 ## How suggestions work (Wearwise.md §4, stages 9–13)
@@ -106,6 +111,12 @@ Real today (backend + app):
 - Wardrobe with photo, multi-photo and video adding; AI tagging of each piece (needs `ANTHROPIC_API_KEY`; without it the type is picked by hand).
 - Rule-based outfit engine with weather, occasion, style, colour harmony, rotation and taste learning; titles and "why it works" reasons.
 - Swapping a piece, likes, saves, marking as worn, search, saved items, stats.
+- Shop (WearWise_Prototype_Spec.md §2.4): gaps with "unlocks N outfits", "Will this fit my wardrobe?", store links
+  (Trendyol searched in Turkish, AliExpress, Amazon) behind an "Affiliate link" sheet, each link with an anonymous sub-id.
+  The links do not earn commission yet: that needs Skimlinks/Admitad or a Trendyol agreement (see the affiliates sheet).
+- Today's plan in free text → occasion and formality (§3.5); wind, snow and fabric warmth in the weather score (§3.3).
+- Avatar (§2.3): a 2D figure from height, weight, skin tone and an optional face photo, wearing the outfit on the outfit
+  screen. Kept on the phone only, never uploaded.
 
 Stand-ins, behind service interfaces so they can be replaced:
 - **AI stylist** (`POST /api/assistant/`, `backend/api/assistant.py`): rule-based intent matching over the user's own wardrobe. An LLM can replace `answer()` without changing the app.

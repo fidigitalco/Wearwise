@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from .models import (
-    ColorPair, Feedback, Garment, Label, MaterialPair, Outfit, OutfitItem, OutfitPlan, OutfitSet, TasteProfile, User,
+    AppFeedback, ColorPair, Feedback, Garment, Label, MaterialPair, Outfit, OutfitItem, OutfitPlan, OutfitSet, TasteProfile, User,
     VideoScan, WearLog,
 )
 
@@ -58,3 +58,9 @@ admin.site.register(Label)
 class VideoScanAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'status', 'error', 'frames_used', 'created_at']
     list_filter = ['status']
+
+
+@admin.register(AppFeedback)
+class AppFeedbackAdmin(admin.ModelAdmin):
+    list_display = ['id', 'kind', 'user', 'platform', 'resolved', 'created_at']
+    list_filter = ['kind', 'resolved', 'platform']

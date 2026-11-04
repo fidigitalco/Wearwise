@@ -5,7 +5,7 @@ import type { GarmentInput } from '../services/api';
 import { useAuth } from '../lib/auth';
 import { useI18n, useLabel } from '../lib/i18n';
 import { categoriesFor, rgbCss, subcategoriesFor, useMeta } from '../lib/meta';
-import { radius, space, useTheme } from '../theme';
+import { radius, space, type, useTheme } from '../theme';
 import type { Category, Garment, GarmentColor, Material } from '../types';
 import { Body, Chip, ChipRow, ChipWrap, Field, Label, Stepper } from './ui';
 
@@ -114,6 +114,9 @@ export function GarmentForm({
             <Chip key={sub} label={label('subcategories', sub)} selected={draft.subcategory === sub} onPress={() => pickSub(sub)} />
           ))}
         </ChipWrap>
+        {draft.subcategory && s.tx.typeHints[draft.subcategory] ? (
+          <Text style={[type.caption, { color: t.textMuted }]}>{s.tx.typeHints[draft.subcategory]}</Text>
+        ) : null}
       </View>
 
       <Field label={s.form.name} value={draft.name} onChangeText={(name) => set({ name })} placeholder={s.form.namePlaceholder} />

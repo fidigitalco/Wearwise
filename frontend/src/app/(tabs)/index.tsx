@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Hanger } from '../../components/icons';
 import { GuestBanner } from '../../components/GuestBanner';
 import { useToast } from '../../components/Overlays';
+import { DayPlan } from '../../components/DayPlan';
 import { ShoppingRow } from '../../components/Shopping';
 import { TomorrowCard } from '../../components/Tomorrow';
 import { OutfitHeroCard, WeatherLine } from '../../components/Outfit';
@@ -39,7 +40,9 @@ export default function HomeScreen() {
   const [notEnough, setNotEnough] = useState(false);
   const [worn, setWorn] = useState<string | null>(null);
   const [shop, setShop] = useState<ShoppingSuggestion[]>([]);
-  const occasion = user?.main_occasion || 'casual';
+  // The day's plan can pick another occasion than the usual one, for today only.
+  const [dayOccasion, setDayOccasion] = useState<string | null>(null);
+  const occasion = dayOccasion || user?.main_occasion || 'casual';
 
   // Fetchers only fetch and return; state is set from their results (react-hooks/set-state-in-effect).
   const fetchSuggestions = useCallback(
@@ -193,6 +196,7 @@ export default function HomeScreen() {
           />
         ) : look ? (
           <View style={{ gap: space.md }}>
+            {plan ? null : <DayPlan occasion={occasion} onOccasion={setDayOccasion} inset={gutter} />}
             <Text style={[type.overline, { color: t.accent }]}>{plan ? s.home.plannedLook : s.home.todayLook}</Text>
             <OutfitHeroCard
               outfit={look}
@@ -212,7 +216,7 @@ export default function HomeScreen() {
         {shop.length && !empty && !loading ? (
           <View style={{ gap: space.md }}>
             <View style={{ gap: 2 }}>
-              <SectionHeader title={s.shop.title} />
+              <SectionHeader title={s.shop.title} action={s.home.seeAll} onAction={() => router.push('/shop')} />
               <Text style={[type.caption, { color: t.textMuted }]}>{s.shop.hint}</Text>
             </View>
             <ShoppingRow items={shop} inset={gutter} />

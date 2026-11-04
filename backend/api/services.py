@@ -39,6 +39,8 @@ def build_context(user, data, lang='en'):
             ctx['temp_c'] = ctx['temp_c'] if ctx['temp_c'] is not None else wx['temp_c']
             ctx['precip_prob'] = ctx['precip_prob'] if ctx['precip_prob'] is not None else wx['precip_prob']
             ctx['weather'] = wx
+            ctx['wind_kmh'] = wx.get('wind_kmh', 0)
+            ctx['snow_cm'] = wx.get('snow_cm', 0)
     return ctx
 
 

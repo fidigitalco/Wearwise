@@ -23,11 +23,11 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from . import social, taxonomy as tx
-from .assistant import answer
+from .assistant import answer, read_plan
 from .colors import extract_colors, remove_background
 from .samples import load_sample_wardrobe, restore_sample_photos
 from .scans import start_scan
-from .shopping import suggestions as shopping_suggestions
+from .shopping import check_fit, suggestions as shopping_suggestions
 from .speech import transcribe
 from .services import (
     build_context, describe, log_wear, materials_of, outfit_qs, outfit_set_qs, pairs, palette_of, public_context,
@@ -38,7 +38,7 @@ from .engine.describe import title_for
 from .engine.recommend import NotEnoughGarments
 from .engine.scoring import score_outfit
 from .engine.taste import update_taste
-from .models import Feedback, Garment, Outfit, OutfitItem, OutfitPlan, TasteProfile, User, VideoScan, WearLog
+from .models import AffiliateClick, AppFeedback, Feedback, Garment, Outfit, OutfitItem, OutfitPlan, TasteProfile, User, VideoScan, WearLog
 from .serializers import (
     CheckOutfitSerializer, FeedbackSerializer, GarmentSerializer, LoginSerializer,
     OutfitSerializer, OutfitSetSerializer, RecommendRequestSerializer, RegisterSerializer, UserSerializer,
@@ -563,6 +563,26 @@ def shopping(request):
     return Response({'suggestions': shopping_suggestions(request.user, request_lang(request))})
 
 
+@api_view(['POST'])
+def shopping_check(request):
+    """"Will this fit my wardrobe?": {subcategory, color} → {verdict: great|works|skip, unlocks, matches, better, links}."""
+    sub, color = request.data.get('subcategory'), request.data.get('color')
+    if sub not in tx.ALL_SUBCATEGORIES or color not in tx.COLORS:
+        raise ValidationError({'detail': 'Pick a piece type and a colour.'})
+    return Response(check_fit(request.user, sub, color, request_lang(request)))
+
+
+@api_view(['POST'])
+def shopping_click(request):
+    """Logs a store tap before the app opens the link: {store, subcategory, color, source}."""
+    d = request.data
+    AffiliateClick.objects.create(
+        user=request.user, store=str(d.get('store', ''))[:24], subcategory=str(d.get('subcategory', ''))[:24],
+        color=str(d.get('color', ''))[:16], source=d.get('source') if d.get('source') in ('gap', 'check', 'assistant') else 'gap',
+    )
+    return Response(status=status.HTTP_201_CREATED)
+
+
 @api_view(['GET'])
 def weather(request):
     try:
@@ -700,3 +720,24 @@ def stats(request):
         'favorites': garments.filter(favorite=True).count(),
         'recently_added': recent,
     })
+
+
+@api_view(['POST'])
+def app_feedback(request):
+    """Settings → Send feedback: {kind: idea|problem|other, message, platform?, app_version?}."""
+    d = request.data
+    message = str(d.get('message', '')).strip()
+    if not message:
+        raise ValidationError({'message': 'required'})
+    kind = d.get('kind') if d.get('kind') in AppFeedback.KINDS else 'other'
+    AppFeedback.objects.create(
+        user=request.user, kind=kind, message=message[:4000],
+        platform=str(d.get('platform', ''))[:10], app_version=str(d.get('app_version', ''))[:20],
+    )
+    return Response(status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def plan_read(request):
+    """{text: "Client meeting downtown, dinner after"} → {occasion: "client_meeting", level: "formal"}."""
+    return Response(read_plan(str(request.data.get('text', ''))[:300]))

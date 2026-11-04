@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GarmentImage } from '../components/Garment';
 import { OutfitCollage } from '../components/Outfit';
 import { useToast } from '../components/Overlays';
-import { ShoppingCard } from '../components/Shopping';
+import { AffiliateSheet, ShoppingCard, type ShopTarget } from '../components/Shopping';
 import { Button, Chip, ChipWrap, CompatibilityScore, EmptyState, IconButton } from '../components/ui';
 import { useI18n } from '../lib/i18n';
 import { assistant, errorMessage, garments as garmentsApi, type LocalImage } from '../services/api';
@@ -55,6 +55,7 @@ export default function AssistantScreen() {
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
+  const [shopTarget, setShopTarget] = useState<ShopTarget | null>(null);
   const list = useRef<FlatList<Message>>(null);
   const nextId = useRef(0);
   const newId = (prefix: string) => `${prefix}${++nextId.current}`;
@@ -214,7 +215,7 @@ export default function AssistantScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: space.sm }}
                 style={{ alignSelf: 'stretch' }}
-                renderItem={({ item: x }) => <ShoppingCard item={x} width={240} />}
+                renderItem={({ item: x }) => <ShoppingCard item={x} width={240} onFind={(i) => setShopTarget({ ...i, source: 'assistant' })} />}
               />
             ) : null}
             {item.outfits?.length ? (
@@ -301,6 +302,7 @@ export default function AssistantScreen() {
           </View>
         )}
       </View>
+      <AffiliateSheet target={shopTarget} onClose={() => setShopTarget(null)} />
     </KeyboardAvoidingView>
   );
 }

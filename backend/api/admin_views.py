@@ -18,7 +18,7 @@ from rest_framework.decorators import api_view, permission_classes, throttle_cla
 from rest_framework.response import Response
 
 from .models import (
-    Feedback, Garment, Outfit, OutfitPlan, OutfitSet, SocialAccount, User, VideoScan, WearLog,
+    AffiliateClick, AppFeedback, Feedback, Garment, Outfit, OutfitPlan, OutfitSet, SocialAccount, User, VideoScan, WearLog,
 )
 from .views import AuthThrottle
 
@@ -99,6 +99,8 @@ def admin_stats(request):
         'saved_outfits': Outfit.objects.filter(saved=True).count(),
         'wears': WearLog.objects.count(),
         'plans': OutfitPlan.objects.filter(date__gte=today).count(),
+        'open_feedback': AppFeedback.objects.filter(resolved=False).count(),
+        'affiliate_clicks': AffiliateClick.objects.count(),
     })
 
 
@@ -129,6 +131,7 @@ def admin_analytics(request):
         'assistant': daily(OutfitSet.objects.filter(source='assistant'), 'created_at', days),
         'wears': daily(WearLog.objects.all(), 'created_at', days),
         'uploads': daily(real_garments, 'created_at', days),
+        'clicks': daily(AffiliateClick.objects.all(), 'created_at', days),
         'active_inactive': [{'name': 'active', 'value': active}, {'name': 'inactive', 'value': len(ids) - active}],
         'providers': [{'name': 'email', 'value': len(ids) - with_social}]
         + [{'name': p, 'value': social.get(p, 0)} for p in ('apple', 'google')],
@@ -141,6 +144,9 @@ def admin_analytics(request):
                              .values_list('category', 'n')),
         'colors': [{'name': k, 'value': v} for k, v in sorted(colors.items(), key=lambda kv: -kv[1])[:10]],
         'feedback': [{'name': 'liked', 'value': liked.get(True, 0)}, {'name': 'disliked', 'value': liked.get(False, 0)}],
+        'stores': [{'name': r['store'], 'value': r['n']} for r in
+                   AffiliateClick.objects.filter(created_at__gte=timezone.now() - timedelta(days=days))
+                   .values('store').annotate(n=Count('id')).order_by('-n')],
         'avg_garments': round(real_garments.count() / len(ids), 1) if ids else 0,
         'onboarded': members.filter(onboarded=True).count(),
         'total': len(ids),
@@ -285,3 +291,48 @@ def admin_premium(request):
         'conversion': round(premium.count() / total * 100, 1) if total else 0,
         'users': [user_row(u, providers) for u in rows],
     })
+
+
+def feedback_row(f):
+    u = f.user
+    return {
+        'id': f.id, 'kind': f.kind, 'message': f.message, 'platform': f.platform, 'app_version': f.app_version,
+        'resolved': f.resolved, 'created_at': f.created_at,
+        # Who wrote it, so an admin can reply: the user sent this to us themselves.
+        'user': {'id': u.id, 'email': u.email, 'name': u.display_name, 'is_guest': u.is_guest} if u else None,
+    }
+
+
+@api_view(['GET'])
+@staff
+def admin_feedback(request):
+    """?status=open|resolved, ?kind, ?page → {results, count, page, pages, open}."""
+    p = request.query_params
+    qs = AppFeedback.objects.select_related('user')
+    if p.get('status') == 'open':
+        qs = qs.filter(resolved=False)
+    elif p.get('status') == 'resolved':
+        qs = qs.filter(resolved=True)
+    if p.get('kind') in AppFeedback.KINDS:
+        qs = qs.filter(kind=p['kind'])
+    count = qs.count()
+    pages = max(1, -(-count // PAGE_SIZE))
+    page = min(max(int(p.get('page', 1) or 1), 1), pages)
+    return Response({
+        'results': [feedback_row(f) for f in qs[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]],
+        'count': count, 'page': page, 'pages': pages,
+        'open': AppFeedback.objects.filter(resolved=False).count(),
+    })
+
+
+@api_view(['PATCH', 'DELETE'])
+@staff
+def admin_feedback_item(request, pk):
+    f = get_object_or_404(AppFeedback.objects.select_related('user'), pk=pk)
+    if request.method == 'DELETE':
+        f.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    if 'resolved' in request.data:
+        f.resolved = bool(request.data['resolved'])
+        f.save(update_fields=['resolved'])
+    return Response(feedback_row(f))

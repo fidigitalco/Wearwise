@@ -66,6 +66,9 @@ function AuthGate() {
       <Stack.Screen name="tour" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="preferences" options={{ title: s.prefs.title }} />
+      <Stack.Screen name="avatar" options={{ title: s.avatar.title }} />
+      <Stack.Screen name="shop" options={{ title: s.shop.screen }} />
+      <Stack.Screen name="feedback" options={{ title: s.feedback.title }} />
     </Stack>
   );
 }

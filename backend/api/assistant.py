@@ -48,15 +48,18 @@ def _has(raw, folded, keywords):
 
 # Checked in order: the first hit wins ("dinner after work" is a date).
 OCCASION_WORDS = [
-    ('formal', ['formal', 'wedding', 'gala', 'black tie', 'rəsmi', 'toy$', 'toya$', 'toyda$']),
-    ('client_meeting', ['client', 'business meeting', 'müştəri', 'iclas']),
-    ('date', ['dinner', 'date$', 'dates$', 'romantic', 'şam yemə', 'görüş', 'randevu']),
+    ('formal', ['formal', 'wedding', 'gala', 'black tie', 'ceremony', 'rəsmi', 'mərasim', 'toy$', 'toya$', 'toyda$']),
+    ('client_meeting', ['client', 'business meeting', 'meeting', 'interview', 'presentation', 'müştəri', 'iclas',
+                        'müsahibə', 'təqdimat']),
+    ('date', ['dinner', 'date$', 'dates$', 'romantic', 'restaurant', 'theatre', 'theater', 'şam yemə', 'görüş',
+              'randevu', 'restoran', 'teatr']),
     ('party', ['party', 'parties', 'birthday', 'qonaqlıq', 'ad günü']),
-    ('sport', ['sport', 'gym', 'workout', 'training', 'idman', 'məşq']),
+    ('sport', ['sport', 'gym', 'workout', 'training', 'run$', 'running', 'hike', 'hiking', 'idman', 'məşq', 'qaçış']),
     ('travel', ['travel', 'trip', 'flight', 'airport', 'səyahət', 'səfər', 'aeroport']),
     # "iş" folded is the English "is", so it only counts when typed with ş.
     ('work', ['work$', 'working', 'office', 'ofis', 'ise$', 'isde$', 'iş üçün']),
-    ('casual', ['casual', 'everyday', 'weekend', 'gündəlik', 'gəzinti', 'həftəsonu', 'həftə sonu']),
+    ('casual', ['casual', 'everyday', 'weekend', 'park', 'beach', 'walk', 'gündəlik', 'gəzinti', 'həftəsonu',
+                'həftə sonu', 'çimərlik']),
 ]
 _RAW_ONLY_WORK = re.compile(r'\b(iş|işə|işdə|işim)\b')
 
@@ -79,6 +82,21 @@ def detect_occasion(raw, folded):
         if _has(raw, folded, words) or (occ == 'work' and _RAW_ONLY_WORK.search(raw)):
             return occ
     return None
+
+
+# How dressed-up each occasion reads, for "WearWise read your plan as …" (spec §3.5).
+OCCASION_LEVEL = {
+    'formal': 'formal', 'client_meeting': 'formal', 'work': 'formal',
+    'date': 'smart', 'party': 'smart',
+    'casual': 'casual', 'sport': 'casual', 'travel': 'casual',
+}
+
+
+def read_plan(text):
+    """The day's plan in the user's words → {occasion, level}; both None when nothing matched."""
+    raw, folded = _norm(text)
+    occ = detect_occasion(raw, folded)
+    return {'occasion': occ, 'level': OCCASION_LEVEL.get(occ)}
 
 
 def detect_intent(raw, folded):

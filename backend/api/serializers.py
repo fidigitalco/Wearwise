@@ -78,8 +78,29 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
+# Comfortable day temperatures for a body piece by its warmth (0–5), the
+# Knowledge Base's `weather_fit` (§6). Material shifts it a little.
+WEATHER_FIT = {0: (22, 40), 1: (16, 32), 2: (10, 24), 3: (4, 18), 4: (-5, 12), 5: (-25, 5)}
+
+
+def weather_fit(g):
+    """{min_temp_c, max_temp_c, rain_suitable}; no range for shoes, bags and accessories."""
+    from .engine.scoring import WARMTH_SLOTS, warmth_of
+    out = {'min_temp_c': None, 'max_temp_c': None, 'rain_suitable': bool(g.rain_ok)}
+    if g.category in WARMTH_SLOTS:
+        w = warmth_of(g)
+        lo, hi = WEATHER_FIT[max(0, min(5, round(w)))]
+        shift = round((w - round(w)) * 6)  # half a warmth point ≈ 3 °C
+        out.update(min_temp_c=lo - shift, max_temp_c=hi - shift)
+    return out
+
+
 class GarmentSerializer(serializers.ModelSerializer):
     primary_color = serializers.CharField(read_only=True)
+    weather_fit = serializers.SerializerMethodField()
+
+    def get_weather_fit(self, g):
+        return weather_fit(g)
 
     class Meta:
         model = Garment
@@ -87,7 +108,7 @@ class GarmentSerializer(serializers.ModelSerializer):
             'id', 'image', 'cutout', 'name', 'category', 'subcategory', 'colors', 'primary_color',
             'pattern', 'material', 'surface', 'sheen', 'fit', 'length', 'season', 'warmth', 'rain_ok',
             'formality', 'occasion_tags', 'style_tags', 'attribute_confidence', 'times_worn',
-            'last_worn_at', 'status', 'favorite', 'is_sample', 'created_at', 'updated_at',
+            'last_worn_at', 'status', 'favorite', 'is_sample', 'created_at', 'updated_at', 'weather_fit',
         ]
         read_only_fields = [
             'id', 'cutout', 'times_worn', 'last_worn_at', 'created_at', 'updated_at', 'attribute_confidence',

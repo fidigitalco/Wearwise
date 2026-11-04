@@ -37,6 +37,21 @@ def target_warmth(temp_c):
     return max(1.0, min(10.0, (26 - temp_c) / 2.6 + 1))
 
 
+# Material on top of the garment's own warmth (prototype spec §3.1): wool and
+# knit hold heat, linen lets it go.
+MATERIAL_WARMTH = {'wool': 0.5, 'cashmere': 0.5, 'knit': 0.5, 'fleece': 0.5, 'down': 0.5, 'linen': -0.3}
+
+# Wind from this speed counts as windy, and any snowfall as snow (spec §3.3).
+WINDY_KMH = 30
+
+
+def warmth_of(g):
+    mat = str((g.material or {}).get('value', '')).lower()
+    if mat not in MATERIAL_WARMTH and g.surface == 'knit':
+        mat = 'knit'
+    return g.warmth + MATERIAL_WARMTH.get(mat, 0)
+
+
 def colors_of(outfit):
     return [g.primary_color for g in outfit.values() if g.primary_color]
 
@@ -81,19 +96,37 @@ def score_occasion(outfit, occasion):
     return _clamp(s)
 
 
-def score_weather(outfit, temp_c, precip_prob, season):
+def score_weather(outfit, temp_c, precip_prob, season, wind_kmh=0, snow_cm=0):
+    """Warmth for the temperature, then rain, snow and wind (prototype spec §3.3, KB §4)."""
     s = 100.0
+    snow = (snow_cm or 0) > 0
+    windy = (wind_kmh or 0) >= WINDY_KMH
     target = target_warmth(temp_c)
     if target is not None:
-        warmth = sum(g.warmth for slot, g in outfit.items() if slot in WARMTH_SLOTS)
-        s -= 11 * abs(warmth - target)
-    if precip_prob is not None and precip_prob >= 0.5:
-        outer = outfit.get('outerwear')
-        if not (outer and outer.rain_ok):
+        target += (1.0 if snow else 0) + (0.5 if windy else 0)
+        warmth = sum(warmth_of(g) for slot, g in outfit.items() if slot in WARMTH_SLOTS)
+        gap = warmth - target
+        # Too cold is worse than a layer too many: you can take a jacket off.
+        s -= 13 * -gap if gap < 0 else 8 * gap
+    bottom = outfit.get('bottom')
+    if temp_c is not None and temp_c < 20 and bottom and bottom.subcategory == 'shorts':
+        s -= 20
+    outer = outfit.get('outerwear')
+    shoes = outfit.get('shoes')
+    if (precip_prob is not None and precip_prob >= 0.5) or snow:
+        if not outer:
+            s -= 36
+        elif not outer.rain_ok:
             s -= 30
-        shoes = outfit.get('shoes')
-        if shoes and (shoes.subcategory in ('sandals', 'heels') or 'suede' in str(shoes.material.get('value', ''))):
-            s -= 12
+        if shoes:
+            if shoes.subcategory == 'boots':
+                s += 6
+            elif shoes.subcategory in ('sandals', 'heels', 'loafers', 'flats') or 'suede' in str(shoes.material.get('value', '')):
+                s -= 12
+            if snow and shoes.subcategory == 'sneakers':
+                s -= 8
+    if windy and outer:
+        s += 4
     off_season = sum(1 for g in outfit.values() if g.season and season not in g.season)
     s -= 6 * off_season
     return _clamp(s)
@@ -164,7 +197,13 @@ def score_taste(outfit, taste):
 STYLE_FORMALITY = {
     'casual': 2.0, 'smart_casual': 3.0, 'business': 4.0, 'formal': 4.5,
     'sporty': 1.5, 'streetwear': 2.0, 'minimal': 3.0, 'classic': 3.5, 'bohemian': 2.5,
+    'old_money': 3.5, 'preppy': 3.0, 'romantic': 2.5,
 }
+
+# What each newer style reaches for (Knowledge Base §3).
+OLD_MONEY_PIECES = {'blazer', 'coat', 'trench', 'cardigan', 'sweater', 'shirt', 'polo', 'chinos', 'trousers', 'loafers', 'oxfords'}
+PREPPY_PIECES = {'polo', 'shirt', 'cardigan', 'sweater', 'blazer', 'chinos', 'skirt', 'loafers', 'oxfords'}
+ROMANTIC_COLORS = {'pink', 'cream', 'white', 'burgundy', 'light_blue', 'beige'}
 
 
 def style_bonus(outfit, style):
@@ -184,6 +223,16 @@ def style_bonus(outfit, style):
     elif style == 'sporty':
         shoes = outfit.get('shoes')
         b += 4 if shoes and shoes.subcategory == 'sneakers' else 0
+    elif style == 'old_money':
+        quiet = all((g.primary_color or 'black') in NEUTRALS for g in outfit.values())
+        b += (3 if quiet else -2) + min(3, sum(1 for g in outfit.values() if g.subcategory in OLD_MONEY_PIECES))
+        b -= 3 if any(g.pattern in ('graphic', 'animal') for g in outfit.values()) else 0
+    elif style == 'preppy':
+        b += min(5, 1.5 * sum(1 for g in outfit.values() if g.subcategory in PREPPY_PIECES))
+        b += 1 if any(g.pattern in ('stripe', 'check') for g in outfit.values()) else 0
+    elif style == 'romantic':
+        b += min(4, 2 * sum(1 for g in outfit.values() if g.primary_color in ROMANTIC_COLORS and g.primary_color not in ('white', 'beige')))
+        b += 2 if 'dress' in outfit or any(g.pattern == 'floral' for g in outfit.values()) else 0
     return max(-10.0, min(10.0, b))
 
 
@@ -202,7 +251,8 @@ def score_outfit(outfit, ctx, pairs, taste):
     scores = {
         'color': score_color(outfit, pairs, taste, ctx.get('favorite_colors') or ()),
         'occasion': score_occasion(outfit, ctx['occasion']),
-        'weather': score_weather(outfit, ctx.get('temp_c'), ctx.get('precip_prob'), ctx['season']),
+        'weather': score_weather(outfit, ctx.get('temp_c'), ctx.get('precip_prob'), ctx['season'],
+                                 ctx.get('wind_kmh', 0), ctx.get('snow_cm', 0)),
         'silhouette': score_silhouette(outfit),
         'material': score_material(outfit, pairs),
         'accessories': score_accessories(outfit),

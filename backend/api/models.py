@@ -359,3 +359,34 @@ class VideoScan(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class AppFeedback(models.Model):
+    """What a user wrote from Settings → Send feedback. Admins read these; nothing else uses them."""
+
+    KINDS = ['idea', 'problem', 'other']
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='app_feedback')
+    kind = models.CharField(max_length=10, default='other', choices=tx.choices(KINDS))
+    message = models.TextField(max_length=4000)
+    platform = models.CharField(max_length=10, blank=True)
+    app_version = models.CharField(max_length=20, blank=True)
+    resolved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class AffiliateClick(models.Model):
+    """A tap on "Find in <store>" (affiliate integration step 4). Counted in the admin panel, never shown per user."""
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='affiliate_clicks')
+    store = models.CharField(max_length=24)
+    subcategory = models.CharField(max_length=24, blank=True)
+    color = models.CharField(max_length=16, blank=True)
+    source = models.CharField(max_length=12, default='gap', choices=tx.choices(['gap', 'check', 'assistant']))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']

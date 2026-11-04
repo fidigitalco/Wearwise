@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import type {
-  AssistantReply, CalendarDay, Garment, Meta, ShoppingSuggestion, Outfit, OutfitSet, Paged, Scores, Stats, User, VideoScan, Weather,
+  AssistantReply, CalendarDay, FitCheck, Garment, Meta, ShoppingSuggestion, Outfit, OutfitSet, Paged, Scores, Stats, User, VideoScan, Weather,
 } from '../types';
 
 // The deployed backend a standalone build talks to.
@@ -146,6 +146,17 @@ export const calendar = {
 export const getShopping = () =>
   http.get<{ suggestions: ShoppingSuggestion[] }>('/shopping/').then((r) => r.data.suggestions);
 
+export const shopping = {
+  check: (subcategory: string, color: string) => http.post<FitCheck>('/shopping/check/', { subcategory, color }).then((r) => r.data),
+  /** Logged before a store opens; failures never block the link. */
+  click: (body: { store: string; subcategory: string; color: string; source: 'gap' | 'check' | 'assistant' }) =>
+    http.post('/shopping/click/', body).then(() => undefined),
+};
+
+/** The day's plan in the user's words → the occasion it reads as. */
+export const readPlan = (text: string) =>
+  http.post<{ occasion: string | null; level: 'formal' | 'smart' | 'casual' | null }>('/plan/read/', { text }).then((r) => r.data);
+
 export const getMeta = () => http.get<Meta>('/meta/').then((r) => r.data);
 
 // ── Garments ────────────────────────────────────────────────────────────────
@@ -279,3 +290,7 @@ export const getWeather = (lat: number, lon: number) =>
   http.get<Weather>('/weather/', { params: { lat, lon } }).then((r) => r.data);
 
 export const getStats = () => http.get<Stats>('/stats/').then((r) => r.data);
+
+/** Settings → Send feedback; staff read it in the admin panel. */
+export const sendAppFeedback = (body: { kind: 'idea' | 'problem' | 'other'; message: string; platform: string; app_version: string }) =>
+  http.post('/app-feedback/', body).then(() => undefined);

@@ -52,6 +52,8 @@ export interface Stats {
   saved_outfits: number
   wears: number
   plans: number
+  open_feedback: number
+  affiliate_clicks: number
 }
 
 export interface ChartPoint { name: string; value: number }
@@ -64,6 +66,8 @@ export interface Analytics {
   assistant: TrendData
   wears: TrendData
   uploads: TrendData
+  clicks: TrendData
+  stores: ChartPoint[]
   active_inactive: ChartPoint[]
   providers: ChartPoint[]
   plans: ChartPoint[]
@@ -110,6 +114,17 @@ export interface UserDetail extends Omit<UserRow, 'garments' | 'outfits' | 'wear
   }
 }
 
+export interface FeedbackRow {
+  id: number
+  kind: 'idea' | 'problem' | 'other'
+  message: string
+  platform: string
+  app_version: string
+  resolved: boolean
+  created_at: string
+  user: { id: number; email: string; name: string; is_guest: boolean } | null
+}
+
 export interface PremiumData {
   premium: number
   free: number
@@ -149,4 +164,9 @@ export const api = {
     req<UserDetail>(`/api/admin/users/${id}/`, { method: 'PATCH', body: JSON.stringify(patch) }),
   deleteUser: (id: number) => req<void>(`/api/admin/users/${id}/`, { method: 'DELETE' }),
   premium: () => req<PremiumData>('/api/admin/premium/'),
+  feedback: (q: { status?: string; kind?: string; page?: number }) =>
+    req<Page<FeedbackRow> & { open: number }>(`/api/admin/feedback/${qs({ ...q })}`),
+  updateFeedback: (id: number, resolved: boolean) =>
+    req<FeedbackRow>(`/api/admin/feedback/${id}/`, { method: 'PATCH', body: JSON.stringify({ resolved }) }),
+  deleteFeedback: (id: number) => req<void>(`/api/admin/feedback/${id}/`, { method: 'DELETE' }),
 }

@@ -17,6 +17,8 @@ export interface Material {
 
 export interface Garment {
   id: string;
+  /** Comfortable day temperatures (none for shoes and accessories) and whether it is made for rain. */
+  weather_fit?: { min_temp_c: number | null; max_temp_c: number | null; rain_suitable: boolean };
   image: string | null;
   cutout: string | null;
   name: string;
@@ -154,6 +156,18 @@ export interface ShoppingSuggestion {
   subcategory: string;
   color: string;
   rgb: [number, number, number];
+  /** New good outfits the closet would gain with this piece. */
+  unlocks: number;
+  links: { store: string; url: string }[];
+}
+
+/** "Will this fit my wardrobe?" for a piece the user is thinking of buying. */
+export interface FitCheck {
+  verdict: 'great' | 'works' | 'skip';
+  unlocks: number;
+  matches: number;
+  title: string;
+  better: { color: string; unlocks: number; title: string } | null;
   links: { store: string; url: string }[];
 }
 

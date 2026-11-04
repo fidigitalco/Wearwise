@@ -928,7 +928,11 @@ class ShoppingTests(APITestCase):
         self.assertEqual(items[0]['subcategory'], 'sneakers')  # no shoes yet
         self.assertEqual(items[0]['title'], 'Ağ krossovka')
         self.assertTrue(all(i['links'] and i['links'][0]['url'].startswith('https://') for i in items))
-        self.assertIn('white+sneakers', items[0]['links'][0]['url'])
+        trendyol = items[0]['links'][0]['url']
+        self.assertIn('q=beyaz+sneaker', trendyol)  # Trendyol is searched in Turkish
+        self.assertIn('utm_medium=affiliate', trendyol)
+        self.assertNotIn(str(self.user.pk) + '&', trendyol.split('sub_id=')[1] + '&')  # the sub-id is anonymous
+        self.assertEqual([l['store'] for l in items[0]['links']], ['Trendyol', 'AliExpress', 'Amazon'])
 
     def test_never_suggests_what_is_owned_and_stylist_answers(self):
         self.client.post('/api/garments/sample/')
@@ -938,6 +942,39 @@ class ShoppingTests(APITestCase):
         r = self.client.post('/api/assistant/', {'message': 'Qarderobuma nə almalıyam?'}, format='json')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(len(r.data['shopping']), len(items))
+        self.assertTrue(all(isinstance(i['unlocks'], int) for i in items))
+
+    def test_will_it_fit_verdicts_and_clicks(self):
+        self.client.post('/api/garments/sample/')
+        self.assertEqual(self.client.post('/api/shopping/check/', {'subcategory': 'nope', 'color': 'navy'}, format='json').status_code, 400)
+        good = self.client.post('/api/shopping/check/', {'subcategory': 'chinos', 'color': 'beige'}, format='json').data
+        self.assertIn(good['verdict'], ('great', 'works'))
+        self.assertGreaterEqual(good['unlocks'], 3)
+        self.assertGreater(good['matches'], 0)
+        bad = self.client.post('/api/shopping/check/', {'subcategory': 'evening_dress', 'color': 'orange'}, format='json').data
+        self.assertEqual(bad['verdict'], 'skip')
+        r = self.client.post('/api/shopping/click/', {'store': 'Trendyol', 'subcategory': 'chinos', 'color': 'beige', 'source': 'check'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        from .models import AffiliateClick
+        self.assertEqual(AffiliateClick.objects.get().source, 'check')
+
+    def test_plan_text_reads_occasion(self):
+        r = self.client.post('/api/plan/read/', {'text': 'Client meeting downtown, dinner after'}, format='json')
+        self.assertEqual((r.data['occasion'], r.data['level']), ('client_meeting', 'formal'))
+        r = self.client.post('/api/plan/read/', {'text': 'Axşam restoranda şam yeməyi'}, format='json')
+        self.assertEqual(r.data['level'], 'smart')
+        self.assertIsNone(self.client.post('/api/plan/read/', {'text': 'hm'}, format='json').data['occasion'])
+
+    def test_garment_weather_fit(self):
+        g = self.client.get('/api/garments/').data
+        self.assertEqual(g if isinstance(g, list) else g.get('results', g), [])
+        self.client.post('/api/garments/sample/')
+        items = self.client.get('/api/garments/').data
+        items = items if isinstance(items, list) else items['results']
+        coat = max((i for i in items if i['category'] == 'outerwear'), key=lambda i: i['warmth'])
+        shoes = next(i for i in items if i['category'] == 'shoes')
+        self.assertLess(coat['weather_fit']['max_temp_c'], 20)
+        self.assertIsNone(shoes['weather_fit']['min_temp_c'])
 
 
 class AppleWebFlowTests(APITestCase):
@@ -1079,6 +1116,20 @@ class AdminPanelTests(APITestCase):
         self.assertEqual(r.status_code, 403)
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.member_token}')
         self.assertEqual(self.client.get('/api/admin/stats/').status_code, 403)
+
+    def test_feedback_reaches_admin(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.member_token}')
+        self.assertEqual(self.client.post('/api/app-feedback/', {'message': '  '}, format='json').status_code, 400)
+        r = self.client.post('/api/app-feedback/', {'kind': 'idea', 'message': 'Dark mode please', 'platform': 'ios'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(self.client.get('/api/admin/feedback/').status_code, 403)
+        self.login()
+        data = self.client.get('/api/admin/feedback/?status=open').data
+        self.assertEqual((data['count'], data['open']), (1, 1))
+        row = data['results'][0]
+        self.assertEqual((row['kind'], row['message'], row['user']['email']), ('idea', 'Dark mode please', 'member@example.com'))
+        self.assertTrue(self.client.patch(f"/api/admin/feedback/{row['id']}/", {'resolved': True}, format='json').data['resolved'])
+        self.assertEqual(self.client.get('/api/admin/stats/').data['open_feedback'], 0)
 
     def test_stats_users_and_actions(self):
         self.login()
