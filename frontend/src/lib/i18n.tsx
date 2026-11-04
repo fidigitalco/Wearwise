@@ -3,19 +3,38 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { setApiLanguage } from '../services/api';
 import { az } from './strings/az';
 import { en, type Strings } from './strings/en';
+import { es } from './strings/es';
+import { ru } from './strings/ru';
+import { tr } from './strings/tr';
 
 export type { Strings };
 
-export type Lang = 'az' | 'en';
+export type Lang = 'az' | 'en' | 'ru' | 'tr' | 'es';
 
-const STRINGS: Record<Lang, Strings> = { en, az };
+const STRINGS: Record<Lang, Strings> = { az, en, ru, tr, es };
+
+/** Each language in its own name, in the order the picker shows them. */
+export const LANGUAGES: { code: Lang; name: string }[] = [
+  { code: 'az', name: 'Azərbaycanca' },
+  { code: 'en', name: 'English' },
+  { code: 'ru', name: 'Русский' },
+  { code: 'tr', name: 'Türkçe' },
+  { code: 'es', name: 'Español' },
+];
+
+/** BCP 47 tag for dates and numbers. */
+export const LOCALES: Record<Lang, string> = {
+  az: 'az-AZ', en: 'en-GB', ru: 'ru-RU', tr: 'tr-TR', es: 'es-ES',
+};
+
+const isLang = (v: unknown): v is Lang => typeof v === 'string' && v in STRINGS;
 const STORAGE_KEY = 'WEARWISE_LANG';
 
 /** The phone's language when it is one we speak; Azerbaijani otherwise (the home market). */
 function deviceLang(): Lang {
   try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase();
-    return locale.startsWith('en') ? 'en' : 'az';
+    const code = Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().split('-')[0];
+    return isLang(code) ? code : 'az';
   } catch {
     return 'az';
   }
@@ -31,7 +50,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((saved) => {
-        if (saved === 'az' || saved === 'en') setLangState(saved);
+        if (isLang(saved)) setLangState(saved);
       })
       .catch(() => {});
   }, []);

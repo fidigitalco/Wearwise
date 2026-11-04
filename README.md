@@ -109,6 +109,14 @@ Photos in `assets/images/` are from Unsplash (free licence); sources in `assets/
 Real today (backend + app):
 - Email sign-up and sign-in, onboarding preferences, profile and settings.
 - Wardrobe with photo, multi-photo and video adding; AI tagging of each piece (needs `ANTHROPIC_API_KEY`; without it the type is picked by hand).
+- Five languages: Azerbaijani, English, Russian, Turkish, Spanish. The app's strings are in
+  `frontend/src/lib/strings/<lang>.ts`; server-written text (stylist replies, outfit titles, reasons) uses
+  `say(lang, en, az)` in `backend/api/locale.py`, with the other languages in `backend/api/locales/<lang>.json`.
+  After adding a sentence, run `python manage.py locale_catalog` and translate the new lines; until then it shows in English.
+- Voice questions to the stylist in any of the five languages: the language is heard from the recording, not
+  taken from the app (Azerbaijani and Turkish are too close to tell apart, so the app's language decides between them). Whisper runs in the cloud with `GROQ_API_KEY` or `OPENAI_API_KEY` (a second or two), else locally
+  (`small` picks the language, `large-v3-turbo` writes it; both load when the server starts). Replies come in the
+  app's language.
 - Rule-based outfit engine with weather, occasion, style, colour harmony, rotation and taste learning; titles and "why it works" reasons.
 - Swapping a piece, likes, saves, marking as worn, search, saved items, stats.
 - Shop (WearWise_Prototype_Spec.md §2.4): gaps with "unlocks N outfits", "Will this fit my wardrobe?", store links

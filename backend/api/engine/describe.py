@@ -5,6 +5,7 @@ works" sentences, in the app's language.
 Everything here is derived from the outfit, its scores and the context it was
 scored in — weather is only mentioned when the context actually has it.
 """
+from ..locale import name, norm, say
 from ..taxonomy import COLOR_AZ, KIND_AZ, NEUTRALS, OCCASION_AZ, STYLE_AZ
 from .harmony import relationship
 from .recommend import _label, needs_outerwear
@@ -26,7 +27,17 @@ _TITLES = {
 
 
 def _lang(ctx):
-    return 'az' if ctx.get('lang') == 'az' else 'en'
+    return norm(ctx.get('lang'))
+
+
+def _pick(table, lang, key=None):
+    """An entry of an {'en': …, 'az': …} table in `lang`; other languages translate the English one."""
+    if lang == 'az':
+        return table['az'][key] if key else table['az']
+    en = table['en'][key] if key else table['en']
+    if isinstance(en, tuple):
+        return tuple(say(lang, e) for e in en)
+    return say(lang, en)
 
 
 def _cap(text):
@@ -37,16 +48,16 @@ def _cap(text):
     return first + text[1:]
 
 
-def color_name(name, lang):
-    return COLOR_AZ.get(name, name) if lang == 'az' else name.replace('_', ' ')
+def color_name(key, lang):
+    return name(lang, 'colors', key, COLOR_AZ)
 
 
 def kind_name(key, lang):
-    return KIND_AZ.get(key, key) if lang == 'az' else key.replace('_', ' ')
+    return name(lang, 'kinds', key, KIND_AZ)
 
 
 def style_name(key, lang):
-    return STYLE_AZ.get(key, key) if lang == 'az' else key.replace('_', ' ').title()
+    return name(lang, 'styles', key, STYLE_AZ, key.replace('_', ' ').title())
 
 
 # How an occasion reads mid-sentence in English ("right for a date").
@@ -57,7 +68,7 @@ OCCASION_EN = {
 
 
 def occasion_name(key, lang):
-    return OCCASION_AZ.get(key, key) if lang == 'az' else OCCASION_EN.get(key, key.replace('_', ' '))
+    return name(lang, 'occasions', key, OCCASION_AZ, OCCASION_EN.get(key, key.replace('_', ' ')))
 
 
 def _mean_formality(outfit):
@@ -107,12 +118,12 @@ def _lead_colors(outfit):
 def title_for(outfit, ctx, taken=()):
     """A title not already in `taken`: the plain one, else colour-prefixed, else numbered."""
     lang = _lang(ctx)
-    full, core = _TITLES[title_key(outfit, ctx)][lang]
+    full, core = _pick(_TITLES[title_key(outfit, ctx)], lang)
     if full not in taken:
         return full
     for c in _lead_colors(outfit):
-        name = color_name(c, lang)
-        t = f'{name.title()} {core}' if lang == 'en' else _cap(f'{name} {core}')
+        cn = color_name(c, lang)
+        t = f'{cn.title()} {core}' if lang == 'en' else _cap(say(lang, '{color} {core}', '{color} {core}', color=cn, core=core))
         if t not in taken:
             return t
     n = 2
@@ -180,7 +191,7 @@ def _color_reason(outfit, lang):
     rel = relationship(a, b)
     base, accent = (a, b) if a in NEUTRALS else (b, a)
     an, bn = color_name(a, lang), color_name(b, lang)
-    return _COLOR_REASONS[lang][rel].format(
+    return _pick(_COLOR_REASONS, lang, rel).format(
         a=an, A=_cap(an), b=bn, base=color_name(base, lang), Base=_cap(color_name(base, lang)),
         accent=color_name(accent, lang),
     )
@@ -188,8 +199,10 @@ def _color_reason(outfit, lang):
 
 def _weather_reason(outfit, ctx, scores, lang):
     t, p = ctx.get('temp_c'), ctx.get('precip_prob')
-    text = _TEXT[lang]
     outer = outfit.get('outerwear')
+
+    def text_(key):
+        return _pick(_TEXT, lang, key)
 
     def outer_label():
         label = _label(outer, lang)
@@ -197,7 +210,7 @@ def _weather_reason(outfit, ctx, scores, lang):
 
     if p is not None and p >= 0.5:
         if outer and outer.rain_ok:
-            return text['rain'].format(outer=outer_label(), pct=round(p * 100))
+            return text_('rain').format(outer=outer_label(), pct=round(p * 100))
         return None  # wet day without a rain layer: nothing honest to praise
     if t is None:
         return None
@@ -206,23 +219,25 @@ def _weather_reason(outfit, ctx, scores, lang):
         return None
     deg = round(t)
     if outer and needs_outerwear(ctx):
-        return text['outer_temp'].format(outer=outer_label(), deg=deg)
-    return text['light_temp' if t >= 18 else 'warm_temp'].format(deg=deg)
+        return text_('outer_temp').format(outer=outer_label(), deg=deg)
+    return text_('light_temp' if t >= 18 else 'warm_temp').format(deg=deg)
 
 
 def reasons_for(outfit, scores, ctx):
     """2–4 grounded sentences for "Why this outfit works"."""
     lang = _lang(ctx)
-    text = _TEXT[lang]
+
+    def text(key):
+        return _pick(_TEXT, lang, key)
     out = [_color_reason(outfit, lang), _weather_reason(outfit, ctx, scores, lang)]
     style = ctx.get('style')
     if style and style_bonus(outfit, style) > 0:
-        out.append(text['style'].format(style=style_name(style, lang)))
+        out.append(text('style').format(style=style_name(style, lang)))
     if scores.get('occasion', 0) >= 85:
-        out.append(text['occasion'].format(occasion=occasion_name(ctx['occasion'], lang)))
+        out.append(text('occasion').format(occasion=occasion_name(ctx['occasion'], lang)))
     if scores.get('rotation', 0) >= 90:
-        out.append(text['rotation'])
+        out.append(text('rotation'))
     out = [r for r in out if r]
     if len(out) < 2 and scores.get('silhouette', 0) >= 80:
-        out.append(text['silhouette'])
+        out.append(text('silhouette'))
     return out[:4]

@@ -127,13 +127,16 @@ NAME_RULES = {
     'en': '2–4 words a person would use, colour first, e.g. "Navy wool sweater", "White leather sneakers".',
     'az': '2–4 words in Azerbaijani, colour first, e.g. "Tünd göy yun sviter", "Ağ dəri krossovka". '
           'Write material in English regardless.',
+    'ru': '2–4 words in Russian, e.g. "Тёмно-синий шерстяной свитер". Write material in English regardless.',
+    'tr': '2–4 words in Turkish, colour first, e.g. "Lacivert yün kazak". Write material in English regardless.',
+    'es': '2–4 words in Spanish, e.g. "Jersey de lana azul marino". Write material in English regardless.',
 }
 
 
 def analyse_garment(image_file, lang='en'):
     """Attributes for the garment in `image_file`, or None if tagging is unavailable.
 
-    `lang` ('az' or 'en') sets the language of the name; every other field is a fixed English value.
+    `lang` (any of locale.LANGS) sets the language of the name; every other field is a fixed English value.
     """
     if not os.environ.get('ANTHROPIC_API_KEY'):
         return None

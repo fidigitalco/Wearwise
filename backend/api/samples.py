@@ -11,6 +11,7 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 
 from . import taxonomy as tx
+from .locale import say
 from .models import Garment, Outfit
 
 IMAGES = Path(__file__).resolve().parent / 'sample_images'
@@ -69,7 +70,7 @@ def _create(user, lang, photo, en, az, category, sub, color, extra):
     material = extra.pop('material', None)
     g = Garment(
         user=user,
-        name=az if lang == 'az' else en,
+        name=say(lang, en, az),
         category=category,
         subcategory=sub,
         colors=[{'name': color, 'rgb': list(tx.COLORS[color]), 'share': 1.0}],

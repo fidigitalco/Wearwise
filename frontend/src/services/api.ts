@@ -36,17 +36,20 @@ const TOKEN_KEY = 'WEARWISE_AUTH_TOKEN';
 
 let token: string | null = null;
 let onUnauthorized: (() => void) | null = null;
-let language: 'az' | 'en' = 'az';
+let language = 'az';
 
 /** The app's language, sent to the server so explanations come back in it. */
-export function setApiLanguage(lang: 'az' | 'en') {
+export function setApiLanguage(lang: string) {
   language = lang;
 }
 
 // errorMessage is called outside React, so its two generic messages live here.
-const GENERIC = {
+const GENERIC: Record<string, { error: string; network: string }> = {
   az: { error: 'Nəsə alınmadı. Bir daha cəhd et.', network: 'Serverə qoşulmaq olmur. İnterneti yoxla.' },
   en: { error: 'Something went wrong. Please try again.', network: 'Cannot reach the server. Check your connection.' },
+  ru: { error: 'Что-то пошло не так. Попробуйте ещё раз.', network: 'Нет связи с сервером. Проверьте интернет.' },
+  tr: { error: 'Bir şeyler ters gitti. Lütfen tekrar dene.', network: 'Sunucuya ulaşılamıyor. Bağlantını kontrol et.' },
+  es: { error: 'Algo salió mal. Inténtalo de nuevo.', network: 'No se puede conectar con el servidor. Revisa tu conexión.' },
 };
 
 export const http = axios.create({ baseURL: BASE_URL, timeout: 20000 });
@@ -86,7 +89,7 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
  * errors that matter (wrong password, unrecognised photo…) to their own strings.
  */
 export function errorMessage(err: unknown): string {
-  const g = GENERIC[language];
+  const g = GENERIC[language] ?? GENERIC.en;
   const e = err as AxiosError<any>;
   if (!e?.response) return e?.message === 'Network Error' || e?.code === 'ECONNABORTED' ? g.network : g.error;
   const d = e.response.data;

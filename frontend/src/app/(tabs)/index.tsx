@@ -12,7 +12,7 @@ import { TomorrowCard } from '../../components/Tomorrow';
 import { OutfitHeroCard, WeatherLine } from '../../components/Outfit';
 import { Button, EmptyState, IconButton, LoadingSkeleton, SectionHeader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
-import { useI18n } from '../../lib/i18n';
+import { LOCALES, useI18n } from '../../lib/i18n';
 import { readWeather, type WeatherInfo } from '../../lib/weather';
 import { calendar, errorMessage, garments as garmentsApi, getShopping, getStats, outfits as outfitsApi } from '../../services/api';
 import { gutter, radius, space, type, useTheme } from '../../theme';
@@ -144,7 +144,7 @@ export default function HomeScreen() {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? s.home.morning : hour < 18 ? s.home.afternoon : s.home.evening;
-  const date = new Date().toLocaleDateString(lang === 'az' ? 'az-AZ' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const date = new Date().toLocaleDateString(LOCALES[lang], { weekday: 'long', day: 'numeric', month: 'long' });
   const empty = stats !== null && stats.total === 0;
   const look = plan ?? set?.outfits[0];
 

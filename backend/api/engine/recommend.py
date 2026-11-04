@@ -10,6 +10,7 @@ Outfit suggestions (KB section 4, stages 9–13).
 import random
 from itertools import product
 
+from ..locale import name, norm, say
 from ..taxonomy import COLOR_AZ, KIND_AZ, NEUTRALS, OCCASION_AZ, OCCASIONS
 from .harmony import relationship
 from .scoring import score_outfit
@@ -122,13 +123,9 @@ def mmr(scored, k=3, lam=0.7):
 def _label(g, lang):
     if g.name:
         return g.name
-    if lang == 'az':
-        color = COLOR_AZ.get(g.primary_color or '', '')
-        kind = KIND_AZ.get(g.subcategory or g.category, '')
-    else:
-        color = (g.primary_color or '').replace('_', ' ')
-        kind = (g.subcategory or g.category).replace('_', ' ')
-    return f'{color} {kind}'.strip()
+    color = name(lang, 'colors', g.primary_color, COLOR_AZ) if g.primary_color else ''
+    kind = name(lang, 'kinds', g.subcategory or g.category, KIND_AZ)
+    return say(lang, '{color} {kind}', '{color} {kind}', color=color, kind=kind).strip()
 
 
 def _lower_first(text):
@@ -157,41 +154,37 @@ _COLOR_PHRASES = {
 
 def explain(outfit, scores, ctx):
     """One sentence, grounded only on the top-scoring factors, in the app's language."""
-    lang = 'az' if ctx.get('lang') == 'az' else 'en'
-    az = lang == 'az'
+    lang = norm(ctx.get('lang'))
     parts = []
     body = [outfit[s] for s in ('top', 'dress', 'bottom') if s in outfit]
     if len(body) >= 2 and body[0].primary_color and body[1].primary_color:
         a, b = body[0].primary_color, body[1].primary_color
         rel = relationship(a, b)
         accent = b if a in NEUTRALS else a
-        accent_name = COLOR_AZ.get(accent, accent) if az else accent.replace('_', ' ')
-        phrase = _COLOR_PHRASES[lang][rel].format(accent=accent_name)
+        accent_name = name(lang, 'colors', accent, COLOR_AZ)
+        phrase = (_COLOR_PHRASES['az'][rel] if lang == 'az' else say(lang, _COLOR_PHRASES['en'][rel])).format(accent=accent_name)
         first, second = _label(body[0], lang), _lower_first(_label(body[1], lang))
-        joiner = 'və' if az else 'with'
-        parts.append((scores['color'], f'{first} {joiner} {second}: {phrase}'))
+        parts.append((scores['color'], say(lang, '{first} with {second}: {phrase}', '{first} və {second}: {phrase}',
+                                           first=first, second=second, phrase=phrase)))
 
     outer = outfit.get('outerwear')
     p, t = ctx.get('precip_prob'), ctx.get('temp_c')
     if outer and outer.rain_ok and p is not None and p >= 0.5:
-        pct = round(p * 100)
-        text = (f'{_lower_first(_label(outer, lang))} {pct}% yağış ehtimalına qarşı qoruyur' if az
-                else f'the {_lower_first(_label(outer, lang))} covers the {pct}% rain chance')
-        parts.append((scores['weather'] + 5, text))
+        parts.append((scores['weather'] + 5, say(lang, 'the {outer} covers the {pct}% rain chance',
+                                                 '{outer} {pct}% yağış ehtimalına qarşı qoruyur',
+                                                 outer=_lower_first(_label(outer, lang)), pct=round(p * 100))))
     elif t is not None:
         deg = round(t)
-        if az:
-            text = f'{deg}°C üçün kifayət qədər istidir' if t < 18 else f'{deg}°C üçün kifayət qədər yüngüldür'
-        else:
-            text = f'warm enough for {deg}°C' if t < 18 else f'light enough for {deg}°C'
+        text = (say(lang, 'warm enough for {deg}°C', '{deg}°C üçün kifayət qədər istidir', deg=deg) if t < 18
+                else say(lang, 'light enough for {deg}°C', '{deg}°C üçün kifayət qədər yüngüldür', deg=deg))
         parts.append((scores['weather'], text))
 
     occ = ctx['occasion']
-    parts.append((scores['occasion'], f'{OCCASION_AZ.get(occ, occ)} üçün tam uyğundur' if az
-                  else f"right on the formality for {occ.replace('_', ' ')}"))
+    parts.append((scores['occasion'], say(lang, 'right on the formality for {occasion}', '{occasion} üçün tam uyğundur',
+                                          occasion=name(lang, 'occasions', occ, OCCASION_AZ))))
     if scores['rotation'] >= 90:
-        parts.append((scores['rotation'] - 5, 'çoxdan geyinmədiyin paltarları da yenidən ortaya çıxarır' if az
-                      else 'it brings back pieces you have not worn lately'))
+        parts.append((scores['rotation'] - 5, say(lang, 'it brings back pieces you have not worn lately',
+                                                  'çoxdan geyinmədiyin paltarları da yenidən ortaya çıxarır')))
 
     parts.sort(key=lambda x: -x[0])
     lead, *rest = [text for _, text in parts[:2]]

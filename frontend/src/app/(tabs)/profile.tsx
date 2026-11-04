@@ -8,18 +8,13 @@ import { AppHeader } from '../../components/AppHeader';
 import { Choice, Row, Section } from '../../components/ListRows';
 import { BottomSheet, ConfirmationDialog, useToast } from '../../components/Overlays';
 import { useAuth } from '../../lib/auth';
-import { useI18n, useLabel, type Lang } from '../../lib/i18n';
+import { LANGUAGES, useI18n, useLabel } from '../../lib/i18n';
 import { rgbCss, useMeta } from '../../lib/meta';
 import { formatPrice, PRICING } from '../../lib/pricing';
 import { openStoreReview } from '../../lib/rate';
 import { errorMessage, getStats } from '../../services/api';
 import { gutter, space, type, useTheme } from '../../theme';
 import type { Stats, User } from '../../types';
-
-const LANGUAGES: { code: Lang; name: string }[] = [
-  { code: 'az', name: 'Azərbaycanca' },
-  { code: 'en', name: 'English' },
-];
 
 /** Profile: who you are as a dresser, a few numbers, the stylist, and settings. */
 export default function MyStyleScreen() {

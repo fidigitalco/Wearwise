@@ -6,7 +6,7 @@ import { OutfitCard, WeatherCard } from '../components/Outfit';
 import { useToast } from '../components/Overlays';
 import { Button, IconButton } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { useI18n } from '../lib/i18n';
+import { LOCALES, useI18n } from '../lib/i18n';
 import { FALLBACK, readWeather } from '../lib/weather';
 import { calendar, errorMessage, outfits as outfitsApi } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
@@ -185,7 +185,7 @@ export default function CalendarScreen() {
     setSelected(todayIso);
   };
 
-  const locale = lang === 'az' ? 'az-AZ' : 'en-GB';
+  const locale = LOCALES[lang];
   const monthTitle = month.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
   const [y, m, d] = selected.split('-').map(Number);
   const dayTitle = new Date(y, m - 1, d).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });

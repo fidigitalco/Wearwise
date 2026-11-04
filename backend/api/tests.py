@@ -846,7 +846,7 @@ class AssistantTests(APITestCase):
     def test_voice_question_is_transcribed_and_answered(self):
         from unittest import mock
         audio = SimpleUploadedFile('q.m4a', b'fake audio', content_type='audio/m4a')
-        with mock.patch('api.views.transcribe', return_value='What should I wear tomorrow?'):
+        with mock.patch('api.views.transcribe', return_value=('What should I wear tomorrow?', 'en')):
             r = self.client.post('/api/assistant/', {'audio': audio}, format='multipart')
         self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual(r.data['heard'], 'What should I wear tomorrow?')
@@ -855,6 +855,40 @@ class AssistantTests(APITestCase):
             r = self.client.post('/api/assistant/', {'audio': audio}, format='multipart')
         self.assertEqual(r.status_code, 503)
         self.assertEqual(r.data['code'], 'voice_unavailable')
+
+    def test_russian_voice_question_is_understood(self):
+        from unittest import mock
+        audio = SimpleUploadedFile('q.m4a', b'fake audio', content_type='audio/m4a')
+        with mock.patch('api.views.transcribe', return_value=('Что мне надеть завтра на встречу с клиентом?', 'ru')):
+            r = self.client.post('/api/assistant/', {'audio': audio}, format='multipart')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual((r.data['heard'], r.data['heard_lang']), ('Что мне надеть завтра на встречу с клиентом?', 'ru'))
+        from .assistant import _norm, detect_intent, detect_occasion
+        raw, folded = _norm('Что мне надеть завтра на встречу с клиентом?')
+        self.assertEqual((detect_intent(raw, folded), detect_occasion(raw, folded)), ('tomorrow', 'client_meeting'))
+
+    def test_language_is_heard_not_taken_from_the_app(self):
+        from .speech import pick_language
+        self.assertEqual(pick_language([('ru', 0.9), ('en', 0.05)], 'az'), 'ru')
+        self.assertEqual(pick_language([('tr', 0.6), ('az', 0.3)], 'az'), 'az')  # too close to tell: the app decides
+        self.assertEqual(pick_language([('az', 0.6), ('tr', 0.3)], 'tr'), 'tr')
+        self.assertEqual(pick_language([('es', 0.9)], 'az'), 'es')
+        self.assertEqual(pick_language([('zh', 0.6), ('en', 0.3)], 'az'), 'en')  # unsupported: the nearest we speak
+        self.assertEqual(pick_language([('uk', 0.5), ('ru', 0.3)], 'en'), 'ru')
+        self.assertEqual(pick_language([('en', 0.48), ('az', 0.47)], 'az'), 'az')  # a tie goes to the app's language
+
+    def test_cloud_transcription_rewrites_turkish_as_azerbaijani(self):
+        from unittest import mock
+        from . import speech
+        calls = []
+
+        def fake(provider, path, language=None):
+            calls.append(language)
+            return ('Sabah ne giyeyim', 'tr') if language is None else ('Sabah nə geyinim', language)
+        audio = SimpleUploadedFile('q.m4a', b'fake audio')
+        with mock.patch.dict('os.environ', {'GROQ_API_KEY': 'k'}), mock.patch.object(speech, '_cloud_call', fake):
+            self.assertEqual(speech.transcribe(audio, 'az'), ('Sabah nə geyinim', 'az'))
+        self.assertEqual(calls, [None, 'az'])
 
 class StyleFilterTests(APITestCase):
     def test_style_override_is_used_and_stored(self):
@@ -1145,3 +1179,41 @@ class AdminPanelTests(APITestCase):
         self.assertEqual(self.client.get('/api/admin/garments/').status_code, 404)
         self.assertEqual(self.client.delete(f'/api/admin/users/{self.member_id}/').status_code, 204)
         self.assertFalse(User.objects.filter(pk=self.member_id).exists())
+
+
+class LocaleTests(APITestCase):
+    def test_every_language_has_every_sentence_with_its_placeholders(self):
+        import json
+        import re
+        from pathlib import Path
+        from .locale import LANGS
+        base = Path(__file__).parent / 'locales'
+        src = json.loads((base / '_source.json').read_text(encoding='utf-8'))
+        holes = lambda t: set(re.findall(r'\{(\w+)\}', t))
+        for lang in LANGS:
+            if lang in ('az', 'en'):
+                continue
+            cat = json.loads((base / f'{lang}.json').read_text(encoding='utf-8'))
+            for en in src['text']:
+                self.assertIn(en, cat['text'], f'{lang}: {en}')
+                self.assertLessEqual(holes(cat['text'][en]), holes(en), f'{lang}: {en}')
+            for kind, keys in src['names'].items():
+                self.assertLessEqual(set(keys), set(cat['names'][kind]), f'{lang} names.{kind}')
+
+    def test_header_picks_language_and_replies_follow_it(self):
+        from .locale import lang_from_header
+        self.assertEqual(lang_from_header('ru-RU,ru;q=0.9,en;q=0.8'), 'ru')
+        self.assertEqual(lang_from_header('fr-FR,es;q=0.5'), 'es')
+        self.assertEqual(lang_from_header('zh-CN'), 'en')  # not offered for now
+        self.assertEqual(lang_from_header('de'), 'en')
+        r = self.client.post('/api/auth/register/', {'email': 'l@example.com', 'password': 'wardrobe-123', 'display_name': 'L'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.client.post('/api/garments/sample/')
+        for lang, probe in [('ru', 'Что мне надеть завтра?'), ('tr', 'Yarın ne giysem?'), ('es', '¿Qué me pongo mañana?')]:
+            r = self.client.post('/api/assistant/', {'message': probe}, format='json', HTTP_ACCEPT_LANGUAGE=lang)
+            self.assertEqual(r.status_code, 200, (lang, r.data))
+            self.assertTrue(r.data['outfits'], lang)
+            self.assertNotIn('Here are', r.data['reply'], lang)  # answered in the language, not English
+            self.assertNotIn('{', r.data['reply'], lang)
+            titles = [o['title'] for o in r.data['outfits']]
+            self.assertTrue(all(t and '{' not in t for t in titles), (lang, titles))

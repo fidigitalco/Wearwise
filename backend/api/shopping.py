@@ -26,6 +26,7 @@ from django.utils import timezone
 
 from . import taxonomy as tx
 from .engine.describe import _cap, color_name, kind_name
+from .locale import say
 from .models import Garment
 from .services import pairs
 
@@ -195,13 +196,14 @@ def check_fit(user, sub, color, lang='en'):
     alt_color, alt_n = best_color(sub, garments, table)
     better = None
     if alt_color != color and alt_n > n:
-        better = {'color': alt_color, 'unlocks': alt_n, 'title': _cap(f'{color_name(alt_color, lang)} {kind_name(sub, lang)}')}
+        better = {'color': alt_color, 'unlocks': alt_n,
+                  'title': _cap(say(lang, '{color} {kind}', '{color} {kind}', color=color_name(alt_color, lang), kind=kind_name(sub, lang)))}
     return {
         'verdict': verdict,
         'unlocks': n,
         'matches': matched_pieces(new, garments, table),
         'better': better,
-        'title': _cap(f'{color_name(color, lang)} {kind_name(sub, lang)}'),
+        'title': _cap(say(lang, '{color} {kind}', '{color} {kind}', color=color_name(color, lang), kind=kind_name(sub, lang))),
         'links': links_for(sub, color, user),
     }
 
@@ -262,10 +264,11 @@ def suggestions(user, lang='en', limit=4):
             n = unlocks(hypothetical(sub, color), garments, table) if body else 0
         key, fmt = (rule[0], {'owned': color_name(rule[1], lang)}) if isinstance(rule, tuple) else (rule, {})
         en, az = REASONS[key]
+        reason = say(lang, en, az, **fmt)
         out.append({
             'id': f'{sub}-{color}',
-            'title': _cap(f'{color_name(color, lang)} {kind_name(sub, lang)}'),
-            'reason': (az if lang == 'az' else en).format(**fmt),
+            'title': _cap(say(lang, '{color} {kind}', '{color} {kind}', color=color_name(color, lang), kind=kind_name(sub, lang))),
+            'reason': reason,
             'category': category,
             'subcategory': sub,
             'color': color,

@@ -24,6 +24,7 @@ from rest_framework.throttling import AnonRateThrottle
 
 from . import social, taxonomy as tx
 from .assistant import answer, read_plan
+from .locale import lang_from_header
 from .colors import extract_colors, remove_background
 from .samples import load_sample_wardrobe, restore_sample_photos
 from .scans import start_scan
@@ -323,8 +324,8 @@ class GarmentViewSet(viewsets.ModelViewSet):
 
 
 def request_lang(request):
-    """'az' or 'en' from the app's Accept-Language header."""
-    return 'az' if request.headers.get('Accept-Language', '').lower().startswith('az') else 'en'
+    """One of locale.LANGS from the app's Accept-Language header, English otherwise."""
+    return lang_from_header(request.headers.get('Accept-Language', ''))
 
 
 def _items_by_slot(outfit):
@@ -524,10 +525,12 @@ def assistant(request):
     if not isinstance(message, str) or len(message) > 1000:
         return Response({'message': ['Send a message of up to 1000 characters.']}, status=status.HTTP_400_BAD_REQUEST)
     audio = request.FILES.get('audio')
+    heard_lang = None
     if audio is not None:
         if audio.size > 10 * 1024 * 1024:
             return Response({'audio': ['Send a recording under 10 MB.']}, status=status.HTTP_400_BAD_REQUEST)
-        heard = transcribe(audio, request_lang(request))
+        result = transcribe(audio, request_lang(request))
+        heard, heard_lang = result if result else (None, None)
         if heard is None:
             return Response({'audio': ['Voice questions are not available right now.'], 'code': 'voice_unavailable'},
                             status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -554,6 +557,7 @@ def assistant(request):
         'piece': result['piece'],
         'shopping': result['shopping'],
         'heard': message if audio is not None else None,
+        'heard_lang': heard_lang if audio is not None else None,
     })
 
 
