@@ -1,5 +1,6 @@
 /** WearWise Premium prices shown in the app (store billing is not connected yet). */
-export const PRICING = { currency: '$', monthly: 4.99, yearly: 29.99 };
+// MVP v2: $2.99 a month, $19.99 a year; the colour analysis alone is $4.99 once.
+export const PRICING = { currency: '$', monthly: 2.99, yearly: 19.99, colorAnalysis: 4.99 };
 
 export const formatPrice = (v: number) => `${PRICING.currency}${v.toFixed(2)}`;
 

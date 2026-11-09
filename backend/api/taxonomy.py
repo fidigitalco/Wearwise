@@ -58,9 +58,31 @@ MATERIAL_SOURCES = ['care_label', 'user', 'visual_estimate']
 STYLE_DIRECTIONS = [
     'casual', 'smart_casual', 'business', 'formal', 'sporty', 'streetwear', 'minimal', 'classic', 'bohemian',
     'old_money', 'preppy', 'romantic',
+    # MVP v2 style list (wearwise-mvp.md, onboarding step 2).
+    'quiet_luxury', 'athleisure', 'scandi', 'parisian_chic', 'vintage', 'y2k', 'grunge', 'edgy', 'coastal',
+    'cottagecore', 'korean', 'gorpcore', 'glam', 'modest', 'techwear', 'western',
 ]
 UNITS = ['metric', 'imperial']
 SIZE_KEYS = ['top', 'bottom', 'shoes']
+
+# "About you": what a stylist asks before dressing someone. All optional.
+GENDERS = ['female', 'male', 'other', 'unsaid']
+BODY_SHAPES = ['rectangle', 'triangle', 'inverted_triangle', 'hourglass', 'oval']
+FIT_PREFERENCES = ['slim', 'regular', 'relaxed', 'oversized']
+BUDGETS = ['low', 'mid', 'high']
+
+# MVP v2 onboarding (wearwise-mvp.md §1).
+AGE_RANGES = ['18-24', '25-34', '35-44', '45-54', '55+']
+COUNTRIES = ['GB', 'TR', 'AZ', 'DE', 'FR', 'US', 'AE', 'other']
+# Price per piece in USD, lower bound inclusive, upper exclusive; the last is open-ended.
+BUDGET_RANGES = {'u30': (0, 30), '30-60': (30, 60), '60-120': (60, 120), '120-250': (120, 250), '250+': (250, 100000)}
+STORES = ['Trendyol', 'ASOS', 'Zara', 'H&M', 'Mango', 'Amazon', 'Shein', 'COS', 'Massimo Dutti', 'Uniqlo', 'Nike', 'Farfetch']
+TOP_SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
+EU_BOTTOM_SIZES = ['32', '34', '36', '38', '40', '42', '44', '46', '48']
+WAIST_SIZES = ['28', '29', '30', '31', '32', '33', '34', '36', '38', '40']
+SHOE_SIZES = [str(n) for n in range(35, 48)]
+OCCASION_KINDS = ['birthday', 'wedding', 'holiday', 'work', 'trip', 'date', 'other']
+PRODUCT_ACTIONS = ['like', 'not_me', 'save', 'shop']
 
 # Occasion → acceptable formality band (1 = loungewear … 5 = black tie).
 OCCASIONS = {
@@ -72,6 +94,13 @@ OCCASIONS = {
     'formal': (4, 5),
     'sport': (1, 2),
     'travel': (1, 3),
+    'wedding': (3, 5),
+    'interview': (3, 5),
+    'school': (1, 3),
+    'brunch': (2, 3),
+    'beach': (1, 2),
+    'home': (1, 2),
+    'outdoor': (1, 2),
 }
 
 LABEL_SOURCES = ['expert', 'sourced', 'synthetic', 'user_feedback', 'illustrative']
@@ -106,9 +135,15 @@ KIND_AZ = {
 OCCASION_AZ = {
     'casual': 'gündəlik gəzinti', 'work': 'iş', 'client_meeting': 'müştəri görüşü', 'date': 'görüş',
     'party': 'qonaqlıq', 'formal': 'rəsmi tədbir', 'sport': 'idman', 'travel': 'səyahət',
+    'wedding': 'toy', 'interview': 'iş müsahibəsi', 'school': 'dərs', 'brunch': 'kafe görüşü', 'beach': 'çimərlik',
+    'home': 'evdə qalmaq', 'outdoor': 'təbiət gəzintisi',
 }
 STYLE_AZ = {
     'casual': 'gündəlik', 'smart_casual': 'smart casual', 'business': 'biznes', 'formal': 'rəsmi',
     'sporty': 'idman', 'streetwear': 'küçə', 'minimal': 'minimal', 'classic': 'klassik', 'bohemian': 'bohem',
     'old_money': 'old money', 'preppy': 'preppy', 'romantic': 'romantik',
+    'quiet_luxury': 'sakit lüks', 'athleisure': 'athleisure', 'scandi': 'skandinav', 'parisian_chic': 'Paris şıkı',
+    'vintage': 'vintaj', 'y2k': 'Y2K', 'grunge': 'qranj', 'edgy': 'rok', 'coastal': 'sahil', 'cottagecore': 'kottecor',
+    'korean': 'Koreya üslubu', 'gorpcore': 'qorpkor', 'glam': 'qlamur', 'modest': 'qapalı geyim', 'techwear': 'texvear',
+    'western': 'vestern',
 }

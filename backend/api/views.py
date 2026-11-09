@@ -39,9 +39,9 @@ from .engine.describe import title_for
 from .engine.recommend import NotEnoughGarments
 from .engine.scoring import score_outfit
 from .engine.taste import update_taste
-from .models import AffiliateClick, AppFeedback, Feedback, Garment, Outfit, OutfitItem, OutfitPlan, TasteProfile, User, VideoScan, WearLog
+from .models import AffiliateClick, AppFeedback, DiscoveryDrop, Inspiration, StyleCheck, Feedback, Occasion, Product, ProductAction, SavedProduct, Garment, Outfit, OutfitItem, OutfitPlan, TasteProfile, User, VideoScan, WearLog
 from .serializers import (
-    CheckOutfitSerializer, FeedbackSerializer, GarmentSerializer, LoginSerializer,
+    CheckOutfitSerializer, FeedbackSerializer, GarmentSerializer, LoginSerializer, OccasionSerializer, ProductSerializer,
     OutfitSerializer, OutfitSetSerializer, RecommendRequestSerializer, RegisterSerializer, UserSerializer,
     VideoScanSerializer,
 )
@@ -282,16 +282,16 @@ class GarmentViewSet(viewsets.ModelViewSet):
 
     def _analyse(self, g, keep_user_colors):
         """
-        Colours now, from the photo, so the piece is saved and answered at once;
-        the cutout follows in the background (see make_cutout), because removing
-        the background takes seconds and the phone is waiting.
+        Colours now, from the photo, so the piece is saved and answered at once.
+        With settings.CUTOUTS on, a cutout follows in the background (see
+        make_cutout), because removing the background takes seconds.
         """
         if not keep_user_colors:
             g.image.open('rb')
             set_colors(g, g.image)
         g.save()
         # The suite would download a model and race a thread against its own teardown.
-        if not settings.TESTING:
+        if settings.CUTOUTS and not settings.TESTING:
             threading.Thread(target=make_cutout, args=(g.pk, keep_user_colors), daemon=True).start()
 
     @action(detail=True, methods=['post'], url_path='detect-colors')
@@ -745,3 +745,253 @@ def app_feedback(request):
 def plan_read(request):
     """{text: "Client meeting downtown, dinner after"} → {occasion: "client_meeting", level: "formal"}."""
     return Response(read_plan(str(request.data.get('text', ''))[:300]))
+
+
+
+# ── Shopping catalogue (MVP v2) ───────────────────────────────────────────
+
+def _product_ctx(request):
+    """Serializer context for products: the user, their language and which products they saved."""
+    saved = set(SavedProduct.objects.filter(user=request.user).values_list('product_id', flat=True))
+    return {'request': request, 'lang': request_lang(request), 'saved_ids': saved}
+
+
+@api_view(['GET'])
+def discover(request):
+    """Today's Discovery drop: {products, next_drop, learned}. Actions go to products/<id>/action/."""
+    from .catalog import discovery, profile_learned
+    products, nxt = discovery(request.user)
+    return Response({
+        'products': ProductSerializer(products, many=True, context=_product_ctx(request)).data,
+        'next_drop': nxt.isoformat(),
+        'learned': profile_learned(request.user),
+    })
+
+
+@api_view(['POST'])
+def product_action(request, pk):
+    """{action: like|not_me|save|shop}. Save adds to the wishlist; Shop logs the click and returns the link."""
+    from .catalog import profile_learned
+    from .shopping import sub_id
+    product = Product.objects.filter(pk=pk, active=True).first()
+    if not product:
+        return Response({'detail': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
+    action = request.data.get('action')
+    if action not in tx.PRODUCT_ACTIONS:
+        raise ValidationError({'action': f'One of {", ".join(tx.PRODUCT_ACTIONS)}.'})
+    ProductAction.objects.create(user=request.user, product=product, action=action)
+    out = {'learned': profile_learned(request.user)}
+    if action == 'save':
+        SavedProduct.objects.get_or_create(user=request.user, product=product, defaults={'price_when_saved': product.price})
+        out['saved'] = True
+    if action == 'shop':
+        AffiliateClick.objects.create(user=request.user, store=product.store, subcategory=product.subcategory,
+                                      color=product.color, source='gap')
+        sep = '&' if '?' in product.url else '?'
+        out['url'] = f'{product.url}{sep}utm_source=wearwise&utm_medium=affiliate&sub_id={sub_id(request.user, product.subcategory, product.color)}'
+    return Response(out)
+
+
+@api_view(['GET', 'POST'])
+def saved_products(request):
+    """GET the wishlist with price drops; POST {product, tracking?} to save one."""
+    from .catalog import price_drop
+    if request.method == 'POST':
+        product = Product.objects.filter(pk=request.data.get('product'), active=True).first()
+        if not product:
+            return Response({'detail': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
+        sp, _ = SavedProduct.objects.get_or_create(user=request.user, product=product, defaults={'price_when_saved': product.price})
+        if 'tracking' in request.data:
+            sp.tracking = bool(request.data['tracking'])
+            sp.save(update_fields=['tracking'])
+        return Response({'saved': True, 'tracking': sp.tracking}, status=status.HTTP_201_CREATED)
+    ctx = _product_ctx(request)
+    rows = SavedProduct.objects.filter(user=request.user).select_related('product')
+    return Response({
+        'items': [{'product': ProductSerializer(sp.product, context=ctx).data, 'tracking': sp.tracking,
+                   'drop': price_drop(sp), 'saved_at': sp.created_at} for sp in rows],
+        'tracking_limit': None if request.user.plan == 'premium' else 5,
+    })
+
+
+@api_view(['PATCH', 'DELETE'])
+def saved_product(request, pk):
+    """PATCH {tracking} to watch the price (5 on the free plan); DELETE to remove from the wishlist."""
+    sp = SavedProduct.objects.filter(user=request.user, product_id=pk).first()
+    if not sp:
+        return Response({'detail': 'Not in your saved items.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'DELETE':
+        sp.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    want = bool(request.data.get('tracking'))
+    if want and not sp.tracking and request.user.plan != 'premium':
+        if SavedProduct.objects.filter(user=request.user, tracking=True).count() >= 5:
+            return Response({'detail': 'The free plan watches 5 items.', 'code': 'tracking_limit'}, status=status.HTTP_402_PAYMENT_REQUIRED)
+    sp.tracking = want
+    sp.save(update_fields=['tracking'])
+    return Response({'tracking': sp.tracking})
+
+
+@api_view(['GET'])
+def home(request):
+    """Home: the day's look from the catalogue, four picks, the next date and price drops on watched items."""
+    from .catalog import build_looks, candidates, learned_taste, look_payload, occasion_payload, price_drop, score_product
+    user, ctx, lang = request.user, _product_ctx(request), request_lang(request)
+    lat, lon = request.query_params.get('lat'), request.query_params.get('lon')
+    wx = None
+    try:
+        if lat and lon:
+            wx = forecast(float(lat), float(lon), timezone.localdate())
+        elif user.latitude is not None:
+            wx = forecast(user.latitude, user.longitude, timezone.localdate())
+    except (TypeError, ValueError):
+        wx = None
+    looks = build_looks(user, (1, 4), 1, temp_c=wx['temp_c'] if wx else None, seed=timezone.localdate().toordinal())
+    taste = learned_taste(user)
+    picks = sorted(candidates(user), key=lambda p: -score_product(p, user, taste))[:4]
+    nxt = Occasion.objects.filter(user=user, date__gte=timezone.localdate()).order_by('date').first()
+    drops = [sp for sp in SavedProduct.objects.filter(user=user, tracking=True).select_related('product') if price_drop(sp)]
+    return Response({
+        'look': look_payload(looks[0], ctx) if looks else None,
+        'weather': wx,
+        'picks': ProductSerializer(picks, many=True, context=ctx).data,
+        'occasion': occasion_payload(nxt, user, ctx, lang) if nxt else None,
+        'price_drops': [{'product': ProductSerializer(sp.product, context=ctx).data, 'drop': price_drop(sp)} for sp in drops],
+    })
+
+
+@api_view(['GET', 'POST'])
+def occasions(request):
+    """Dates to dress for: GET the upcoming ones; POST {title, date, kind, for_gift, person}. Free plan: 2 gift people."""
+    from .catalog import occasion_payload
+    lang = request_lang(request)
+    if request.method == 'POST':
+        s = OccasionSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        if s.validated_data.get('for_gift') and request.user.plan != 'premium':
+            people = set(Occasion.objects.filter(user=request.user, for_gift=True).values_list('person', flat=True))
+            if s.validated_data.get('person', '') not in people and len(people) >= 2:
+                return Response({'detail': 'The free plan has gift ideas for 2 people.', 'code': 'gift_limit'},
+                                status=status.HTTP_402_PAYMENT_REQUIRED)
+        o = s.save(user=request.user)
+        return Response(occasion_payload(o, request.user, {}, lang), status=status.HTTP_201_CREATED)
+    rows = Occasion.objects.filter(user=request.user, date__gte=timezone.localdate())
+    return Response([occasion_payload(o, request.user, {}, lang) for o in rows])
+
+
+@api_view(['GET', 'DELETE'])
+def occasion_detail(request, pk):
+    """GET a date with its three outfits (or gift ideas); DELETE it."""
+    from .catalog import occasion_looks, occasion_payload
+    o = Occasion.objects.filter(user=request.user, pk=pk).first()
+    if not o:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'DELETE':
+        o.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    ctx = _product_ctx(request)
+    return Response({**occasion_payload(o, request.user, ctx, request_lang(request)), 'looks': occasion_looks(o, request.user, ctx)})
+
+
+
+@api_view(['GET', 'POST'])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
+def suits_me(request):
+    """
+    "Does this suit me?": GET {left}; POST a multipart "image" or {link} →
+    {score, verdict, style_ok, color_fit, pairs_with, alternatives, left}.
+    Free plan: 5 a month (402 code checks_used).
+    """
+    from .catalog import checks_left, read_link, suits_me as judge
+    user = request.user
+    if request.method == 'GET':
+        return Response({'left': checks_left(user)})
+    left = checks_left(user)
+    if left is not None and left <= 0:
+        return Response({'detail': 'Free checks used for this month.', 'code': 'checks_used'}, status=status.HTTP_402_PAYMENT_REQUIRED)
+    image, link = request.FILES.get('image'), str(request.data.get('link', '')).strip()
+    if image is not None:
+        if image.size > 15 * 1024 * 1024:
+            return Response({'image': ['Send a photo under 15 MB.']}, status=status.HTTP_400_BAD_REQUEST)
+        ai = analyse_garment(image, request_lang(request))
+        if ai and not ai['is_garment']:
+            return Response({'detail': 'No clothing found in the photo.', 'code': 'not_garment'}, status=status.HTTP_400_BAD_REQUEST)
+        if ai:
+            sub, color = ai['subcategory'] or None, (ai['colors'][0]['name'] if ai['colors'] else None)
+        else:
+            image.seek(0)
+            colors, _ = extract_colors(image)
+            sub, color = None, (colors[0]['name'] if colors else None)
+        source = 'photo'
+    elif link:
+        sub, color = read_link(link)
+        if not sub and not color:
+            return Response({'detail': 'Could not read the piece from that link.', 'code': 'link_unreadable'}, status=status.HTTP_400_BAD_REQUEST)
+        source = 'link'
+    else:
+        raise ValidationError({'detail': 'Send a photo or a link.'})
+    StyleCheck.objects.create(user=user, source=source)
+    result = judge(user, sub, color, _product_ctx(request), request_lang(request))
+    return Response({**result, 'left': checks_left(user)})
+
+
+
+def _inspiration_row(i, request):
+    return {
+        'id': i.id, 'image': request.build_absolute_uri(i.image.url) if i.image else None, 'link': i.link,
+        'subcategory': i.subcategory, 'color': i.color, 'rgb': list(tx.COLORS[i.color]) if i.color in tx.COLORS else None,
+        'note': i.note, 'created_at': i.created_at,
+    }
+
+
+@api_view(['GET', 'POST'])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
+def inspirations(request):
+    """
+    The inspiration board: GET the shared pieces; POST a multipart "image" or
+    {link} (and an optional note) for something the user liked. Each is read
+    once for type and colour and teaches Discovery like a save.
+    """
+    from .catalog import profile_learned, read_link
+    if request.method == 'GET':
+        rows = Inspiration.objects.filter(user=request.user)
+        return Response({'items': [_inspiration_row(i, request) for i in rows], 'learned': profile_learned(request.user)})
+    image, link = request.FILES.get('image'), str(request.data.get('link', '')).strip()
+    note = str(request.data.get('note', ''))[:200]
+    sub = color = ''
+    if image is not None:
+        if image.size > 15 * 1024 * 1024:
+            return Response({'image': ['Send a photo under 15 MB.']}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            Image.open(image).verify()
+        except Exception:
+            return Response({'image': ['That file is not a photo we can read.']}, status=status.HTTP_400_BAD_REQUEST)
+        image.seek(0)
+        ai = analyse_garment(image, request_lang(request))
+        if ai and ai['is_garment']:
+            sub, color = ai['subcategory'] or '', (ai['colors'][0]['name'] if ai['colors'] else '')
+        else:
+            image.seek(0)
+            colors, _ = extract_colors(image)
+            color = colors[0]['name'] if colors else ''
+        image.seek(0)
+    elif link:
+        if not link.startswith(('http://', 'https://')):
+            raise ValidationError({'link': 'Paste a full link that starts with http.'})
+        found_sub, found_color = read_link(link)
+        sub, color = found_sub or '', found_color or ''
+    else:
+        raise ValidationError({'detail': 'Share a photo or a link.'})
+    i = Inspiration.objects.create(user=request.user, image=image, link=link[:500], subcategory=sub, color=color, note=note)
+    return Response({**_inspiration_row(i, request), 'learned': profile_learned(request.user)}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+def inspiration_detail(request, pk):
+    i = Inspiration.objects.filter(user=request.user, pk=pk).first()
+    if not i:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if i.image:
+        i.image.delete(save=False)
+    i.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

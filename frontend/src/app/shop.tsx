@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToast } from '../components/Overlays';
-import { ColorSelector } from '../components/Preferences';
+import { ColorPicker } from '../components/ColorPicker';
+import { GarmentSketch } from '../components/GarmentSketch';
 import { AffiliateSheet, ShoppingCard, type ShopTarget } from '../components/Shopping';
 import { Button, Card, Chip, ChipRow, LoadingSkeleton, SectionHeader } from '../components/ui';
 import { useI18n, useLabel } from '../lib/i18n';
-import { rgbCss, useMeta } from '../lib/meta';
+import { useMeta } from '../lib/meta';
 import { errorMessage, getShopping, shopping } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
 import type { Category, FitCheck, ShoppingSuggestion } from '../types';
@@ -80,13 +81,15 @@ export default function ShopScreen() {
           ))}
         </ChipRow>
         <Text style={[type.overline, { color: t.textMuted }]}>{s.shop.pickColor}</Text>
-        <ColorSelector value={[color]} onChange={(v) => { setColor(v.find((c) => c !== color) ?? color); setResult(null); }} />
+        <ColorPicker single value={[{ name: color }]} onToggle={(c) => { setColor(c); setResult(null); }} />
         <Button title={s.shop.check} onPress={check} loading={checking} disabled={!sub} />
 
         {result ? (
           <Card style={{ gap: space.sm }}>
             <View style={styles.verdictHead}>
-              <View style={[styles.swatch, { backgroundColor: rgbCss(meta.colors[color]), borderColor: t.border }]} />
+              <View style={[styles.sketch, { backgroundColor: t.sand }]}>
+                <GarmentSketch subcategory={sub} category={category} rgb={meta.colors[color]} size={48} />
+              </View>
               <Text style={[type.caption, { color: t.textMuted, flex: 1 }]}>{result.title}</Text>
             </View>
             <Text style={[type.title, { color: tone }]}>{s.shop.verdicts[result.verdict]}</Text>
@@ -108,5 +111,5 @@ export default function ShopScreen() {
 const styles = StyleSheet.create({
   wrap: { padding: gutter, gap: space.xxl, paddingBottom: space.xxl * 2 },
   verdictHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  swatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 1 },
+  sketch: { width: 60, height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

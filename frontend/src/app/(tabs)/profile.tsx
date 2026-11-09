@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
-import { router, useFocusEffect } from 'expo-router';
-import { Bookmark, ChevronRight, CircleUserRound, Compass, Crown, Globe, Lock, LogOut, MessageSquare, Palette, ShoppingBag, Search, Sparkles, Star, Thermometer, Trash } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
+import { BellRing, Bookmark, ImagePlus, CircleUserRound, Heart, Layers, Shirt, Compass, Crown, Globe, Lock, LogOut, MessageSquare, ShoppingBag, Sparkles, Star, Thermometer, Trash } from 'lucide-react-native';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/AppHeader';
@@ -10,11 +10,10 @@ import { BottomSheet, ConfirmationDialog, useToast } from '../../components/Over
 import { useAuth } from '../../lib/auth';
 import { LANGUAGES, useI18n, useLabel } from '../../lib/i18n';
 import { rgbCss, useMeta } from '../../lib/meta';
-import { formatPrice, PRICING } from '../../lib/pricing';
 import { openStoreReview } from '../../lib/rate';
-import { errorMessage, getStats } from '../../services/api';
+import { errorMessage } from '../../services/api';
 import { gutter, space, type, useTheme } from '../../theme';
-import type { Stats, User } from '../../types';
+import type { User } from '../../types';
 
 /** Profile: who you are as a dresser, a few numbers, the stylist, and settings. */
 export default function MyStyleScreen() {
@@ -25,18 +24,12 @@ export default function MyStyleScreen() {
   const label = useLabel();
   const { user, updateUser, signOut, deleteAccount } = useAuth();
   const premium = user?.plan === 'premium';
-  const [stats, setStats] = useState<Stats | null>(null);
   const [name, setName] = useState(user?.display_name ?? '');
   const [sheet, setSheet] = useState<'language' | 'units' | 'privacy' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const guest = !!user?.is_guest;
 
-  useFocusEffect(
-    useCallback(() => {
-      getStats().then(setStats).catch(() => {});
-    }, []),
-  );
 
   const update = async (patch: Partial<User>) => {
     try {
@@ -52,8 +45,15 @@ export default function MyStyleScreen() {
   };
 
   const initial = (user?.display_name || user?.email || '?').charAt(0).toUpperCase();
-  const preferred = user?.preferred_styles?.length ? user.preferred_styles : user?.style_direction ? [user.style_direction] : [];
-  const topCategory = stats?.most_worn_categories?.[0];
+  const tags = [
+    ...(user?.preferred_styles ?? []).map((x) => label('styles', x)),
+    ...(user?.budget_ranges ?? []).map((b) => s.onb.budgets[b]),
+    user?.sizes?.top ? `${s.onb.tops} ${user.sizes.top}` : null,
+    user?.sizes?.bottom ? `${user.gender === 'male' ? 'W' : 'EU'} ${user.sizes.bottom}` : null,
+    user?.sizes?.shoes ? `${s.onb.shoes} ${user.sizes.shoes}` : null,
+    user?.fit_preference ? label('fits', user.fit_preference) : null,
+    user?.country ? s.onb.countries[user.country] : null,
+  ].filter(Boolean) as string[];
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -80,11 +80,18 @@ export default function MyStyleScreen() {
           </View>
         </View>
 
+        {/* The style profile in short: what Discovery, dates and checks are tuned to. */}
         <View style={[styles.block, { borderTopColor: t.border }]}>
-          <Text style={[type.overline, { color: t.textMuted }]}>{s.profile.preferredStyles}</Text>
-          <Text style={[type.subtitle, { color: t.text }]}>
-            {preferred.length ? preferred.map((x) => label('styles', x)).join(', ') : '–'}
-          </Text>
+          <Text style={[type.overline, { color: t.textMuted }]}>{s.me.styleTitle}</Text>
+          {tags.length ? (
+            <View style={styles.tags}>
+              {tags.map((x) => (
+                <View key={x} style={[styles.tag, { backgroundColor: t.cardAlt }]}>
+                  <Text style={[type.caption, { color: t.text }]}>{x}</Text>
+                </View>
+              ))}
+            </View>
+          ) : <Text style={[type.body, { color: t.textMuted }]}>{s.me.noTags}</Text>}
           {user?.favorite_colors?.length ? (
             <View style={styles.swatches}>
               {user.favorite_colors.map((c) => (
@@ -93,57 +100,31 @@ export default function MyStyleScreen() {
               ))}
             </View>
           ) : null}
-          <Pressable onPress={() => router.push('/preferences')} accessibilityRole="button" hitSlop={8}>
-            <Text style={[type.bodyStrong, { color: t.primary }]}>{s.profile.edit}</Text>
+          <Pressable onPress={() => router.push({ pathname: '/onboarding', params: { edit: '1' } })} accessibilityRole="button" hitSlop={8}>
+            <Text style={[type.bodyStrong, { color: t.primary }]}>{s.me.editStyle}</Text>
           </Pressable>
         </View>
-
-        {stats ? (
-          <View style={[styles.stats, { borderTopColor: t.border, borderBottomColor: t.border }]}>
-            <Stat value={stats.total} label={s.profile.totalItems} />
-            <Stat value={stats.worn_outfits ?? 0} label={s.profile.outfitsWorn} />
-            {/* "0% worn" reads as a telling-off on a new closet; show what was kept instead until there is a rotation to show. */}
-            {stats.rotation_pct > 0
-              ? <Stat value={`${stats.rotation_pct}%`} label={s.settings.worn30} />
-              : <Stat value={stats.outfits_saved} label={s.profile.savedOutfits} />}
-          </View>
-        ) : null}
-        {topCategory ? (
-          <Text style={[type.caption, { color: t.textMuted, marginTop: -space.lg }]}>
-            {s.profile.mostWorn}: {label('categories', topCategory.category)}
-          </Text>
-        ) : null}
-
-        {/* The upgrade pitch waits until the app has shown its worth: a few outfits saved or worn. */}
-        {premium || !stats || (stats.outfits_saved ?? 0) + (stats.worn_outfits ?? 0) < 3 ? null : (
-          <Pressable onPress={() => router.push('/premium')} accessibilityRole="button"
-            style={({ pressed }) => [styles.upgrade, { backgroundColor: t.highlightBg, opacity: pressed ? 0.85 : 1 }]}>
-            <View style={[styles.upgradeIcon, { backgroundColor: t.primary }]}>
-              <Crown size={20} color={t.onPrimary} strokeWidth={1.8} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[type.bodyStrong, { color: t.text }]}>{s.premium.upgrade}</Text>
-              <Text style={[type.label, { color: t.textSub }]}>
-                {formatPrice(PRICING.monthly)} {s.premium.perMonth} · {formatPrice(PRICING.yearly)} {s.premium.perYear}
-              </Text>
-            </View>
-            <ChevronRight size={18} color={t.text} />
-          </Pressable>
-        )}
 
         <Section>
           <Row first icon={<Crown size={20} color={t.primary} strokeWidth={1.6} />} title={s.premium.label}
             value={premium ? s.premium.premiumPlan : s.premium.freePlan} onPress={() => router.push('/premium')} />
+          <Row icon={<Heart size={20} color={t.text} strokeWidth={1.6} />} title={s.wishlist.title} onPress={() => router.push('/wishlist')} />
+          <Row icon={<BellRing size={20} color={t.text} strokeWidth={1.6} />} title={s.me.priceAlerts} onPress={() => router.push('/wishlist')} />
+          <Row icon={<ImagePlus size={20} color={t.text} strokeWidth={1.6} />} title={s.inspo.title} onPress={() => router.push('/inspiration')} />
           <Row icon={<Sparkles size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.stylist} onPress={() => router.push('/assistant')} />
-          <Row icon={<Bookmark size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.saved} onPress={() => router.push('/saved')} />
-          <Row icon={<ShoppingBag size={20} color={t.text} strokeWidth={1.6} />} title={s.shop.screen} onPress={() => router.push('/shop')} />
-          <Row icon={<Search size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.search} onPress={() => router.push('/search')} />
           <Row icon={<Compass size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.howItWorks} onPress={() => router.push('/tour')} />
         </Section>
 
+        {/* Out of the MVP but kept: the closet and its outfits for those who already built one. */}
+        <Section>
+          <Row first icon={<Shirt size={20} color={t.text} strokeWidth={1.6} />} title={s.me.myCloset} onPress={() => router.push('/closet')} />
+          <Row icon={<Layers size={20} color={t.text} strokeWidth={1.6} />} title={s.me.myOutfits} onPress={() => router.push('/outfits')} />
+          <Row icon={<Bookmark size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.saved} onPress={() => router.push('/saved')} />
+          <Row icon={<ShoppingBag size={20} color={t.text} strokeWidth={1.6} />} title={s.shop.screen} onPress={() => router.push('/shop')} />
+        </Section>
+
         <Section title={s.profile.settings}>
-          <Row first icon={<Palette size={20} color={t.text} strokeWidth={1.6} />} title={s.prefs.title} onPress={() => router.push('/preferences')} />
-          <Row icon={<CircleUserRound size={20} color={t.text} strokeWidth={1.6} />} title={s.avatar.title} onPress={() => router.push('/avatar')} />
+          <Row first icon={<CircleUserRound size={20} color={t.text} strokeWidth={1.6} />} title={s.prefs.title} onPress={() => router.push('/preferences')} />
           <Row icon={<Globe size={20} color={t.text} strokeWidth={1.6} />} title={s.settings.language}
             value={LANGUAGES.find((l) => l.code === lang)?.name} onPress={() => setSheet('language')} />
           <Row icon={<Thermometer size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.units}
@@ -211,16 +192,6 @@ export default function MyStyleScreen() {
   );
 }
 
-function Stat({ value, label }: { value: string | number; label: string }) {
-  const t = useTheme();
-  return (
-    <View style={{ flex: 1, gap: 2 }}>
-      <Text style={[type.display, { color: t.text, fontSize: 26, lineHeight: 30, fontVariant: ['tabular-nums'] }]}>{value}</Text>
-      <Text style={[type.caption, { color: t.textMuted }]}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   upgrade: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderRadius: 16 },
   upgradeIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
@@ -228,7 +199,8 @@ const styles = StyleSheet.create({
   profile: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   block: { borderTopWidth: 1, paddingTop: space.lg, gap: space.sm },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
+  tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   swatches: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap', marginVertical: 2 },
   swatch: { width: 22, height: 22, borderRadius: 11, borderWidth: 1 },
-  stats: { flexDirection: 'row', gap: space.lg, borderTopWidth: 1, borderBottomWidth: 1, paddingVertical: space.lg },
 });

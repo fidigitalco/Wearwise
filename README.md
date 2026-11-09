@@ -26,8 +26,8 @@ cp .env.example .env
 ```
 
 SQLite is used unless `DATABASE_URL` is set (Postgres in production).
-Background removal (rembg, in requirements) runs in the background after an upload, so saving a photo never waits for it;
-the first run downloads the `isnet-general-use` model (~170 MB; `REMBG_MODEL` picks another).
+Background removal (rembg, in requirements) is off: pieces show the photo as taken. `WEARWISE_CUTOUTS=1` turns it on;
+it then runs in the background after an upload and downloads the `isnet-general-use` model (~170 MB; `REMBG_MODEL` picks another).
 `python manage.py make_cutouts` gives existing pieces a cutout. Demo pieces ship with theirs in `api/sample_images/cutouts`.
 
 **Mobile app:**
@@ -57,6 +57,21 @@ Sign in with a staff account (`is_staff`, e.g. one made by `createsuperuser`). I
 (default `http://localhost:8000`) through the staff-only `/api/admin/…` endpoints: dashboard, analytics, users
 (plan, block, delete) and premium. Admins see counts and anonymous totals only, never a user's closet, photos, outfits or wear history.
 
+## MVP v2: decide what to wear and what to buy ([wearwise-mvp.md](wearwise-mvp.md))
+
+The app no longer needs a closet to be useful. Tabs: **Home** (the day's look from the catalogue, picks, the next
+date, price drops), **Discover** (Like / Not me / Save / Shop, with "Why this?"), **Stylist** ("Does this suit me?"
+from a photo or a link, 5 free a month), **Dates** (outfits 15 days before, a reminder at 7, gift mode for 2 people
+free) and **Profile** (style profile, wishlist with price watch, settings). The closet, its outfits and the avatar
+are out of the MVP; their screens stay, reachable from Profile.
+
+- Catalogue: `Product` rows. Real ones come from affiliate network feeds (Awin, Rakuten, CJ, Impact) once approved;
+  until then `python manage.py load_catalog` loads a demo catalogue whose Shop links are store searches.
+- Every Shop tap is logged with an anonymous sub-id; sponsored products, when they come, are labelled.
+- Onboarding is five steps: about you (age band, shopping for, country), styles (28), colours (love / avoid),
+  sizes (tops, EU or waist bottoms, EU shoes, fit, height) and budget per piece plus favourite stores.
+- Premium: $2.99 a month, $19.99 a year, colour analysis $4.99 once. Price alerts and shop links are never paywalled.
+
 ## API
 
 All endpoints are under `/api/` and use `Authorization: Token <token>`.
@@ -81,6 +96,12 @@ All endpoints are under `/api/` and use `Authorization: Token <token>`.
 | `POST shopping/check/` | "Will this fit my wardrobe?": `{subcategory, color}` → Great buy / Works / Skip it, with a better colour |
 | `POST shopping/click/` | Logs a store tap (affiliate reporting; admins see totals only) |
 | `POST app-feedback/` | Settings → Send feedback; staff read it in the admin panel |
+| `GET home/` | The day's look from the catalogue, four picks, the next date, price drops on watched pieces |
+| `GET discover/` | Today's Discovery drop (10 the first time, then 3 every Mon/Wed/Fri), `learned` % |
+| `POST products/{id}/action/` | `like` / `not_me` / `save` / `shop` (Shop returns the tracked link) |
+| `GET/POST saved/`, `PATCH/DELETE saved/{id}/` | Wishlist; `tracking` watches the price (5 on the free plan) |
+| `GET/POST occasions/`, `GET/DELETE occasions/{id}/` | Dates, with three outfits or gift ideas |
+| `GET/POST suits-me/` | "Does this suit me?" for a photo or a product link; `left` checks this month |
 | `GET stats/` | Closet size, 30-day rotation, never-worn count, wear activity, favourites, recently added |
 
 ## How suggestions work (Wearwise.md §4, stages 9–13)

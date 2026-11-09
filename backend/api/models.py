@@ -84,6 +84,22 @@ class User(AbstractUser):
     preferred_styles = models.JSONField(default=list, blank=True)
     favorite_colors = models.JSONField(default=list, blank=True)
     sizes = models.JSONField(default=dict, blank=True)  # {"top": "M", "bottom": "32", "shoes": "43"}
+    # About you, the questions a stylist asks. Optional, shown only to the user, never in the admin panel.
+    gender = models.CharField(max_length=8, blank=True, choices=tx.choices(tx.GENDERS))
+    birth_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    height_cm = models.PositiveSmallIntegerField(null=True, blank=True)
+    weight_kg = models.PositiveSmallIntegerField(null=True, blank=True)
+    body_shape = models.CharField(max_length=20, blank=True, choices=tx.choices(tx.BODY_SHAPES))
+    # How they like clothes to sit; nudges the silhouette score.
+    fit_preference = models.CharField(max_length=10, blank=True, choices=tx.choices(tx.FIT_PREFERENCES))
+    budget = models.CharField(max_length=4, blank=True, choices=tx.choices(tx.BUDGETS))
+    # Colours they never want suggested; outfits wearing them are pushed down.
+    avoid_colors = models.JSONField(default=list, blank=True)
+    # MVP v2 profile: the age band, where they shop, what they pay per piece and the stores they like.
+    age_range = models.CharField(max_length=6, blank=True, choices=tx.choices(tx.AGE_RANGES))
+    country = models.CharField(max_length=6, blank=True, choices=tx.choices(tx.COUNTRIES))
+    budget_ranges = models.JSONField(default=list, blank=True)
+    stores = models.JSONField(default=list, blank=True)
     typical_occasions = models.JSONField(default=list, blank=True)
     units = models.CharField(max_length=8, default='metric', choices=tx.choices(tx.UNITS))
     notifications_enabled = models.BooleanField(default=True)
@@ -386,6 +402,138 @@ class AffiliateClick(models.Model):
     subcategory = models.CharField(max_length=24, blank=True)
     color = models.CharField(max_length=16, blank=True)
     source = models.CharField(max_length=12, default='gap', choices=tx.choices(['gap', 'check', 'assistant']))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+def product_id():
+    return make_id('p')
+
+
+class Product(models.Model):
+    """
+    One piece in the shopping catalogue (MVP v2). Real rows come from affiliate
+    network feeds (Awin, Rakuten, CJ, Impact); until those are approved, a demo
+    catalogue is loaded by `manage.py load_catalog`. `url` is where Shop goes,
+    wrapped with the affiliate sub-id when the click is logged.
+    """
+
+    id = models.CharField(primary_key=True, max_length=32, default=product_id, editable=False)
+    name = models.CharField(max_length=160)
+    store = models.CharField(max_length=40)
+    brand = models.CharField(max_length=60, blank=True)
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    # The last price seen before this one, for price-drop alerts; feeds refresh it daily.
+    previous_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, default='USD')
+    category = models.CharField(max_length=16, choices=tx.choices(tx.CATEGORIES))
+    subcategory = models.CharField(max_length=24)
+    color = models.CharField(max_length=16)
+    material = models.CharField(max_length=24, blank=True)
+    styles = models.JSONField(default=list, blank=True)
+    formality = models.PositiveSmallIntegerField(default=2)  # 1 lounge … 5 black tie
+    warmth = models.PositiveSmallIntegerField(default=1)  # 0 … 5
+    gender = models.CharField(max_length=8, default='women', choices=tx.choices(['women', 'men', 'unisex']))
+    sizes = models.JSONField(default=list, blank=True)
+    image_url = models.URLField(blank=True)
+    url = models.URLField(max_length=500)
+    rating = models.FloatField(null=True, blank=True)
+    small_brand = models.BooleanField(default=False)
+    # Paid placement; always labelled in the app (wearwise-mvp.md, risk 3). None in the demo catalogue.
+    sponsored = models.BooleanField(default=False)
+    is_demo = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.name} ({self.store})'
+
+
+class ProductAction(models.Model):
+    """Like, Not me, Save or Shop on a product: the taste signal Discovery learns from."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_actions')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='actions')
+    action = models.CharField(max_length=8, choices=tx.choices(tx.PRODUCT_ACTIONS))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class SavedProduct(models.Model):
+    """The wishlist: a saved product, optionally watched for a price drop or a cheaper similar piece."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_products')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='saved_by')
+    tracking = models.BooleanField(default=False)
+    price_when_saved = models.DecimalField(max_digits=8, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(fields=['user', 'product'], name='one_save_per_product')]
+
+
+class DiscoveryDrop(models.Model):
+    """The products shown in one Discovery drop (Mon, Wed, Fri), so a drop stays the same all day."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='discovery_drops')
+    key = models.CharField(max_length=16)  # e.g. 2026-W45-1
+    product_ids = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'key'], name='one_drop_per_key')]
+
+
+class Occasion(models.Model):
+    """A date to dress for (or buy a gift for): outfits come 15 days before, a reminder at 7 (MVP §4)."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='occasions')
+    title = models.CharField(max_length=80)
+    date = models.DateField()
+    kind = models.CharField(max_length=10, default='other', choices=tx.choices(tx.OCCASION_KINDS))
+    # Gift mode: the date is someone else's and the picks are gift ideas for them.
+    for_gift = models.BooleanField(default=False)
+    person = models.CharField(max_length=60, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date']
+
+
+class StyleCheck(models.Model):
+    """One "Does this suit me?" check, counted against the free plan's five a month."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='style_checks')
+    source = models.CharField(max_length=6, choices=tx.choices(['photo', 'link']))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+def inspiration_upload_to(instance, filename):
+    ext = (filename.rsplit('.', 1)[-1] if '.' in filename else 'jpg').lower()
+    return f'inspiration/{instance.user_id}/{uuid.uuid4().hex[:16]}.{ext}'
+
+
+class Inspiration(models.Model):
+    """
+    Something the user liked and shared: a photo (screenshot, street, store) or
+    a product link. What it shows is read once (type and colour) and counts
+    towards their taste like a save, so Discovery learns from it.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='inspirations')
+    image = models.ImageField(upload_to=inspiration_upload_to, null=True, blank=True)
+    link = models.URLField(max_length=500, blank=True)
+    subcategory = models.CharField(max_length=24, blank=True)
+    color = models.CharField(max_length=16, blank=True)
+    note = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

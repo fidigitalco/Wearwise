@@ -1,0 +1,15 @@
+[Unit]
+Description=WearWise API (gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=wearwise
+Group=wearwise
+WorkingDirectory=/opt/wearwise/backend
+EnvironmentFile=/etc/wearwise/wearwise.env
+# 127.0.0.1:8010 so it never collides with SaveDo on :8000; Caddy is the only way in.
+ExecStart=/opt/wearwise/venv/bin/gunicorn wearwise.wsgi:application --bind 127.0.0.1:8010 --workers 2 --timeout 90
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

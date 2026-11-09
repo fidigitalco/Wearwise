@@ -1,9 +1,9 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useToast } from '../components/Overlays';
-import { Button, Chip, ChipWrap } from '../components/ui';
+import { Button, Chip, ChipWrap, FormScroll } from '../components/ui';
 import { useI18n } from '../lib/i18n';
 import { errorMessage, sendAppFeedback } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
@@ -33,8 +33,7 @@ export default function FeedbackScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+    <FormScroll style={{ backgroundColor: t.bg }} contentContainerStyle={styles.wrap}>
         <Text style={[type.body, { color: t.textSub }]}>{s.feedback.intro}</Text>
         <View style={{ gap: space.sm }}>
           <Text style={[type.overline, { color: t.textMuted }]}>{s.feedback.kind}</Text>
@@ -56,8 +55,7 @@ export default function FeedbackScreen() {
           style={[type.body, styles.input, { color: t.text, backgroundColor: t.card, borderColor: t.border }]}
         />
         <Button title={s.feedback.send} onPress={send} loading={busy} disabled={!message.trim()} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </FormScroll>
   );
 }
 

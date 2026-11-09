@@ -114,6 +114,82 @@ export interface User {
   is_guest?: boolean;
   latitude: number | null;
   longitude: number | null;
+  /** About you: what a stylist asks. All optional; never shown to admins. */
+  gender?: '' | 'female' | 'male' | 'other' | 'unsaid';
+  birth_year?: number | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  body_shape?: '' | 'rectangle' | 'triangle' | 'inverted_triangle' | 'hourglass' | 'oval';
+  fit_preference?: '' | 'slim' | 'regular' | 'relaxed' | 'oversized';
+  budget?: '' | 'low' | 'mid' | 'high';
+  avoid_colors?: string[];
+  /** MVP v2 profile. */
+  age_range?: '' | '18-24' | '25-34' | '35-44' | '45-54' | '55+';
+  country?: string;
+  budget_ranges?: string[];
+  stores?: string[];
+}
+
+/** A catalogue piece (MVP v2): something to buy, not something owned. */
+export interface Product {
+  id: string;
+  name: string;
+  store: string;
+  brand: string;
+  price: number;
+  previous_price: number | null;
+  currency: string;
+  category: Category;
+  subcategory: string;
+  color: string;
+  rgb: [number, number, number];
+  material: string;
+  styles: string[];
+  image_url: string;
+  rating: number | null;
+  small_brand: boolean;
+  /** Paid placement; always labelled. */
+  sponsored: boolean;
+  /** From the demo catalogue: the Shop link is a store search. */
+  is_demo: boolean;
+  /** "Why this?": the strongest true reason it was picked. */
+  why: string;
+  saved: boolean;
+}
+
+export interface Look {
+  items: Product[];
+  total: number;
+  stores: string[];
+}
+
+export interface SavedItem {
+  product: Product;
+  tracking: boolean;
+  /** [was, now] when the price fell since it was saved. */
+  drop: [number, number] | null;
+  saved_at: string;
+}
+
+export interface OccasionItem {
+  id: number;
+  title: string;
+  date: string;
+  kind: string;
+  for_gift: boolean;
+  person: string;
+  days: number;
+  /** Outfits are ready 15 days before; the reminder is at 7. */
+  ready: boolean;
+  remind: boolean;
+}
+
+export interface HomeFeed {
+  look: Look | null;
+  weather: Weather | null;
+  picks: Product[];
+  occasion: OccasionItem | null;
+  price_drops: { product: Product; drop: [number, number] }[];
 }
 
 export interface Meta {

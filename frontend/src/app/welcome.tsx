@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Hanger } from '../components/icons';
+import { LanguagePicker } from '../components/LanguagePicker';
 import { useToast } from '../components/Overlays';
 import { Tour } from '../components/Tour';
 import { Button } from '../components/ui';
@@ -32,14 +33,17 @@ export default function WelcomeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
+      {/* Fills the screen on a tall phone and scrolls on a short one, so the buttons are never cut off. */}
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
       <View style={styles.brand}>
         <View style={[styles.logo, { backgroundColor: t.highlightBg }]}>
           <Hanger size={22} color={t.primary} />
         </View>
-        <Text style={[type.subtitle, { color: t.text }]}>{s.welcome.brand}</Text>
+        <Text style={[type.subtitle, { color: t.text, flex: 1 }]}>{s.welcome.brand}</Text>
+        <LanguagePicker />
       </View>
 
-      <View style={{ flex: 1, paddingVertical: space.lg }}>
+      <View style={{ flex: 1, minHeight: 420, paddingVertical: space.lg }}>
         <Tour />
       </View>
 
@@ -48,6 +52,7 @@ export default function WelcomeScreen() {
         <Button title={s.welcome.guest} variant="secondary" loading={busy} onPress={guest} />
         <Button title={s.welcome.haveAccount} variant="ghost" onPress={() => router.push({ pathname: '/auth', params: { mode: 'in' } })} />
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

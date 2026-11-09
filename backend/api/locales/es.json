@@ -111,7 +111,13 @@
   "{A} and {b} sit close on the colour wheel, so they blend smoothly.": "{A} y {b} están cerca en el círculo cromático, así que se funden con suavidad.",
   "{color} {core}": "{core} {color}",
   "{color} {kind}": "{kind} {color}",
-  "{first} with {second}: {phrase}": "{first} con {second}: {phrase}"
+  "{first} with {second}: {phrase}": "{first} con {second}: {phrase}",
+  "In a colour you love": "En un color que te encanta",
+  "Matches your {style} style": "Encaja con tu estilo {style}",
+  "Small brand, {rating}★, not ad-boosted": "Marca pequeña, {rating}★, sin publicidad",
+  "Well rated and easy to wear": "Bien valorado y fácil de llevar",
+  "Within your budget": "Dentro de tu presupuesto",
+  "Your {style} style, in a colour you love": "Tu estilo {style}, en un color que te encanta"
  },
  "names": {
   "colors": {
@@ -199,7 +205,14 @@
    "party": "una fiesta",
    "formal": "un evento formal",
    "sport": "hacer deporte",
-   "travel": "viajar"
+   "travel": "viajar",
+   "wedding": "una boda",
+   "interview": "una entrevista de trabajo",
+   "school": "clase",
+   "brunch": "un brunch",
+   "beach": "la playa",
+   "home": "un día en casa",
+   "outdoor": "un día al aire libre"
   },
   "styles": {
    "casual": "informal",
@@ -213,7 +226,23 @@
    "bohemian": "bohemio",
    "old_money": "old money",
    "preppy": "preppy",
-   "romantic": "romántico"
+   "romantic": "romántico",
+   "quiet_luxury": "lujo silencioso",
+   "athleisure": "athleisure",
+   "scandi": "escandinavo",
+   "parisian_chic": "chic parisino",
+   "vintage": "vintage",
+   "y2k": "Y2K",
+   "grunge": "grunge",
+   "edgy": "rockero",
+   "coastal": "costero",
+   "cottagecore": "cottagecore",
+   "korean": "estilo coreano",
+   "gorpcore": "gorpcore",
+   "glam": "glam",
+   "modest": "modesto",
+   "techwear": "techwear",
+   "western": "western"
   }
  }
 }

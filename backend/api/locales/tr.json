@@ -111,7 +111,13 @@
   "{A} and {b} sit close on the colour wheel, so they blend smoothly.": "{A} ve {b} renk çemberinde yan yana, bu yüzden yumuşakça kaynaşıyor.",
   "{color} {core}": "{color} {core}",
   "{color} {kind}": "{color} {kind}",
-  "{first} with {second}: {phrase}": "{first} ile {second}: {phrase}"
+  "{first} with {second}: {phrase}": "{first} ile {second}: {phrase}",
+  "In a colour you love": "Sevdiğin bir renkte",
+  "Matches your {style} style": "{style} tarzına uyuyor",
+  "Small brand, {rating}★, not ad-boosted": "Küçük marka, {rating}★, reklamla öne çıkarılmadı",
+  "Well rated and easy to wear": "Yüksek puanlı ve giymesi kolay",
+  "Within your budget": "Bütçene uygun",
+  "Your {style} style, in a colour you love": "Sevdiğin renkte, {style} tarzına uygun"
  },
  "names": {
   "colors": {
@@ -199,7 +205,14 @@
    "party": "parti",
    "formal": "resmi davet",
    "sport": "spor",
-   "travel": "seyahat"
+   "travel": "seyahat",
+   "wedding": "düğün",
+   "interview": "iş görüşmesi",
+   "school": "okul",
+   "brunch": "brunch",
+   "beach": "plaj",
+   "home": "evde bir gün",
+   "outdoor": "doğada bir gün"
   },
   "styles": {
    "casual": "günlük",
@@ -213,7 +226,23 @@
    "bohemian": "bohem",
    "old_money": "old money",
    "preppy": "preppy",
-   "romantic": "romantik"
+   "romantic": "romantik",
+   "quiet_luxury": "sessiz lüks",
+   "athleisure": "athleisure",
+   "scandi": "İskandinav",
+   "parisian_chic": "Paris şıklığı",
+   "vintage": "vintage",
+   "y2k": "Y2K",
+   "grunge": "grunge",
+   "edgy": "rock",
+   "coastal": "sahil",
+   "cottagecore": "cottagecore",
+   "korean": "Kore stili",
+   "gorpcore": "gorpcore",
+   "glam": "göz alıcı",
+   "modest": "tesettür",
+   "techwear": "techwear",
+   "western": "western"
   }
  }
 }

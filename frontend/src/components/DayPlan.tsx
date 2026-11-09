@@ -9,8 +9,9 @@ import { Chip, ChipRow } from './ui';
 
 // How dressed-up each occasion reads; the server's OCCASION_LEVEL.
 const LEVEL: Record<string, string> = {
-  formal: 'formal', client_meeting: 'formal', work: 'formal', date: 'smart', party: 'smart',
-  casual: 'casual', sport: 'casual', travel: 'casual',
+  formal: 'formal', client_meeting: 'formal', work: 'formal', wedding: 'formal', interview: 'formal',
+  date: 'smart', party: 'smart', brunch: 'smart',
+  casual: 'casual', sport: 'casual', travel: 'casual', school: 'casual', beach: 'casual', home: 'casual', outdoor: 'casual',
 };
 
 /**

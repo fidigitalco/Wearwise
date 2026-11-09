@@ -135,7 +135,7 @@ export default function OutfitDetailScreen() {
             <Chip label={s.avatar.collage} selected={view === 'collage'} onPress={() => setView('collage')} />
             <Chip label={s.avatar.fittingRoom} selected={view === 'avatar'} onPress={() => setView('avatar')} />
             {view === 'avatar' ? (
-              <Pressable onPress={() => router.push('/avatar')} accessibilityRole="button" hitSlop={8} style={{ marginLeft: 'auto' }}>
+              <Pressable onPress={() => router.push('/preferences')} accessibilityRole="button" hitSlop={8} style={{ marginLeft: 'auto' }}>
                 <Text style={[type.label, { color: t.primary, fontWeight: '600' }]}>{s.avatar.edit}</Text>
               </Pressable>
             ) : null}

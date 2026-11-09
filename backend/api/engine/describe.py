@@ -64,6 +64,8 @@ def style_name(key, lang):
 OCCASION_EN = {
     'casual': 'everyday wear', 'work': 'work', 'client_meeting': 'a client meeting', 'date': 'a date',
     'party': 'a party', 'formal': 'a formal event', 'sport': 'sport', 'travel': 'travel',
+    'wedding': 'a wedding', 'interview': 'a job interview', 'school': 'class', 'brunch': 'brunch', 'beach': 'the beach',
+    'home': 'a day at home', 'outdoor': 'a day outdoors',
 }
 
 
@@ -87,16 +89,16 @@ def title_key(outfit, ctx):
     outer = outfit.get('outerwear')
     if p is not None and p >= 0.5 and outer and outer.rain_ok:
         return 'rain'
-    if occ == 'sport':
+    if occ in ('sport', 'outdoor'):
         return 'sport'
     if occ == 'travel':
         return 'travel'
     mean = _mean_formality(outfit)
-    if occ == 'formal' or (occ in ('date', 'party') and mean >= 3.5):
+    if occ in ('formal', 'wedding') or (occ in ('date', 'party') and mean >= 3.5):
         return 'evening_classic'
     if occ in ('date', 'party'):
         return 'evening_out'
-    if occ == 'client_meeting':
+    if occ in ('client_meeting', 'interview'):
         return 'meeting'
     if occ == 'work':
         return 'office' if mean >= 3.5 else 'smart_casual'

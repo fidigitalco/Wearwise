@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { Button, Field, IconButton } from '../components/ui';
+import { LanguagePicker } from '../components/LanguagePicker';
+import { Button, Field, FormScroll, IconButton, PasswordField } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { signInWithApple, signInWithGoogle, SocialUnavailable } from '../lib/social';
@@ -121,11 +122,13 @@ export default function AuthScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.card }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
-          {router.canGoBack() ? (
-            <IconButton icon={<ChevronLeft size={24} color={t.text} />} label={s.common.back} onPress={() => router.back()} style={{ marginLeft: -10 }} />
-          ) : null}
+      <FormScroll contentContainerStyle={styles.wrap}>
+          <View style={styles.top}>
+            {router.canGoBack() ? (
+              <IconButton icon={<ChevronLeft size={24} color={t.text} />} label={s.common.back} onPress={() => router.back()} style={{ marginLeft: -10 }} />
+            ) : <View />}
+            <LanguagePicker />
+          </View>
 
           <View style={{ gap: space.sm }}>
             <Text style={[type.display, styles.heading, { color: t.text }]} accessibilityRole="header">
@@ -159,12 +162,11 @@ export default function AuthScreen() {
               keyboardType="email-address"
               textContentType="emailAddress"
             />
-            <Field
+            <PasswordField
               label={s.auth.password}
               value={password}
               onChangeText={setPassword}
               placeholder={up ? s.auth.passwordHint : ''}
-              secureTextEntry
               autoComplete={up ? 'new-password' : 'current-password'}
               textContentType={up ? 'newPassword' : 'password'}
               onSubmitEditing={submit}
@@ -190,14 +192,14 @@ export default function AuthScreen() {
             </Pressable>
             <Text style={[type.caption, { color: t.textMuted, textAlign: 'center' }]}>{s.auth.terms}</Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </FormScroll>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { flexGrow: 1, paddingHorizontal: gutter, paddingVertical: space.lg, gap: space.xl },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heading: { fontSize: 34, lineHeight: 40 },
   provider: { height: 54, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
   divider: { flexDirection: 'row', alignItems: 'center', gap: space.md },

@@ -31,6 +31,8 @@ def build_context(user, data, lang='en'):
         # A one-off style filter from the Outfits screen wins over the saved preference.
         'style': data.get('style') or user.style_direction,
         'favorite_colors': list(user.favorite_colors or []),
+        'avoid_colors': list(user.avoid_colors or []),
+        'fit_preference': user.fit_preference,
         'lang': lang,
     }
     if (ctx['temp_c'] is None or ctx['precip_prob'] is None) and lat is not None and lon is not None:
@@ -56,12 +58,14 @@ def stored_context(outfit, user, lang):
         'precip_prob': c.get('precip_prob'),
         'style': c.get('style') or user.style_direction,
         'favorite_colors': list(user.favorite_colors or []),
+        'avoid_colors': list(user.avoid_colors or []),
+        'fit_preference': user.fit_preference,
         'lang': lang,
     }
 
 
 def public_context(ctx):
-    out = {k: v for k, v in ctx.items() if k not in ('today', 'lang', 'favorite_colors')}
+    out = {k: v for k, v in ctx.items() if k not in ('today', 'lang', 'favorite_colors', 'avoid_colors', 'fit_preference')}
     out['date'] = ctx['today'].isoformat()
     return out
 

@@ -2,7 +2,7 @@ from django.contrib.auth import password_validation
 from rest_framework import serializers
 
 from . import taxonomy as tx
-from .models import Feedback, Garment, Outfit, OutfitSet, User, VideoScan
+from .models import Feedback, Garment, Occasion, Outfit, OutfitSet, Product, User, VideoScan
 
 
 def _choice_list(values, allowed, field):
@@ -22,6 +22,8 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'email', 'display_name', 'wardrobe_style', 'style_direction', 'main_occasion', 'onboarded',
             'latitude', 'longitude', 'preferred_styles', 'favorite_colors', 'sizes', 'typical_occasions',
             'units', 'notifications_enabled', 'plan', 'is_guest', 'date_joined',
+            'gender', 'birth_year', 'height_cm', 'weight_kg', 'body_shape', 'fit_preference', 'budget', 'avoid_colors',
+            'age_range', 'country', 'budget_ranges', 'stores',
         ]
         read_only_fields = ['id', 'email', 'plan', 'is_guest', 'date_joined']
 
@@ -30,6 +32,32 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate_favorite_colors(self, v):
         return _choice_list(v, tx.COLORS, 'colour')
+
+    def validate_budget_ranges(self, v):
+        return _choice_list(v, tx.BUDGET_RANGES, 'budget')
+
+    def validate_stores(self, v):
+        return _choice_list(v, tx.STORES, 'store')
+
+    def validate_avoid_colors(self, v):
+        return _choice_list(v, tx.COLORS, 'colour')
+
+    def validate_birth_year(self, v):
+        from django.utils import timezone
+        year = timezone.localdate().year
+        if v is not None and not year - 100 <= v <= year - 10:
+            raise serializers.ValidationError('Enter a birth year that makes you 10 to 100.')
+        return v
+
+    def validate_height_cm(self, v):
+        if v is not None and not 100 <= v <= 230:
+            raise serializers.ValidationError('Height must be 100–230 cm.')
+        return v
+
+    def validate_weight_kg(self, v):
+        if v is not None and not 30 <= v <= 250:
+            raise serializers.ValidationError('Weight must be 30–250 kg.')
+        return v
 
     def validate_typical_occasions(self, v):
         return _choice_list(v, tx.OCCASIONS, 'occasion')
@@ -49,6 +77,10 @@ class UserSerializer(serializers.ModelSerializer):
         # The scorer reads style_direction; keep it in step with the first preferred style.
         if data.get('preferred_styles'):
             data['style_direction'] = data['preferred_styles'][0]
+        # A favourite colour cannot also be one to avoid; the newer choice wins.
+        if 'avoid_colors' in data:
+            fav = data.get('favorite_colors', getattr(self.instance, 'favorite_colors', []) or [])
+            data['favorite_colors'] = [c for c in fav if c not in data['avoid_colors']]
         return data
 
 
@@ -222,3 +254,43 @@ class VideoScanSerializer(serializers.ModelSerializer):
         model = VideoScan
         fields = ['id', 'status', 'error', 'frames_used', 'garments', 'created_at', 'finished_at']
         read_only_fields = fields
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    """A catalogue piece as the app shows it; `why` and `saved` need the request's user."""
+
+    price = serializers.FloatField()
+    previous_price = serializers.FloatField(allow_null=True)
+    rgb = serializers.SerializerMethodField()
+    why = serializers.SerializerMethodField()
+    saved = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'store', 'brand', 'price', 'previous_price', 'currency', 'category', 'subcategory', 'color',
+            'rgb', 'material', 'styles', 'image_url', 'rating', 'small_brand', 'sponsored', 'is_demo', 'why', 'saved',
+        ]
+
+    def get_rgb(self, p):
+        return list(tx.COLORS.get(p.color, (140, 140, 140)))
+
+    def get_why(self, p):
+        from .catalog import why
+        req = self.context.get('request')
+        return why(p, req.user, self.context.get('lang', 'en')) if req else ''
+
+    def get_saved(self, p):
+        saved = self.context.get('saved_ids')
+        return p.id in saved if saved is not None else False
+
+
+class OccasionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Occasion
+        fields = ['id', 'title', 'date', 'kind', 'for_gift', 'person']
+
+    def validate_title(self, v):
+        if not v.strip():
+            raise serializers.ValidationError('Give the date a name.')
+        return v.strip()

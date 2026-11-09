@@ -9,7 +9,7 @@ import type { Garment } from '../types';
 import { CategoryIcon } from './icons';
 
 /**
- * The garment's photo (cutout first) on a neutral sand well. Without a photo:
+ * The garment's photo, as taken, on a neutral sand well. Without a photo:
  * the category line icon and a small dot in the garment's colour — never a
  * colour-flooded tile, never a broken image.
  */
@@ -17,10 +17,11 @@ export function GarmentImage({
   garment, style, iconSize = 32, rounded = radius.md,
 }: { garment: Garment; style?: StyleProp<ViewStyle>; iconSize?: number; rounded?: number }) {
   const t = useTheme();
-  const src = mediaUrl(garment.cutout || garment.image);
+  // The photo as taken; a cutout only stands in when there is no photo.
+  const src = mediaUrl(garment.image || garment.cutout);
   // Cut-out pieces float on one shared light tile, so a collage or grid reads as
   // a single set however each photo was taken; uncut photos still fill the frame.
-  const cut = !!garment.cutout;
+  const cut = !garment.image && !!garment.cutout;
   return (
     <View style={[styles.imageBox, { borderRadius: rounded, backgroundColor: cut ? t.tile : t.sand }, style]}>
       {src ? (

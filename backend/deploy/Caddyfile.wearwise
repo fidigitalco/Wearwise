@@ -1,0 +1,17 @@
+# Append this block to /etc/caddy/Caddyfile (SaveDo's blocks stay as they are), then: sudo systemctl reload caddy
+# sslip.io resolves wearwise.164.68.119.214.sslip.io to 164.68.119.214, so no DNS change is needed;
+# Caddy gets a Let's Encrypt certificate for it automatically.
+wearwise.164.68.119.214.sslip.io {
+	encode gzip
+	handle_path /media/* {
+		root * /opt/wearwise/backend/media
+		file_server
+	}
+	handle_path /static/* {
+		root * /opt/wearwise/backend/staticfiles
+		file_server
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8010
+	}
+}

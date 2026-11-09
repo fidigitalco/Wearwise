@@ -5,7 +5,7 @@ import { useI18n } from '../lib/i18n';
 import { shopping } from '../services/api';
 import { radius, space, type, useTheme } from '../theme';
 import type { ShoppingSuggestion } from '../types';
-import { CategoryIcon } from './icons';
+import { GarmentSketch } from './GarmentSketch';
 import { BottomSheet } from './Overlays';
 import { Button } from './ui';
 
@@ -52,8 +52,7 @@ export function ShoppingCard({ item, width, onFind }: { item: ShoppingSuggestion
     <View style={[styles.card, { width, backgroundColor: t.card, borderColor: t.border }]}>
       <View style={styles.top}>
         <View style={[styles.well, { backgroundColor: t.sand }]}>
-          <CategoryIcon category={item.category} size={26} color={t.textSecondary} strokeWidth={1.4} />
-          <View style={[styles.dot, { backgroundColor: `rgb(${item.rgb.join(',')})`, borderColor: t.card }]} />
+          <GarmentSketch subcategory={item.subcategory} category={item.category} rgb={item.rgb} size={60} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={[type.bodyStrong, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
@@ -88,8 +87,7 @@ export function ShoppingRow({ items, inset = 0 }: { items: ShoppingSuggestion[];
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: radius.lg, padding: space.md, gap: space.md },
   top: { flexDirection: 'row', gap: space.md },
-  well: { width: 56, height: 56, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  dot: { position: 'absolute', right: 5, bottom: 5, width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
+  well: { width: 72, height: 72, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   unlocks: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   storeRow: { flexDirection: 'row', alignItems: 'center', minHeight: 50, paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1 },

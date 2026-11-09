@@ -61,7 +61,11 @@ def colors_of(outfit):
 FAVORITE_BONUS, FAVORITE_CAP = 3, 6
 
 
-def score_color(outfit, pairs, taste, favorites=()):
+# A colour the user asked never to see costs more than any favourite earns.
+AVOID_PENALTY = 25
+
+
+def score_color(outfit, pairs, taste, favorites=(), avoid=()):
     names = colors_of(outfit)
     if len(names) < 2:
         return 75.0
@@ -76,6 +80,7 @@ def score_color(outfit, pairs, taste, favorites=()):
     s += 4 * len(set(names) & set(taste.liked_colors)) - 8 * len(set(names) & set(taste.disliked_colors))
     fav = (set(names) & set(favorites)) - set(taste.liked_colors)  # liked colours already counted
     s += min(FAVORITE_CAP, FAVORITE_BONUS * len(fav))
+    s -= AVOID_PENALTY * len(set(names) & set(avoid))
     return _clamp(s)
 
 
@@ -137,6 +142,22 @@ _FIT_PAIRS = {
     ('oversized', 'slim'): 90, ('relaxed', 'relaxed'): 74, ('relaxed', 'regular'): 84,
     ('relaxed', 'slim'): 86, ('regular', 'regular'): 82, ('regular', 'slim'): 84, ('slim', 'slim'): 76,
 }
+
+
+# How close a piece's fit is to the fit the user likes (About you), on the slim → oversized line.
+_FIT_ORDER = ['slim', 'regular', 'relaxed', 'oversized']
+
+
+def fit_bonus(outfit, preference):
+    """−8…+8 towards the fit the user prefers, from the body pieces."""
+    if preference not in _FIT_ORDER:
+        return 0.0
+    body = [g for slot, g in outfit.items() if slot in ('top', 'bottom', 'dress', 'outerwear') and g.fit in _FIT_ORDER]
+    if not body:
+        return 0.0
+    want = _FIT_ORDER.index(preference)
+    gap = sum(abs(_FIT_ORDER.index(g.fit) - want) for g in body) / len(body)
+    return max(-8.0, 8.0 - 8.0 * gap)
 
 
 def score_silhouette(outfit):
@@ -249,11 +270,11 @@ def score_rotation(outfit, today):
 
 def score_outfit(outfit, ctx, pairs, taste):
     scores = {
-        'color': score_color(outfit, pairs, taste, ctx.get('favorite_colors') or ()),
+        'color': score_color(outfit, pairs, taste, ctx.get('favorite_colors') or (), ctx.get('avoid_colors') or ()),
         'occasion': score_occasion(outfit, ctx['occasion']),
         'weather': score_weather(outfit, ctx.get('temp_c'), ctx.get('precip_prob'), ctx['season'],
                                  ctx.get('wind_kmh', 0), ctx.get('snow_cm', 0)),
-        'silhouette': score_silhouette(outfit),
+        'silhouette': _clamp(score_silhouette(outfit) + fit_bonus(outfit, ctx.get('fit_preference'))),
         'material': score_material(outfit, pairs),
         'accessories': score_accessories(outfit),
         'taste': _clamp(score_taste(outfit, taste) + style_bonus(outfit, ctx.get('style'))),

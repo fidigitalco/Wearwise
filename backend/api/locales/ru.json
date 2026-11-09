@@ -111,7 +111,13 @@
   "{A} and {b} sit close on the colour wheel, so they blend smoothly.": "{A} и {b} — соседи по цветовому кругу, поэтому плавно сочетаются.",
   "{color} {core}": "{core} ({color})",
   "{color} {kind}": "{kind} ({color})",
-  "{first} with {second}: {phrase}": "{first} и {second}: {phrase}"
+  "{first} with {second}: {phrase}": "{first} и {second}: {phrase}",
+  "In a colour you love": "В любимом цвете",
+  "Matches your {style} style": "Подходит к стилю «{style}»",
+  "Small brand, {rating}★, not ad-boosted": "Небольшой бренд, {rating}★, без рекламы",
+  "Well rated and easy to wear": "Высокий рейтинг и легко носить",
+  "Within your budget": "В рамках вашего бюджета",
+  "Your {style} style, in a colour you love": "Стиль «{style}» в любимом цвете"
  },
  "names": {
   "colors": {
@@ -199,7 +205,14 @@
    "party": "вечеринка",
    "formal": "торжественное мероприятие",
    "sport": "спорт",
-   "travel": "путешествие"
+   "travel": "путешествие",
+   "wedding": "свадьба",
+   "interview": "собеседование",
+   "school": "учёба",
+   "brunch": "бранч",
+   "beach": "пляж",
+   "home": "день дома",
+   "outdoor": "день на природе"
   },
   "styles": {
    "casual": "кэжуал",
@@ -213,7 +226,23 @@
    "bohemian": "бохо",
    "old_money": "old money",
    "preppy": "преппи",
-   "romantic": "романтичный"
+   "romantic": "романтичный",
+   "quiet_luxury": "тихая роскошь",
+   "athleisure": "атлейжер",
+   "scandi": "сканди",
+   "parisian_chic": "парижский шик",
+   "vintage": "винтаж",
+   "y2k": "Y2K",
+   "grunge": "гранж",
+   "edgy": "рок",
+   "coastal": "прибрежный",
+   "cottagecore": "коттеджкор",
+   "korean": "корейский стиль",
+   "gorpcore": "горпкор",
+   "glam": "гламур",
+   "modest": "скромный стиль",
+   "techwear": "техвир",
+   "western": "вестерн"
   }
  }
 }

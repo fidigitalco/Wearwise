@@ -1,9 +1,9 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { GarmentForm, draftFromGarment, draftToInput, type GarmentDraft } from '../../components/GarmentForm';
-import { Body, Button, Card, Chip, ChipRow, Label } from '../../components/ui';
+import { Body, Button, Card, Chip, ChipRow, FormScroll, Label } from '../../components/ui';
 import { formatTemp } from '../../components/Outfit';
 import { useAuth } from '../../lib/auth';
 import { errorMessage, garments as garmentsApi, mediaUrl } from '../../services/api';
@@ -49,7 +49,7 @@ export default function GarmentScreen() {
     );
   }
 
-  const src = mediaUrl(garment.cutout || garment.image);
+  const src = mediaUrl(garment.image || garment.cutout);
 
   const save = async () => {
     setSaving(true);
@@ -91,8 +91,7 @@ export default function GarmentScreen() {
 
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+    <FormScroll contentContainerStyle={styles.wrap}>
         {src ? <Image source={{ uri: src }} style={[styles.photo, { backgroundColor: t.cardAlt }]} contentFit="contain" /> : null}
 
         {justAdded ? (
@@ -131,8 +130,7 @@ export default function GarmentScreen() {
 
         <Button title={justAdded ? s.common.done : s.garment.saveChanges} onPress={save} loading={saving} />
         <Button title={s.garment.deletePiece} variant="danger" onPress={remove} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </FormScroll>
   );
 }
 

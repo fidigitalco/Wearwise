@@ -71,9 +71,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
 ]
 
-# Real hashing is deliberately slow; tests only need it to round-trip.
 TESTING = 'test' in sys.argv
 
+# Background removal after an upload (rembg). Off: its cutouts were not clean
+# enough, so pieces show the photo as taken. WEARWISE_CUTOUTS=1 turns it back on.
+CUTOUTS = os.environ.get('WEARWISE_CUTOUTS', '0') == '1'
+
+# Real hashing is deliberately slow; tests only need it to round-trip.
 if TESTING:
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
     # Uploads and sample photos written by tests go to a throwaway folder, not media/.
@@ -111,6 +115,10 @@ if 'test' in sys.argv:
     REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['auth'] = '10000/min'
 
 CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
+# Behind Caddy in production: trust its X-Forwarded-Proto so photo links come back as https.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CORS_ALLOW_ALL_ORIGINS = DEBUG and not CORS_ALLOWED_ORIGINS
 
 # Uploaded closet photos are phone-sized; keep a ceiling so one request can't

@@ -1,11 +1,37 @@
-import { CircleAlert, Search, X } from 'lucide-react-native';
+import { CircleAlert, Eye, EyeOff, Search, X } from 'lucide-react-native';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import { useI18n } from '../lib/i18n';
 import { elevation, radius, space, touch, type, useTheme } from '../theme';
+
+// ── Forms ───────────────────────────────────────────────────────────────────
+
+/**
+ * A scrolling form that keeps the focused field and the buttons below it
+ * reachable with the keyboard open. iOS insets the scroll view by the
+ * keyboard itself, which also holds inside modal screens, where a padding
+ * KeyboardAvoidingView misses the header height and hides the Save button.
+ * Android shrinks the view to the space above the keyboard.
+ */
+export function FormScroll({ children, contentContainerStyle, style }: {
+  children: ReactNode; contentContainerStyle?: StyleProp<ViewStyle>; style?: StyleProp<ViewStyle>;
+}) {
+  const scroll = (
+    <ScrollView
+      style={Platform.OS === 'ios' ? style : undefined}
+      contentContainerStyle={contentContainerStyle}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      automaticallyAdjustKeyboardInsets
+    >
+      {children}
+    </ScrollView>
+  );
+  return Platform.OS === 'ios' ? scroll : <KeyboardAvoidingView style={[{ flex: 1 }, style]} behavior="height">{scroll}</KeyboardAvoidingView>;
+}
 
 // ── Buttons ─────────────────────────────────────────────────────────────────
 
@@ -182,6 +208,38 @@ export function Field(props: TextInputProps & { label?: string }) {
   );
 }
 
+/** A password field with an eye button that shows or hides what was typed. */
+export function PasswordField(props: Omit<TextInputProps, 'secureTextEntry'> & { label?: string }) {
+  const t = useTheme();
+  const { t: s } = useI18n();
+  const [shown, setShown] = useState(false);
+  const { label, style, ...rest } = props;
+  return (
+    <View style={{ gap: space.xs }}>
+      {label ? <Text style={[type.label, { color: t.textSub }]}>{label}</Text> : null}
+      <View>
+        <TextInput
+          placeholderTextColor={t.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          {...rest}
+          secureTextEntry={!shown}
+          style={[styles.input, type.body, { color: t.text, backgroundColor: t.card, borderColor: t.border, paddingRight: 48 }, style]}
+        />
+        <Pressable
+          onPress={() => setShown((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={shown ? s.common.hidePassword : s.common.showPassword}
+          hitSlop={8}
+          style={styles.eye}
+        >
+          {shown ? <EyeOff size={20} color={t.textSecondary} /> : <Eye size={20} color={t.textSecondary} />}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export function SearchField({
   value, onChangeText, placeholder, autoFocus, onSubmit,
 }: { value: string; onChangeText: (v: string) => void; placeholder: string; autoFocus?: boolean; onSubmit?: () => void }) {
@@ -311,6 +369,7 @@ export function LoadingSkeleton({ width, height, radius: r = radius.md, style }:
 }
 
 const styles = StyleSheet.create({
+  eye: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 48, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   button: {
     minHeight: 48, borderRadius: radius.md, paddingHorizontal: space.lg, alignItems: 'center', justifyContent: 'center',

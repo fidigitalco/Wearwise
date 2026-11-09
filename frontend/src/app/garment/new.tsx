@@ -4,12 +4,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Camera, CircleAlert, CircleCheck, CircleX, Image as ImageIcon, PenLine, Video } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View,
+  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View,
   useWindowDimensions,
 } from 'react-native';
 import { GarmentForm, draftToInput, emptyDraft, type GarmentDraft } from '../../components/GarmentForm';
 import { Hanger } from '../../components/icons';
-import { Body, Button, Title } from '../../components/ui';
+import { Body, Button, FormScroll, Title } from '../../components/ui';
 import { errorMessage, garments as garmentsApi, mediaUrl, scans, type LocalImage } from '../../services/api';
 import { useI18n } from '../../lib/i18n';
 import { gutter, radius, space, useTheme } from '../../theme';
@@ -226,8 +226,7 @@ export default function NewGarmentScreen() {
   // ── Manual form (no photo, or a photo that was not recognised) ────────────
   if (manual) {
     return (
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+      <FormScroll contentContainerStyle={styles.wrap}>
           {manualImage ? (
             <Image source={{ uri: manualImage.uri }} style={[styles.photo, { backgroundColor: t.cardAlt }]} contentFit="contain" />
           ) : null}
@@ -235,8 +234,7 @@ export default function NewGarmentScreen() {
           <GarmentForm draft={draft} onChange={setDraft} colorsHint={manualImage ? s.add.colorsFromPhoto : undefined} />
           <Button title={s.add.save} onPress={saveManual} loading={saving} />
           {!single && items.length ? <Button title={s.common.cancel} variant="ghost" onPress={() => setManualFor(null)} /> : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </FormScroll>
     );
   }
 

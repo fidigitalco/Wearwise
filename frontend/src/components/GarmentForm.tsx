@@ -1,12 +1,14 @@
 import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import type { GarmentInput } from '../services/api';
 import { useAuth } from '../lib/auth';
 import { useI18n, useLabel } from '../lib/i18n';
-import { categoriesFor, rgbCss, subcategoriesFor, useMeta } from '../lib/meta';
+import { categoriesFor, subcategoriesFor, useMeta } from '../lib/meta';
 import { radius, space, type, useTheme } from '../theme';
 import type { Category, Garment, GarmentColor, Material } from '../types';
+import { ColorPicker } from './ColorPicker';
+import { CategoryIcon } from './icons';
 import { Body, Chip, ChipRow, ChipWrap, Field, Label, Stepper } from './ui';
 
 export type GarmentDraft = Required<
@@ -75,7 +77,6 @@ export function GarmentForm({
   const { user } = useAuth();
   const { t: s } = useI18n();
   const label = useLabel();
-  const [editColors, setEditColors] = useState(draft.colors.length === 0);
   const [more, setMore] = useState(false);
   const set = (patch: Partial<GarmentDraft>) => onChange({ ...draft, ...patch });
   const unsure = (k: string) => confidence?.[k] !== undefined && confidence[k] < CHECK_BELOW;
@@ -102,54 +103,54 @@ export function GarmentForm({
 
   return (
     <View style={{ gap: space.xl }}>
+      {/* Two steps, not one: the broad category, then the exact type inside it. One heading over both
+          read as a single choice, and people stopped after the first row. */}
       <View style={{ gap: space.sm }}>
-        <Heading label={s.form.type} check={unsure('category')} ai={ai('category')} />
-        <ChipRow>
-          {categoriesFor(user?.wardrobe_style).map((c) => (
-            <Chip key={c} label={label('categories', c)} selected={draft.category === c} onPress={() => pickCategory(c)} />
-          ))}
-        </ChipRow>
+        <View style={styles.row}>
+          <StepNumber n={1} />
+          <Heading label={s.form.category} check={unsure('category')} ai={ai('category')} />
+        </View>
+        {/* Icon tiles, so the category never looks like the type chips below it. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+          {categoriesFor(user?.wardrobe_style).map((c) => {
+            const on = draft.category === c;
+            return (
+              <Pressable key={c} onPress={() => pickCategory(c)} accessibilityRole="radio" accessibilityState={{ checked: on }}
+                accessibilityLabel={label('categories', c)}
+                style={[styles.catTile, { backgroundColor: on ? t.primary : t.card, borderColor: on ? t.primary : t.border }]}>
+                <CategoryIcon category={c} size={24} color={on ? t.onPrimary : t.textSecondary} strokeWidth={1.6} />
+                <Text style={[styles.catLabel, { color: on ? t.onPrimary : t.text }]} numberOfLines={2}>{label('categories', c)}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      <View style={[styles.subtypeBox, { backgroundColor: t.cardAlt, borderColor: draft.subcategory ? t.border : t.accent }]}>
+        <View style={styles.row}>
+          <StepNumber n={2} />
+          <Heading label={s.form.subtype} check={unsure('subcategory')} ai={ai('subcategory')} />
+        </View>
+        <Text style={[type.caption, { color: t.textMuted }]}>{s.form.subtypeOf(label('categories', draft.category))}</Text>
         <ChipWrap>
           {subcategoriesFor(meta, draft.category as Category, user?.wardrobe_style).map((sub) => (
             <Chip key={sub} label={label('subcategories', sub)} selected={draft.subcategory === sub} onPress={() => pickSub(sub)} />
           ))}
         </ChipWrap>
-        {draft.subcategory && s.tx.typeHints[draft.subcategory] ? (
+        {!draft.subcategory ? (
+          <Text style={[type.caption, { color: t.accent, fontWeight: '600' }]}>{s.form.pickSubtype}</Text>
+        ) : s.tx.typeHints[draft.subcategory] ? (
           <Text style={[type.caption, { color: t.textMuted }]}>{s.tx.typeHints[draft.subcategory]}</Text>
         ) : null}
       </View>
 
       <Field label={s.form.name} value={draft.name} onChangeText={(name) => set({ name })} placeholder={s.form.namePlaceholder} />
 
+      {/* Colours fold into one line; the full palette opens in a sheet. */}
       <View style={{ gap: space.sm }}>
-        <View style={styles.rowBetween}>
-          <Heading label={s.form.colors} check={unsure('color')} ai={ai('color')} />
-          {draft.colors.length > 0 ? (
-            <Pressable onPress={() => setEditColors((e) => !e)} hitSlop={8} accessibilityRole="button">
-              <Text style={{ color: t.highlight, fontWeight: '600' }}>{editColors ? s.common.done : s.common.change}</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        <Heading label={s.form.colors} check={unsure('color')} ai={ai('color')} />
         {colorsHint ? <Body muted>{colorsHint}</Body> : null}
-        {editColors ? (
-          <ChipWrap>
-            {Object.entries(meta.colors).map(([name, rgb]) => (
-              <Chip
-                key={name}
-                label={label('colors', name)}
-                swatch={rgbCss(rgb)}
-                selected={draft.colors.some((c) => c.name === name)}
-                onPress={() => toggleColor(name)}
-              />
-            ))}
-          </ChipWrap>
-        ) : (
-          <ChipWrap>
-            {draft.colors.map((c) => (
-              <Chip key={c.name} label={label('colors', c.name)} swatch={rgbCss(c.rgb ?? meta.colors[c.name])} />
-            ))}
-          </ChipWrap>
-        )}
+        <ColorPicker value={draft.colors} onToggle={toggleColor} hint={s.form.colorsSheetHint} />
       </View>
 
       <Pressable
@@ -246,6 +247,15 @@ export function GarmentForm({
   );
 }
 
+function StepNumber({ n }: { n: number }) {
+  const t = useTheme();
+  return (
+    <View style={[styles.step, { backgroundColor: t.primary }]}>
+      <Text style={{ color: t.onPrimary, fontSize: 12, fontWeight: '700' }}>{n}</Text>
+    </View>
+  );
+}
+
 function Heading({ label, check, ai }: { label: string; check?: boolean; ai?: boolean }) {
   return (
     <View style={styles.row}>
@@ -284,4 +294,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: space.sm,
   },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },
+  catTile: { width: 84, minHeight: 78, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6, padding: space.sm },
+  catLabel: { fontSize: 12, fontWeight: '600', textAlign: 'center', lineHeight: 15 },
+  step: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  subtypeBox: { gap: space.sm, padding: space.md, borderRadius: radius.lg, borderWidth: 1 },
 });

@@ -1217,3 +1217,164 @@ class LocaleTests(APITestCase):
             self.assertNotIn('{', r.data['reply'], lang)
             titles = [o['title'] for o in r.data['outfits']]
             self.assertTrue(all(t and '{' not in t for t in titles), (lang, titles))
+
+
+class AboutYouTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'me2@example.com', 'password': 'wardrobe-123', 'display_name': 'Me'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_profile_saves_and_validates(self):
+        r = self.client.patch('/api/auth/me/', {
+            'gender': 'female', 'birth_year': 1995, 'height_cm': 168, 'weight_kg': 60, 'body_shape': 'hourglass',
+            'fit_preference': 'relaxed', 'budget': 'mid', 'avoid_colors': ['orange'], 'sizes': {'top': 'M', 'bottom': 'S', 'shoes': '38'},
+        }, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual((r.data['height_cm'], r.data['avoid_colors'], r.data['sizes']['top']), (168, ['orange'], 'M'))
+        self.assertEqual(self.client.patch('/api/auth/me/', {'height_cm': 20}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch('/api/auth/me/', {'birth_year': 1800}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch('/api/auth/me/', {'gender': 'robot'}, format='json').status_code, 400)
+        r = self.client.patch('/api/auth/me/', {'favorite_colors': ['orange', 'navy'], 'avoid_colors': ['orange']}, format='json')
+        self.assertEqual(r.data['favorite_colors'], ['navy'])  # cannot both love and avoid a colour
+
+    def test_avoided_colour_and_fit_move_scores(self):
+        from types import SimpleNamespace
+        from .engine.harmony import PairTable
+        from .engine.scoring import fit_bonus, score_color
+        g = lambda c, fit='regular': SimpleNamespace(primary_color=c, pattern='solid', fit=fit)
+        taste = SimpleNamespace(liked_colors=[], disliked_colors=[])
+        look = {'top': g('orange'), 'bottom': g('navy')}
+        self.assertLess(score_color(look, PairTable(), taste, avoid=['orange']), score_color(look, PairTable(), taste))
+        loose = {'top': g('white', 'oversized'), 'bottom': g('navy', 'relaxed')}
+        self.assertGreater(fit_bonus(loose, 'relaxed'), fit_bonus(loose, 'slim'))
+
+    def test_admin_never_sees_body_details(self):
+        self.client.patch('/api/auth/me/', {'height_cm': 170, 'weight_kg': 70, 'sizes': {'top': 'L'}}, format='json')
+        me = self.client.get('/api/auth/me/').data['id']
+        User.objects.create_user(email='boss2@example.com', password='admin-pass-1', is_staff=True)
+        t = self.client.post('/api/admin/login/', {'email': 'boss2@example.com', 'password': 'admin-pass-1'}, format='json').data['token']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {t}')
+        d = self.client.get(f'/api/admin/users/{me}/').data
+        for k in ('height_cm', 'weight_kg', 'sizes', 'body_shape', 'birth_year', 'gender'):
+            self.assertNotIn(k, d)
+
+
+class CatalogTests(APITestCase):
+    """MVP v2: Discovery, the wishlist with price watch, Home and dates."""
+
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'shopper@example.com', 'password': 'wardrobe-123', 'display_name': 'S'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.client.patch('/api/auth/me/', {
+            'gender': 'female', 'age_range': '25-34', 'country': 'TR', 'preferred_styles': ['minimal', 'old_money'],
+            'favorite_colors': ['beige', 'cream'], 'avoid_colors': ['orange'], 'budget_ranges': ['30-60', '60-120'],
+            'stores': ['Mango', 'COS'], 'onboarded': True,
+        }, format='json')
+
+    def test_profile_v2_validates(self):
+        self.assertEqual(self.client.patch('/api/auth/me/', {'budget_ranges': ['cheap']}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch('/api/auth/me/', {'stores': ['Nowhere']}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch('/api/auth/me/', {'preferred_styles': ['quiet_luxury', 'y2k']}, format='json').status_code, 200)
+
+    def test_discovery_drop_is_stable_learns_and_explains(self):
+        d = self.client.get('/api/discover/').data
+        self.assertEqual(len(d['products']), 10)  # the first drop is ten pieces
+        self.assertTrue(all(p['why'] for p in d['products']))
+        self.assertFalse([p for p in d['products'] if p['color'] == 'orange'])
+        self.assertEqual([p['id'] for p in self.client.get('/api/discover/').data['products']], [p['id'] for p in d['products']])
+        first = d['products'][0]
+        r = self.client.post(f"/api/products/{first['id']}/action/", {'action': 'like'}, format='json')
+        self.assertGreater(r.data['learned'], d['learned'])
+        self.assertNotIn(first['id'], [p['id'] for p in self.client.get('/api/discover/').data['products']])
+        self.assertEqual(self.client.post(f"/api/products/{first['id']}/action/", {'action': 'love'}, format='json').status_code, 400)
+
+    def test_save_shop_and_price_watch(self):
+        from .models import AffiliateClick, Product
+        coat = Product.objects.get(name='Wool blend coat')
+        r = self.client.post(f'/api/products/{coat.id}/action/', {'action': 'save'}, format='json')
+        self.assertTrue(r.data['saved'])
+        r = self.client.post(f'/api/products/{coat.id}/action/', {'action': 'shop'}, format='json')
+        self.assertIn('sub_id=ww_', r.data['url'])
+        self.assertEqual(AffiliateClick.objects.count(), 1)
+        self.assertEqual(self.client.patch(f'/api/saved/{coat.id}/', {'tracking': True}, format='json').data['tracking'], True)
+        coat.price = 79
+        coat.save()
+        items = self.client.get('/api/saved/').data['items']
+        self.assertEqual(items[0]['drop'], [98.0, 79.0])
+        self.assertEqual(self.client.get('/api/home/').data['price_drops'][0]['drop'], [98.0, 79.0])
+        self.assertTrue(self.client.get('/api/discover/').data['products'][0]['saved'] in (True, False))
+        self.assertEqual(self.client.delete(f'/api/saved/{coat.id}/').status_code, 204)
+        self.assertEqual(self.client.get('/api/saved/').data['items'], [])
+
+    def test_free_plan_watches_five(self):
+        from .models import Product
+        ids = list(Product.objects.values_list('id', flat=True)[:6])
+        for i in ids:
+            self.client.post('/api/saved/', {'product': i}, format='json')
+        for i in ids[:5]:
+            self.assertEqual(self.client.patch(f'/api/saved/{i}/', {'tracking': True}, format='json').status_code, 200)
+        r = self.client.patch(f'/api/saved/{ids[5]}/', {'tracking': True}, format='json')
+        self.assertEqual((r.status_code, r.data['code']), (402, 'tracking_limit'))
+
+    def test_home_and_occasions(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        h = self.client.get('/api/home/').data
+        self.assertTrue(h['look']['items'])
+        self.assertEqual(len(h['picks']), 4)
+        soon = (timezone.localdate() + timedelta(days=10)).isoformat()
+        later = (timezone.localdate() + timedelta(days=40)).isoformat()
+        r = self.client.post('/api/occasions/', {'title': 'Leyla’s wedding', 'date': soon, 'kind': 'wedding'}, format='json')
+        self.assertEqual((r.status_code, r.data['ready'], r.data['remind']), (201, True, False))
+        self.client.post('/api/occasions/', {'title': 'New Year', 'date': later, 'kind': 'holiday'}, format='json')
+        self.assertEqual(self.client.get('/api/home/').data['occasion']['title'], 'Leyla’s wedding')
+        looks = self.client.get(f"/api/occasions/{r.data['id']}/").data['looks']
+        self.assertEqual(len(looks), 3)
+        self.assertTrue(all(len(l['items']) >= 2 for l in looks))
+        for person in ('Anar', 'Mum'):
+            self.assertEqual(self.client.post('/api/occasions/', {'title': f'{person} birthday', 'date': later, 'kind': 'birthday',
+                                                                   'for_gift': True, 'person': person}, format='json').status_code, 201)
+        r = self.client.post('/api/occasions/', {'title': 'Third', 'date': later, 'kind': 'birthday', 'for_gift': True, 'person': 'Sis'}, format='json')
+        self.assertEqual((r.status_code, r.data['code']), (402, 'gift_limit'))
+
+
+    def test_suits_me_reads_links_judges_and_limits(self):
+        from .catalog import read_link
+        self.assertEqual(read_link('https://www.asos.com/x/mustard-ribbed-jumper/prd/123'), ('sweater', 'mustard'))
+        self.assertEqual(read_link('https://www.trendyol.com/lacivert-kazak-p-1'), ('sweater', 'navy'))
+        r = self.client.post('/api/suits-me/', {'link': 'https://shop.example/beige-linen-shirt'}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual((r.data['color_fit'], r.data['style_ok']), ('love', True))
+        self.assertIn(r.data['verdict'], ('great', 'good'))
+        self.assertEqual(r.data['left'], 4)
+        r = self.client.post('/api/suits-me/', {'link': 'https://shop.example/orange-shirt'}, format='json')
+        self.assertEqual((r.data['verdict'], r.data['color_fit']), ('risky', 'avoid'))
+        self.assertTrue(r.data['alternatives'])
+        self.assertTrue(all(p['color'] != 'orange' for p in r.data['alternatives']))
+        self.assertEqual(self.client.post('/api/suits-me/', {'link': 'https://x.example/abc'}, format='json').data['code'], 'link_unreadable')
+        for _ in range(3):
+            self.client.post('/api/suits-me/', {'link': 'https://shop.example/navy-jeans'}, format='json')
+        r = self.client.post('/api/suits-me/', {'link': 'https://shop.example/navy-jeans'}, format='json')
+        self.assertEqual((r.status_code, r.data['code']), (402, 'checks_used'))
+
+
+    def test_shared_inspiration_teaches_taste(self):
+        from .catalog import learned_taste
+        from .models import User
+        user = User.objects.get(email='shopper@example.com')
+        before = learned_taste(user)
+        r = self.client.post('/api/inspirations/', {'link': 'https://www.zara.com/az/en/burgundy-satin-skirt-p123.html', 'note': 'love this'}, format='json')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual((r.data['subcategory'], r.data['color']), ('skirt', 'burgundy'))
+        after = learned_taste(user)
+        self.assertGreater(after['c:burgundy'], before['c:burgundy'])
+        self.assertGreater(after['t:skirt'], before['t:skirt'])
+        photo = SimpleUploadedFile('look.png', png((30, 40, 80)).read(), 'image/png')
+        r = self.client.post('/api/inspirations/', {'image': photo}, format='multipart')
+        self.assertEqual((r.status_code, r.data['color']), (201, 'navy'))
+        self.assertEqual(len(self.client.get('/api/inspirations/').data['items']), 2)
+        self.assertEqual(self.client.post('/api/inspirations/', {'link': 'not a link'}, format='json').status_code, 400)
+        self.assertEqual(self.client.delete(f"/api/inspirations/{r.data['id']}/").status_code, 204)
+        self.assertEqual(len(self.client.get('/api/inspirations/').data['items']), 1)

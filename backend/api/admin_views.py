@@ -257,7 +257,6 @@ def admin_user(request, pk):
         'style_direction': user.style_direction,
         'main_occasion': user.main_occasion,
         'favorite_colors': user.favorite_colors,
-        'sizes': user.sizes,
         'location': [user.latitude, user.longitude] if user.latitude is not None else None,
         'counts': {
             'garments': garments.filter(is_sample=False).count(),

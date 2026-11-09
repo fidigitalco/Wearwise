@@ -1,16 +1,18 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AvatarEditor } from '../components/AvatarEditor';
 import { useToast } from '../components/Overlays';
-import { AboutSection, SizesSection, StylesSection, prefsFromUser, prefsToPatch, type Prefs } from '../components/PrefsSections';
-import { Button } from '../components/ui';
+import { AboutSection, AboutYouSection, SizesSection, StylesSection, prefsFromUser, prefsToPatch, type Prefs } from '../components/PrefsSections';
+import { Button, FormScroll } from '../components/ui';
 import { useAuth } from '../lib/auth';
+import { DEFAULT_AVATAR, loadAvatar, saveAvatar, type AvatarProfile } from '../lib/avatar';
 import { useI18n } from '../lib/i18n';
 import { errorMessage } from '../services/api';
 import { gutter, space, useTheme } from '../theme';
 
-/** Edit everything onboarding asked: styles, wardrobe, occasions, colours, sizes, units. */
+/** The avatar, about you, sizes, and everything onboarding asked: styles, wardrobe, occasions, colours, units. One Save for all. */
 export default function PreferencesScreen() {
   const t = useTheme();
   const toast = useToast();
@@ -19,6 +21,12 @@ export default function PreferencesScreen() {
   const { user, updateUser } = useAuth();
   const [prefs, setPrefs] = useState<Prefs>(prefsFromUser(user));
   const [saving, setSaving] = useState(false);
+  // Face and skin tone stay on the phone; height and weight are part of prefs.
+  const [avatar, setAvatar] = useState<AvatarProfile>(DEFAULT_AVATAR);
+
+  useEffect(() => {
+    loadAvatar().then(setAvatar);
+  }, []);
 
   const save = async () => {
     if (!prefs.preferred_styles.length) {
@@ -27,6 +35,7 @@ export default function PreferencesScreen() {
     }
     setSaving(true);
     try {
+      await saveAvatar(avatar);
       await updateUser(prefsToPatch(prefs));
       toast(s.prefs.saved);
       router.back();
@@ -38,16 +47,19 @@ export default function PreferencesScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      <FormScroll contentContainerStyle={styles.wrap}>
+        <AvatarEditor avatar={avatar} heightCm={prefs.height_cm} weightKg={prefs.weight_kg}
+          onChange={(patch) => setAvatar((a) => ({ ...a, ...patch }))} />
+        <AboutYouSection prefs={prefs} onChange={setPrefs} />
+        <SizesSection prefs={prefs} onChange={setPrefs} />
         <StylesSection prefs={prefs} onChange={setPrefs} />
         <AboutSection prefs={prefs} onChange={setPrefs} />
-        <SizesSection prefs={prefs} onChange={setPrefs} />
-      </ScrollView>
+      </FormScroll>
       <View style={[styles.footer, { backgroundColor: t.card, borderTopColor: t.border, paddingBottom: insets.bottom + space.sm }]}>
         <Button title={s.common.save} onPress={save} loading={saving} />
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

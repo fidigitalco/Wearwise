@@ -15,7 +15,8 @@ import { errorMessage, outfits as outfitsApi, type RecommendInput } from '../../
 import { gutter, radius, space, type, useTheme } from '../../theme';
 import type { Outfit, OutfitSet } from '../../types';
 
-type Context = 'today' | 'work' | 'casual' | 'evening';
+/** 'today' is the user's usual occasion; anything else is an occasion key. */
+type Context = string;
 type WeatherFilter = 'any' | 'warm' | 'mild' | 'cold' | 'rainy';
 type Filters = { occasion: string | null; style: string | null; weather: WeatherFilter; season: string | null };
 const NO_FILTERS: Filters = { occasion: null, style: null, weather: 'any', season: null };
@@ -51,8 +52,7 @@ export default function OutfitsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [liked, setLiked] = useState<Record<string, boolean | null>>({});
 
-  const occasion =
-    filters.occasion ?? ({ today: user?.main_occasion || 'casual', work: 'work', casual: 'casual', evening: 'party' } as const)[context];
+  const occasion = filters.occasion ?? (context === 'today' ? user?.main_occasion || 'casual' : context);
 
   const key = JSON.stringify({ occasion, filters });
   const loading = refreshing || result?.key !== key;
@@ -153,9 +153,10 @@ export default function OutfitsScreen() {
 
         {wx && filters.weather === 'any' ? <WeatherCard info={wx} /> : null}
 
-        <ChipRow>
-          {(['today', 'work', 'casual', 'evening'] as Context[]).map((c) => (
-            <Chip key={c} label={s.looks.contexts[c]} selected={!filters.occasion && context === c}
+        {/* Every occasion is one tap away; the sheet below adds style, weather and season. */}
+        <ChipRow inset={gutter}>
+          {['today', ...Object.keys(meta.occasions).filter((o) => o !== user?.main_occasion)].map((c) => (
+            <Chip key={c} label={c === 'today' ? s.looks.contexts.today : label('occasions', c)} selected={!filters.occasion && context === c}
               onPress={() => { setContext(c); setFilters((f) => ({ ...f, occasion: null })); }} />
           ))}
         </ChipRow>

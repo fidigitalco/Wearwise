@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WearWise prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9E6EF; --paper:#F7F5FA; --surface:#FFFFFF; --ink:#231B33; --muted:#6E6680;
+  --line:#DDD8E6; --accent:#2F45D8; --accent-ink:#FFFFFF; --blush:#F2D5DC; --ok:#1F7A55; --warn:#B4492F;
+  --display:"Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --body:"Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#120F19; --paper:#1A1624; --surface:#231E30; --ink:#EEEAF5; --muted:#A39BB5;
+    --line:#352E45; --accent:#7D8CFF; --accent-ink:#120F19; --blush:#4A2F3A; --ok:#5CC79A; --warn:#F08A6E;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#120F19; --paper:#1A1624; --surface:#231E30; --ink:#EEEAF5; --muted:#A39BB5;
+  --line:#352E45; --accent:#7D8CFF; --accent-ink:#120F19; --blush:#4A2F3A; --ok:#5CC79A; --warn:#F08A6E;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  display:flex;justify-content:center;align-items:flex-start;padding:24px 12px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.phone{width:100%;max-width:400px;height:min(820px, calc(100vh - 48px));background:var(--paper);border-radius:36px;
+  border:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;position:relative}
+@media (max-width:480px){
+  body{padding:0}
+  .phone{max-width:none;border-radius:0;border:0;height:100%;min-height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+}
+header.top{padding:20px 22px 10px;display:flex;justify-content:space-between;align-items:baseline}
+.brand{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:-.01em}
+.plan{font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:var(--surface)}
+main{flex:1;overflow-y:auto;padding:4px 22px 24px}
+h1{font-family:var(--display);font-weight:500;font-size:30px;line-height:1.1;margin:8px 0 6px}
+h2{font-size:16px;font-weight:700;margin:22px 0 10px}
+p.sub{color:var(--muted);margin:0 0 8px}
+nav{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);background:var(--surface)}
+nav button{background:none;border:0;padding:10px 0 12px;font-size:11px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button svg{width:22px;height:22px}
+nav button[aria-current="page"]{color:var(--ink)}
+nav button[aria-current="page"] svg{stroke:var(--accent)}
+
+/* fabric swatches: the visual signature */
+.swatch{border-radius:14px;position:relative;overflow:hidden}
+.knit{background:
+  repeating-linear-gradient(60deg, rgba(255,255,255,.14) 0 3px, transparent 3px 7px),
+  repeating-linear-gradient(-60deg, rgba(0,0,0,.10) 0 3px, transparent 3px 7px), var(--c)}
+.denim{background:
+  repeating-linear-gradient(45deg, rgba(255,255,255,.12) 0 1px, transparent 1px 4px),
+  repeating-linear-gradient(-45deg, rgba(0,0,0,.18) 0 1px, transparent 1px 5px), var(--c)}
+.linen{background:
+  repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px),
+  repeating-linear-gradient(90deg, rgba(255,255,255,.18) 0 1px, transparent 1px 4px), var(--c)}
+.silk{background:linear-gradient(115deg, rgba(255,255,255,0) 20%, rgba(255,255,255,.35) 45%, rgba(255,255,255,0) 70%), var(--c)}
+.leather{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 45%),
+  radial-gradient(rgba(0,0,0,.12) 1px, transparent 1.5px) 0 0/6px 6px, var(--c)}
+.tag{position:absolute;left:10px;bottom:10px;background:rgba(255,255,255,.92);color:#231B33;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px}
+
+.row{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.mini{flex:0 0 150px}
+.mini .swatch{height:170px}
+.mini .name{font-weight:600;margin-top:8px;font-size:14px}
+.mini .meta{color:var(--muted);font-size:12px}
+
+.occasion{margin-top:18px;padding:16px;border-radius:18px;background:var(--blush);display:flex;gap:14px;align-items:center}
+.count{font-family:var(--display);font-size:40px;line-height:1;min-width:52px;text-align:center}
+.occasion .t{font-weight:700}
+.occasion .s{font-size:13px;color:var(--ink);opacity:.8}
+
+.btn{border:0;border-radius:999px;padding:11px 16px;font-weight:700;background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:7px 12px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* discover */
+.deck{position:relative;height:420px;margin-top:6px}
+.card{position:absolute;inset:0;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:12px;display:flex;flex-direction:column;transition:transform .28s ease, opacity .28s ease}
+.card .swatch{flex:1}
+.card .info{padding:12px 4px 2px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
+.card .nm{font-family:var(--display);font-size:21px;line-height:1.15}
+.card .st{color:var(--muted);font-size:13px}
+.card .pr{font-weight:700;font-size:18px;white-space:nowrap}
+.card.out-left{transform:translateX(-120%) rotate(-8deg);opacity:0}
+.card.out-right{transform:translateX(120%) rotate(8deg);opacity:0}
+.why{font-size:12px;color:var(--muted);padding:0 4px 4px}
+.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.actions button{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:10px 0;font-size:12px;font-weight:700}
+.actions .shop{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.meter{height:6px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.empty{text-align:center;padding:60px 10px;color:var(--muted)}
+
+/* stylist */
+.drop{border:1.5px dashed var(--line);border-radius:20px;padding:26px 16px;text-align:center;background:var(--surface)}
+.verdict{margin-top:16px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px}
+.verdict .score{font-family:var(--display);font-size:44px;line-height:1}
+.chk{display:flex;gap:10px;margin:10px 0;font-size:14px}
+.chk b{min-width:18px}
+.good{color:var(--ok)} .bad{color:var(--warn)}
+.pill{display:inline-block;font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:4px 10px;margin:3px 4px 0 0;background:var(--surface)}
+.dots{display:flex;gap:6px;margin-top:8px}
+.dots span{width:26px;height:26px;border-radius:50%;border:1px solid var(--line)}
+
+/* occasions */
+.list{display:flex;flex-direction:column;gap:10px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px}
+.item .d{font-family:var(--display);font-size:26px;min-width:44px;text-align:center;line-height:1}
+.item .d small{display:block;font-family:var(--body);font-size:10px;color:var(--muted)}
+.item .x{flex:1}
+.item .x .who{font-size:12px;color:var(--muted)}
+.outfits{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.outfit{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.outfit .stack{display:flex}
+.outfit .stack .swatch{width:42px;height:56px;border-radius:10px;border:2px solid var(--surface);margin-left:-10px}
+.outfit .stack .swatch:first-child{margin-left:0}
+.outfit .x{flex:1;font-size:13px}
+form.add{display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:10px}
+form.add input,form.add select{font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+
+/* profile */
+.tags{display:flex;flex-wrap:wrap}
+.lock{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:4px}
+.alerts .item .x b{font-size:14px}
+.drop-price{color:var(--ok);font-weight:700;font-size:13px}
+
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(18,15,25,.45);display:none;align-items:flex-end;z-index:5}
+.scrim.open{display:flex}
+.sheet{background:var(--paper);width:100%;border-radius:26px 26px 0 0;padding:22px 22px 26px;max-height:85%;overflow-y:auto}
+.planopt{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:10px;background:var(--surface)}
+.planopt.best{border-color:var(--accent);border-width:2px}
+.toast{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:9px 14px;border-radius:999px;font-size:13px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;z-index:6}
+.toast.show{opacity:1}
+/* product photos and flat lays */
+.photo{background:radial-gradient(ellipse 55% 7% at 50% 91%,rgba(0,0,0,.10),transparent 70%),linear-gradient(180deg,#F4F1EC,#E6E1D9)}
+.photo svg{position:absolute;left:12%;top:7%;width:76%;height:82%;overflow:visible}
+.flatlay{border-radius:16px;padding:6px;background:linear-gradient(160deg,#F5F2ED,#E4DED5)}
+.flat{display:block;width:100%;height:auto}
+.lookcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:8px}
+.lookinfo{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 6px 4px}
+.lookinfo .muted{font-size:12px;color:var(--muted)}
+
+/* onboarding */
+h3{font-size:13px;font-weight:700;margin:18px 0 8px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 13px;font-size:13px;font-weight:600}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.stylegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stylecard{border:1.5px solid var(--line);background:var(--surface);border-radius:14px;padding:6px;text-align:left;font-size:12px;font-weight:600;line-height:1.25}
+.stylecard .swatch{height:64px;border-radius:9px;margin-bottom:6px}
+.stylecard.on{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:-1px}
+.colgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.col{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 10px;font-size:13px;font-weight:600;text-align:left}
+.col .dot{width:22px;height:22px;border-radius:50%;border:1px solid var(--line);flex:0 0 22px}
+.col em{margin-left:auto;font-style:normal;font-size:11px;font-weight:700}
+.col.love{border-color:var(--ok)} .col.love em{color:var(--ok)}
+.col.avoid{border-color:var(--warn)} .col.avoid em{color:var(--warn)} .col.avoid .dot{opacity:.5}
+.obtop{display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--muted);margin-top:4px;min-height:20px}
+.link{background:none;border:0;padding:0;font-weight:700;color:var(--accent)}
+.obfoot{position:sticky;bottom:-24px;background:var(--paper);padding:16px 0 6px;margin-top:20px}
+.field{font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:130px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <pattern id="p-knit" width="5" height="6" patternUnits="userSpaceOnUse"><path d="M0 0 L2.5 3 L5 0 M0 3 L2.5 6 L5 3" stroke="rgba(0,0,0,.13)" stroke-width=".8" fill="none"/><path d="M0 .9 L2.5 3.9 L5 .9" stroke="rgba(255,255,255,.12)" stroke-width=".6" fill="none"/></pattern>
+  <pattern id="p-denim" width="4" height="4" patternUnits="userSpaceOnUse"><path d="M0 4 L4 0 M-1 1 L1 -1 M3 5 L5 3" stroke="rgba(255,255,255,.16)" stroke-width=".9"/><path d="M0 2 L2 0 M2 4 L4 2" stroke="rgba(0,0,0,.14)" stroke-width=".6"/></pattern>
+  <pattern id="p-linen" width="3" height="3" patternUnits="userSpaceOnUse"><path d="M0 1.5H3" stroke="rgba(0,0,0,.07)" stroke-width=".6"/><path d="M1.5 0V3" stroke="rgba(255,255,255,.14)" stroke-width=".6"/></pattern>
+  <pattern id="p-wool" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".6" fill="rgba(255,255,255,.14)"/><circle cx="3.5" cy="3" r=".6" fill="rgba(0,0,0,.10)"/></pattern>
+  <pattern id="p-leather" width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".5" fill="rgba(0,0,0,.10)"/></pattern>
+  <pattern id="p-silk" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="none"/></pattern>
+  <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".24"/></linearGradient>
+  <linearGradient id="sheen" x1="0" y1="0" x2="1" y2=".3"><stop offset=".2" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#fff" stop-opacity=".38"/><stop offset=".62" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <filter id="ds" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".2"/></filter>
+</defs></svg>
+<div class="phone" id="app">
+  <header class="top">
+    <div class="brand">WearWise</div>
+    <button class="plan" id="planBtn">Free plan</button>
+  </header>
+  <main id="view" tabindex="-1"></main>
+  <nav id="nav" aria-label="Main"></nav>
+  <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+  <div class="toast" id="toast" role="status"></div>
+</div>
+
+<script>
+const P = [
+  {id:1,n:"Oversized merino cardigan",s:"Trendyol",p:49,m:94,f:"knit",c:"#B9A58C",w:"Matches your neutral palette and minimalist cuts"},
+  {id:2,n:"Straight-leg raw denim",s:"ASOS",p:62,m:89,f:"denim",c:"#33496E",w:"You liked 3 straight-leg pieces this week"},
+  {id:3,n:"Washed linen shirt",s:"Mango",p:39,m:91,f:"linen",c:"#E4DCCB",w:"Old money staple, under your $50–150 budget"},
+  {id:4,n:"Satin midi skirt",s:"Zara",p:45,m:86,f:"silk",c:"#6B2E3E",w:"Deep tones suit your autumn colour type"},
+  {id:5,n:"Leather loafers",s:"Amazon",p:79,m:92,f:"leather",c:"#4A2E22",w:"Pairs with 4 items you saved"},
+  {id:6,n:"Cable-knit vest",s:"Trendyol",p:34,m:83,f:"knit",c:"#D8CFC0",w:"Small brand, 4.6★, not ad-boosted"}
+];
+const GT = {1:"cardigan",2:"jeans",3:"shirt",4:"skirt",5:"loafers",6:"vest"}; P.forEach(p=>p.g=GT[p.id]);
+const X = {
+  trousers:{n:"Wide-leg wool trousers",s:"COS",p:69,m:90,f:"wool",c:"#3A3F4E",g:"trousers"},
+  sneakers:{n:"Clean leather sneakers",s:"ASOS",p:55,m:88,f:"leather",c:"#F1EEE8",g:"sneakers"},
+  bag:{n:"Structured leather tote",s:"Mango",p:59,m:87,f:"leather",c:"#8C5A3C",g:"bag"},
+  dress:{n:"Silk slip dress",s:"Massimo Dutti",p:89,m:85,f:"silk",c:"#23324F",g:"dress"},
+  boots:{n:"Leather ankle boots",s:"Trendyol",p:74,m:89,f:"leather",c:"#2A211C",g:"boots"},
+  blazer:{n:"Relaxed wool blazer",s:"Zara",p:79,m:91,f:"wool",c:"#C8BBA6",g:"blazer"},
+  jumper:{n:"Rib-knit jumper",s:"ASOS",p:38,m:90,f:"knit",c:"#6E4B3A",g:"jumper"},
+  coat:{n:"Wool blend coat",s:"ASOS",p:98,m:88,f:"wool",c:"#A88B6A",g:"coat"}
+};
+const VB = {sneakers:"0 0 120 64",loafers:"0 0 120 64",boots:"0 0 120 80",bag:"0 0 100 100"};
+const L = (d,x) => `<path d="${d}" fill="${x.c}"/><path d="${d}" fill="url(#p-${x.f})"/>${x.f==="silk"||x.f==="leather"?`<path d="${d}" fill="url(#sheen)"${x.f==="leather"?' opacity=".55"':''}/>`:""}<path d="${d}" fill="url(#shade)" stroke="rgba(0,0,0,.2)" stroke-width=".8" stroke-linejoin="round"/>`;
+const ln = (d,w=.8,o=.22) => `<path d="${d}" fill="none" stroke="rgba(0,0,0,${o})" stroke-width="${w}" stroke-linecap="round"/>`;
+const hl = (d,o=.28) => `<path d="${d}" fill="none" stroke="rgba(255,255,255,${o})" stroke-width=".9" stroke-linecap="round"/>`;
+const st = d => `<path d="${d}" fill="none" stroke="#D9A75C" stroke-opacity=".85" stroke-width=".7" stroke-dasharray="1.6 1.2"/>`;
+const bt = (x,y,r=1.3) => `<circle cx="${x}" cy="${y}" r="${r}" fill="rgba(0,0,0,.28)"/>`;
+const G = {
+  shirt:x=>L("M30 16 L43 9 L57 9 L70 16 L93 40 L84 50 L72 40 L73 113 Q50 116 27 113 L28 40 L16 50 L7 40 Z",x)
+    +ln("M28 40 Q29 28 30 16")+ln("M72 40 Q71 28 70 16")+ln("M50 22 L50 114",.7,.18)
+    +[32,47,62,77,92].map(y=>bt(52.5,y,1.1)).join("")+ln("M32 32 L42 32 L42 42 L32 42",.6,.14)
+    +L("M43 9 L50 22 L45 27 L37 14 Z",x)+L("M57 9 L50 22 L55 27 L63 14 Z",x),
+  cardigan:x=>L("M31 12 L44 8 L50 44 L56 8 L69 12 L86 26 L97 92 L85 95 L74 48 L74 112 Q50 115 26 112 L26 48 L15 95 L3 92 L14 26 Z",x)
+    +ln("M26 50 Q24 34 31 12")+ln("M74 50 Q76 34 69 12")+ln("M50 44 L50 113",.8,.25)
+    +ln("M26 104 Q50 107 74 104",1.2,.2)+ln("M4 85 L15 88",1.2,.2)+ln("M85 88 L96 85",1.2,.2)
+    +ln("M44 8 L50 44",1.8,.12)+ln("M56 8 L50 44",1.8,.12)+[54,68,82,96].map(y=>bt(47.5,y,1.4)).join(""),
+  vest:x=>L("M33 10 L43 8 Q50 32 57 8 L67 10 Q68 26 77 34 L77 110 Q50 114 23 110 L23 34 Q32 26 33 10 Z",x)
+    +ln("M43 8 Q50 32 57 8",2,.14)+ln("M33 10 Q32 26 23 34",1.6,.12)+ln("M67 10 Q68 26 77 34",1.6,.12)
+    +ln("M38 40 Q42 50 38 60 Q34 70 38 80 Q42 90 38 100",1.4,.16)+ln("M62 40 Q58 50 62 60 Q66 70 62 80 Q58 90 62 100",1.4,.16)
+    +ln("M50 38 L50 104",1,.1)+ln("M23 102 Q50 106 77 102",1.4,.2),
+  jumper:x=>L("M32 12 Q50 20 68 12 L86 24 L97 92 L85 95 L74 46 L74 112 Q50 115 26 112 L26 46 L15 95 L3 92 L14 24 Z",x)
+    +ln("M35 13 Q50 23 65 13",2.2,.15)+ln("M26 48 Q24 32 32 12")+ln("M74 48 Q76 32 68 12")
+    +[30,34,38,42,46,50,54,58,62,66,70].map(v=>ln(`M${v} 30 L${v} 110`,.6,.08)).join("")
+    +ln("M26 104 Q50 107 74 104",1.4,.2)+ln("M4 85 L15 88",1.2,.2)+ln("M85 88 L96 85",1.2,.2),
+  blazer:x=>`<path d="M42 8 Q50 12 58 8 L50 54 Z" fill="#EFECE6"/>`+L("M30 12 L42 8 L50 54 L58 8 L70 12 L89 28 L96 100 L84 102 L76 50 L76 116 Q50 118 24 116 L24 50 L16 102 L4 100 L11 28 Z",x)
+    +`<path d="M42 8 L50 54 L37 30 L40 14 Z" fill="rgba(0,0,0,.10)"/><path d="M58 8 L50 54 L63 30 L60 14 Z" fill="rgba(0,0,0,.10)"/>`
+    +ln("M24 52 Q22 34 30 12")+ln("M76 52 Q78 34 70 12")+bt(50,68,1.6)+bt(50,82,1.6)
+    +ln("M29 86 L43 86",.9,.25)+ln("M57 86 L71 86",.9,.25)+ln("M58 40 L68 38",.9,.25)+ln("M50 56 L50 116",.6,.15),
+  coat:x=>L("M30 10 L42 6 L50 46 L58 6 L70 10 L90 26 L97 104 L85 106 L77 46 L78 118 Q50 120 22 118 L23 46 L15 106 L3 104 L10 26 Z",x)
+    +`<path d="M42 6 L50 46 L36 28 L39 12 Z" fill="rgba(0,0,0,.10)"/><path d="M58 6 L50 46 L64 28 L61 12 Z" fill="rgba(0,0,0,.10)"/>`
+    +ln("M23 48 Q21 30 30 10")+ln("M77 48 Q79 30 70 10")+ln("M23 70 L77 70",2.6,.2)+ln("M50 46 L50 118",.7,.18)
+    +bt(45,56,1.6)+bt(55,56,1.6)+bt(45,86,1.6)+bt(55,86,1.6),
+  trousers:x=>L("M24 6 L76 6 L82 116 L59 116 L50 36 L41 116 L18 116 Z",x)
+    +ln("M24 13 L76 13",1,.25)+ln("M35 16 L29 114",.6,.16)+ln("M65 16 L71 114",.6,.16)+ln("M50 13 L50 32",.8,.22)
+    +ln("M26 22 L34 13",.8,.2)+ln("M74 22 L66 13",.8,.2)+[30,44,56,70].map(v=>ln(`M${v} 6 L${v} 13`,1.6,.18)).join(""),
+  jeans:x=>L("M25 6 L75 6 L79 116 L58 116 L50 38 L42 116 L21 116 Z",x)
+    +ln("M25 13 L75 13",.9,.3)+st("M25 11.5 L75 11.5")+st("M27 15 Q31 25 39 15")+st("M73 15 Q69 25 61 15")
+    +st("M54 14 L54 30 Q54 35 50 37")+st("M22 110 L42 110")+st("M58 110 L78 110")+ln("M50 13 L50 37",.8,.25)
+    +`<circle cx="50" cy="9.5" r="1.6" fill="#B9A27A"/>`+hl("M33 20 L31 108",.12)+hl("M67 20 L69 108",.12),
+  skirt:x=>L("M33 8 L67 8 L86 110 Q50 118 14 110 Z",x)+ln("M33 15 L67 15",1,.22)
+    +ln("M43 16 Q39 60 32 113",.7,.13)+ln("M57 16 Q61 60 68 113",.7,.13)+hl("M49 18 Q47 64 45 115",.35)+hl("M62 20 Q66 60 74 112",.2),
+  dress:x=>L("M37 6 L40 6 L44 26 Q50 30 56 26 L60 6 L63 6 L66 30 Q62 40 64 50 L84 116 Q50 122 16 116 L36 50 Q38 40 34 30 Z",x)
+    +ln("M36 50 Q50 54 64 50",.8,.18)+ln("M44 54 Q40 86 30 117",.7,.12)+ln("M56 54 Q60 86 70 117",.7,.12)+hl("M48 56 Q47 90 44 118",.35)+hl("M40 30 Q44 38 42 46",.3),
+  sneakers:x=>`<path d="M5 46 L116 46 Q118 54 110 56 L12 56 Q4 54 5 46 Z" fill="#FBFAF6" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>`+ln("M8 50.5 L114 50.5",.6,.14)
+    +L("M8 46 Q8 26 30 22 L52 18 Q60 18 66 26 Q80 32 98 34 Q112 36 114 46 Z",x)
+    +`<path d="M8 30 Q6 38 9 46 L17 46 Q15 36 18 27 Z" fill="rgba(0,0,0,.12)"/>`
+    +ln("M50 23 L58 20",1,.35)+ln("M54 27 L62 24",1,.35)+ln("M58 31 L66 28",1,.35)+ln("M90 34 Q102 38 108 46",.7,.2)+ln("M30 22 Q40 30 52 18",.7,.2),
+  loafers:x=>`<path d="M4 46 L116 46 L115 52 Q60 54 6 52 Z" fill="#2A1D16"/>`
+    +L("M6 46 Q6 30 24 28 L58 26 Q92 26 110 38 Q114 42 114 46 Z",x)
+    +ln("M24 30 Q40 34 58 28",1.2,.4)+ln("M60 27 Q86 24 106 36",.8,.25)+ln("M60 30 Q74 36 90 31",1.6,.3)+hl("M70 30 Q90 30 104 38",.25),
+  boots:x=>`<path d="M16 62 L114 62 L113 68 L40 68 L40 77 L18 77 Z" fill="#141110"/>`
+    +L("M22 4 L50 4 L52 40 Q78 40 104 50 Q112 54 112 62 L18 62 Q16 40 22 4 Z",x)
+    +`<path d="M22 4 L50 4 L50 9 L22 9 Z" fill="rgba(0,0,0,.18)"/>`+ln("M27 10 L25 58",.9,.35)+hl("M60 44 Q84 46 100 52",.25),
+  bag:x=>`<path d="M30 36 Q30 6 50 6 Q70 6 70 36" fill="none" stroke="${x.c}" stroke-width="5"/><path d="M30 36 Q30 6 50 6 Q70 6 70 36" fill="none" stroke="rgba(0,0,0,.15)" stroke-width="5"/>`
+    +L("M14 34 L86 34 L92 94 Q50 98 8 94 Z",x)+ln("M14 41 L86 41",.8,.2)+`<rect x="45" y="38" width="10" height="7" rx="1.5" fill="#C9A35C"/>`+st("M17 37 L83 37")
+};
+const gsvg = x => `<svg viewBox="${VB[x.g]||"0 0 100 120"}" aria-hidden="true"><g filter="url(#ds)">${G[x.g](x)}</g></svg>`;
+function look(items){
+  const put=(x,X0,Y0,W,H)=>`<svg x="${X0}" y="${Y0}" width="${W}" height="${H}" viewBox="${VB[x.g]||"0 0 100 120"}" overflow="visible"><g filter="url(#ds)">${G[x.g](x)}</g></svg>`;
+  const outer=["cardigan","blazer","coat"];
+  const tops=items.filter(i=>["shirt","cardigan","jumper","vest","blazer","coat"].includes(i.g)).sort((a,b)=>outer.includes(a.g)-outer.includes(b.g));
+  const bot=items.find(i=>["jeans","trousers","skirt"].includes(i.g)), dress=items.find(i=>i.g==="dress");
+  const shoe=items.find(i=>["sneakers","loafers","boots"].includes(i.g)), bag=items.find(i=>i.g==="bag");
+  let s="";
+  if(dress){ s+=put(dress,8,6,170,204); if(tops[0]) s+=put(tops[0],120,6,110,132); if(bag) s+=put(bag,206,22,100,92); if(shoe) s+=put(shoe,172,158,140,86); }
+  else {
+    if(tops[0]) s+=put(tops[0],6,4,132,158);
+    if(tops[1]) s+=put(tops[1],62,30,112,134);
+    if(bot) s+=put(bot,180,4,134,162);
+    if(shoe) s+=put(shoe,14,174,150,82);
+    if(bag) s+=put(bag,206,170,98,86);
+  }
+  return `<svg class="flat" viewBox="0 0 320 260" role="img" aria-label="Outfit flat lay: ${items.map(i=>i.n).join(", ")}">${s}</svg>`;
+}
+const TODAY = [P[2],P[5],P[1],X.sneakers,X.bag];
+const NAV = [
+  ["home","Home",'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'],
+  ["discover","Discover",'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6"/>'],
+  ["stylist","Stylist",'<path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="4"/>'],
+  ["occasions","Occasions",'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'],
+  ["profile","Profile",'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>']
+];
+const S = {
+  tab:"home", premium:false, deck:[...P], learned:12, liked:0, saved:[],
+  checks:5, analysed:false, colorDone:false,
+  tracked:[{n:"Wool blend coat",s:"ASOS",was:129,now:98},{n:"Ankle boots",s:"Trendyol",was:74,now:74}],
+  occ:[
+    {t:"Your birthday",who:"You",d:15,k:"Birthday dinner"},
+    {t:"Leyla’s wedding",who:"You · guest",d:27,k:"Wedding guest"},
+    {t:"Anar’s birthday",who:"Gift for partner",d:41,k:"Gift",gift:true},
+    {t:"New Year",who:"You",d:55,k:"New Year party"}
+  ],
+  openOcc:0
+};
+const $ = s => document.querySelector(s);
+const sw = (x,cls="") => x.g ? `<div class="swatch photo ${cls}">${gsvg(x)}</div>` : `<div class="swatch ${x.f} ${cls}" style="--c:${x.c}"></div>`;
+const toast = t => { const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("show"),1700); };
+
+function renderNav(){
+  $("#nav").innerHTML = NAV.map(([k,l,ic])=>`<button data-tab="${k}" ${S.tab===k?'aria-current="page"':''}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${l}</button>`).join("");
+  $("#planBtn").textContent = S.premium ? "Premium" : "Free plan";
+}
+
+const V = {
+home(){
+  const o = S.occ[0];
+  return `<h1>Good morning, Aysel</h1><p class="sub">Three picks today, chosen from 30+ stores.</p>
+  <div class="lookcard" style="margin-top:14px"><div class="flatlay">${look(TODAY)}</div><div class="lookinfo"><div><b>Today’s look</b><div class="muted">12°C and cloudy · ${TODAY.length} pieces · $${TODAY.reduce((a,b)=>a+b.p,0)}</div></div><button class="btn small">Shop the look</button></div></div>
+  <h2>Picked for you</h2>
+  <div class="row">${P.slice(0,4).map(x=>`<div class="mini">${sw(x)}<div class="name">${x.n}</div><div class="meta">$${x.p} · ${x.s} · ${x.m}% match</div></div>`).join("")}</div>
+  <button class="occasion" data-go="occasions" style="border:0;width:100%;text-align:left;font:inherit;color:inherit">
+    <div class="count">${o.d}</div>
+    <div><div class="t">days until ${o.t.toLowerCase()}</div><div class="s">3 outfits are ready. Order within 7 days for delivery in time.</div></div>
+  </button>
+  <h2>Price dropped</h2>
+  <div class="list alerts">${S.tracked.filter(t=>t.now<t.was).map(t=>`<div class="item"><div class="x"><b>${t.n}</b><div class="who">${t.s}</div></div><span class="drop-price">$${t.was} → $${t.now}</span><button class="btn small">Shop</button></div>`).join("")}</div>`;
+},
+discover(){
+  const pct = Math.min(100, S.learned);
+  const top = S.deck[0];
+  return `<h1>Discover</h1>
+  <p class="sub">Tell us what you like. Every answer sharpens your next picks.</p>
+  <div style="font-size:12px;font-weight:600">Style profile ${pct}% learned</div>
+  <div class="meter"><i style="width:${pct}%"></i></div>
+  <div class="deck" id="deck">${top ? S.deck.slice(0,2).reverse().map((x,i,a)=>`
+    <div class="card" ${i===a.length-1?'id="topcard"':'style="transform:scale(.96) translateY(10px)"'}>
+      ${sw(x)}<div class="info"><div><div class="nm">${x.n}</div><div class="st">${x.s} · ${x.m}% style match</div></div><div class="pr">$${x.p}</div></div>
+      <div class="why">Why: ${x.w}</div></div>`).join("") :
+    `<div class="empty"><p style="font-family:var(--display);font-size:22px;color:var(--ink)">That’s today’s set.</p><p>New picks arrive Wednesday. Saved items are in your profile.</p><button class="btn" id="reload">Show them again</button></div>`}
+  </div>
+  ${top?`<div class="actions"><button data-act="no">Not me</button><button data-act="like">Like</button><button data-act="save">Save</button><button class="shop" data-act="shop">Shop</button></div>`:""}`;
+},
+stylist(){
+  const left = S.premium ? "Unlimited checks" : `${S.checks} of 5 free checks left this month`;
+  return `<h1>Does this suit me?</h1>
+  <p class="sub">Photograph something in a store or paste a link. We judge it against your style and colour profile.</p>
+  <div class="drop">
+    <div style="font-weight:700;margin-bottom:6px">Add a photo or link</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">${left}</div>
+    <button class="btn" id="analyse" ${(!S.premium&&S.checks<=0)?"disabled":""}>Check a sample item</button>
+    ${(!S.premium&&S.checks<=0)?`<p style="font-size:13px;margin:12px 0 0">You’ve used this month’s free checks. <button class="btn small ghost" data-upgrade>See Premium</button></p>`:""}
+  </div>
+  ${S.analysed?`<div class="verdict">
+    <div style="display:flex;gap:14px;align-items:center">${sw({f:"knit",c:"#C9A227",g:"jumper"},"")}<style>.verdict .swatch{width:70px;height:90px;flex:0 0 70px}</style>
+      <div><div class="score">72<span style="font-size:20px">%</span></div><div style="font-weight:700">Good shape, risky colour</div><div style="font-size:13px;color:var(--muted)">Mustard ribbed jumper · $44</div></div></div>
+    <div class="chk"><b class="good">✓</b><span>Relaxed fit matches your minimalist profile.</span></div>
+    <div class="chk"><b class="good">✓</b><span>Works with your saved straight-leg denim and loafers.</span></div>
+    <div class="chk"><b class="bad">!</b><span>${S.colorDone?"Mustard sits outside your autumn-soft palette and can wash out your skin tone near the face.":"Colour fit unknown. Run a colour analysis to check shades against your skin tone."}</span></div>
+    <h2 style="margin-top:16px">Same cut, better colour</h2>
+    <div class="row">${[P[0],P[5],X.jumper].map(x=>`<div class="mini" style="flex-basis:120px">${sw(x)}<div class="name">${x.n}</div><div class="meta">$${x.p} · ${x.s}</div></div>`).join("")}</div>
+    <button class="btn ghost small" style="margin-top:12px" id="trackIt">Alert me if a similar one drops in price</button>
+  </div>`:""}`;
+},
+occasions(){
+  const o = S.occ[S.openOcc];
+  const outfits = o.gift
+    ? [[X.jumper,P[0],X.sneakers],[X.dress,X.bag],[X.blazer,P[4],X.bag]].map((set,i)=>({set,label:["Cosy weekend set","Statement evening","Smart casual gift"][i]}))
+    : [[P[2],P[0],P[1],P[4]],[X.dress,X.boots,X.bag],[P[2],X.blazer,X.trousers,X.sneakers]].map((set,i)=>({set,label:["Relaxed dinner","Dressed-up evening","Smart casual"][i]}));
+  return `<h1>Occasions</h1>
+  <p class="sub">We start suggesting outfits 15 days before each date, and remind you again at 7 days.</p>
+  <div class="list">${S.occ.map((x,i)=>`<button class="item" data-occ="${i}" style="text-align:left;${i===S.openOcc?'border-color:var(--accent);border-width:2px':''}">
+    <div class="d">${x.d}<small>days</small></div><div class="x"><b>${x.t}</b><div class="who">${x.who}</div></div>${x.d<=15?'<span class="pill" style="margin:0">Ready</span>':''}</button>`).join("")}</div>
+  <h2>${o.gift?"Gift ideas for "+o.t.replace("’s birthday",""):"Outfits for "+o.t.toLowerCase()}</h2>
+  ${o.d>15?`<p class="sub">Suggestions unlock ${o.d-15} days from now. Here’s an early preview.</p>`:""}
+  <div class="outfits">${outfits.map(of=>{const tot=of.set.reduce((a,b)=>a+b.p,0);return `<div class="lookcard"><div class="flatlay">${look(of.set)}</div><div class="lookinfo"><div><b>${of.label}</b><div class="muted">${of.set.length} pieces · ${[...new Set(of.set.map(x=>x.s))].join(", ")}</div></div><div style="text-align:right"><div style="font-weight:700">$${tot}</div><button class="btn small" style="margin-top:4px">Shop all</button></div></div></div>`}).join("")}</div>
+  <h2>Add a date</h2>
+  <form class="add" id="addOcc">
+    <input name="t" placeholder="e.g. Mum’s birthday, Novruz, job interview" required>
+    <select name="who"><option value="me">Outfit for me</option><option value="gift">Gift for someone</option></select>
+    <input name="d" type="number" min="1" max="365" placeholder="Days from today" required>
+    <button class="btn" type="submit">Add date</button>
+    ${S.premium?"":`<div style="font-size:12px;color:var(--muted)">Free plan: gift ideas for up to 2 people. Premium: unlimited.</div>`}
+  </form>`;
+},
+profile(){
+  return `<h1>Your style</h1>
+  <p class="sub">Updated from ${S.learned>12?S.learned*3:36} of your answers.</p>
+  <div class="tags">${profileTags().map(t=>`<span class="pill">${t}</span>`).join("")}</div>
+  <button class="btn small ghost" id="redo" style="margin-top:10px">Edit style profile</button>
+  <h2>Colour analysis</h2>
+  ${S.colorDone?`<div class="lock"><div style="font-family:var(--display);font-size:22px">Soft autumn</div>
+      <p class="sub" style="margin-top:4px">Warm, muted shades work best near your face. Avoid icy pastels and bright mustard.</p>
+      <div class="dots">${["#8C6A4F","#6B2E3E","#B9A58C","#4F5D3A","#C98B6B","#33496E"].map(c=>`<span style="background:${c}"></span>`).join("")}</div>
+      <p style="font-size:12px;color:var(--muted);margin:10px 0 0">All picks and checks now filter by this palette.</p></div>`
+    :`<div class="lock"><b>Find the colours that suit you</b><p class="sub" style="margin-top:4px">Upload one selfie in daylight. We work out your colour type and body shape, then filter every pick by it.</p>
+      <button class="btn" data-upgrade>${S.premium?"Run analysis":"Unlock with Premium or $4.99 once"}</button></div>`}
+  <h2>Price alerts</h2>
+  <div class="list alerts">${S.tracked.map(t=>`<div class="item"><div class="x"><b>${t.n}</b><div class="who">${t.s}</div></div>${t.now<t.was?`<span class="drop-price">$${t.was} → $${t.now}</span>`:`<span style="font-size:13px;color:var(--muted)">$${t.now}, watching</span>`}</div>`).join("")}</div>
+  <p style="font-size:12px;color:var(--muted)">${S.premium?"Unlimited items tracked.":`${S.tracked.length} of 5 free tracked items. Alerts are always free.`}</p>
+  <h2>Saved</h2>
+  ${S.saved.length?`<div class="row">${S.saved.map(x=>`<div class="mini" style="flex-basis:110px">${sw(x)}<div class="name">${x.n}</div><div class="meta">$${x.p}</div></div>`).join("")}</div>`:`<p class="sub">Nothing saved yet. Tap Save in Discover to keep a piece here.</p>`}`;
+}
+};
+
+const OB = {
+  ages:["18–24","25–34","35–44","45–54","55+"],
+  genders:["Woman","Man","Prefer not to say"],
+  countries:["United Kingdom","Türkiye","Azerbaijan","Germany","France","United States","UAE","Other"],
+  styles:[["Minimalist","#D8D2C8","linen"],["Old money","#2F3B52","knit"],["Quiet luxury","#B9A58C","knit"],["Classic","#3A3A48","silk"],["Casual","#6E86A8","denim"],["Smart casual","#5A5F6E","linen"],["Business","#2B2D3A","linen"],["Streetwear","#4B4B4B","denim"],["Sporty","#9AA6B2","silk"],["Scandi","#E6E2DA","knit"],["Parisian chic","#1F1F2A","silk"],["Bohemian","#B5764A","linen"],["Romantic","#E8C3CC","silk"],["Vintage","#8C6A4F","leather"],["Y2K","#D58BD0","silk"],["Preppy","#2F5A3A","knit"],["Grunge","#3F3A33","denim"],["Edgy / rock","#1A1A1A","leather"],["Coastal","#CFE0E8","linen"],["Cottagecore","#C9D3A8","linen"],["Korean style","#EAD9E3","knit"],["Outdoor / gorpcore","#5C6B3C","silk"],["Glam","#6B2E3E","silk"],["Modest","#9B8BA8","linen"],["Techwear","#2C3036","silk"],["Western","#9C6B3F","leather"],["Athleisure","#7C8AA0","knit"]],
+  colours:[["Black","#1b1b1b"],["White","#f6f6f6"],["Cream","#efe6d2"],["Beige","#d9c7a8"],["Brown","#6b4a33"],["Grey","#8a8a8a"],["Navy","#25324d"],["Olive","#5b6239"],["Burgundy","#6b2233"],["Red","#c0392b"],["Pink","#e58fb0"],["Pastels","linear-gradient(135deg,#f3c9d6,#cde3f2,#e9f0c4)"],["Blue","#3a6fd8"],["Green","#2e8b57"],["Yellow","#e8c547"],["Orange","#e07b39"],["Purple","#7a4fa3"],["Metallic","linear-gradient(135deg,#b8b8b8,#f2f2f2,#9a9a9a)"],["Neon","#b6ff3b"],["Prints","repeating-linear-gradient(45deg,#c0392b 0 4px,#efe6d2 4px 8px)"]],
+  tops:["XXS","XS","S","M","L","XL","XXL","3XL"],
+  eu:["32","34","36","38","40","42","44","46","48"],
+  waist:["28","29","30","31","32","33","34","36","38","40"],
+  shoes:["35","36","37","38","39","40","41","42","43","44","45","46","47"],
+  fits:["Slim","Regular","Relaxed","Oversized"],
+  budgets:["Under $30","$30–60","$60–120","$120–250","$250+"],
+  stores:["Trendyol","ASOS","Zara","H&M","Mango","Amazon","Shein","COS","Massimo Dutti","Uniqlo","Nike","Farfetch"]
+};
+S.onb = {step:0};
+S.pf = {age:null,gender:null,country:null,styles:[],love:[],avoid:[],top:null,bottom:null,shoe:null,fit:null,height:"",budget:[],stores:[]};
+const chips = (key,list,multi) => list.map(v=>{const on=multi?S.pf[key].includes(v):S.pf[key]===v;return `<button class="chip ${on?'on':''}" data-pf="${key}" data-v="${v}" data-multi="${multi?1:0}" aria-pressed="${on}">${v}</button>`}).join("");
+const STEPS = [
+  {t:"About you",s:"We use this to choose sizes, stores and prices that work where you live.",ok:()=>S.pf.age&&S.pf.gender&&S.pf.country,
+   body:()=>`<h3>Age</h3><div class="chips">${chips("age",OB.ages)}</div><h3>Shopping for</h3><div class="chips">${chips("gender",OB.genders)}</div><h3>Country</h3><div class="chips">${chips("country",OB.countries)}</div>`},
+  {t:"Which styles feel like you?",s:"Pick as many as you like. You can change them any time.",ok:()=>S.pf.styles.length>0,
+   body:()=>`<div style="font-size:12px;font-weight:600;margin-bottom:10px">${S.pf.styles.length} selected</div><div class="stylegrid">${OB.styles.map(([n,c,f])=>{const on=S.pf.styles.includes(n);return `<button class="stylecard ${on?'on':''}" data-pf="styles" data-v="${n}" data-multi="1" aria-pressed="${on}"><div class="swatch ${f}" style="--c:${c}"></div>${n}</button>`}).join("")}</div>`},
+  {t:"Colours",s:"Tap once for colours you love, twice for colours to avoid, a third time to clear.",ok:()=>S.pf.love.length>0,
+   body:()=>`<div class="colgrid">${OB.colours.map(([n,c])=>{const st=S.pf.love.includes(n)?"love":S.pf.avoid.includes(n)?"avoid":"";return `<button class="col ${st}" data-col="${n}"><span class="dot" style="background:${c}"></span>${n}<em>${st==="love"?"Love":st==="avoid"?"Avoid":""}</em></button>`}).join("")}</div>`},
+  {t:"Your sizes",s:"We only show pieces that come in your size.",ok:()=>S.pf.top&&S.pf.bottom&&S.pf.shoe&&S.pf.fit,
+   body:()=>{const men=S.pf.gender==="Man";return `<h3>Tops</h3><div class="chips">${chips("top",OB.tops)}</div><h3>${men?"Trousers (waist, inches)":"Trousers and skirts (EU)"}</h3><div class="chips">${chips("bottom",men?OB.waist:OB.eu)}</div><h3>Shoes (EU)</h3><div class="chips">${chips("shoe",OB.shoes)}</div><h3>Preferred fit</h3><div class="chips">${chips("fit",OB.fits)}</div><h3>Height (optional)</h3><input class="field" id="height" type="number" min="120" max="220" placeholder="cm" value="${S.pf.height}">`}},
+  {t:"Budget and stores",s:"What you’d pay for one piece, and where you already shop.",ok:()=>S.pf.budget.length>0,
+   body:()=>`<h3>Budget per item (pick all that apply)</h3><div class="chips">${chips("budget",OB.budgets,true)}</div><p style="font-size:12px;color:var(--muted);margin:8px 0 0">Most picks stay in your usual range. You’ll see the higher range for occasions and sales.</p><h3>Stores you like (optional)</h3><div class="chips">${chips("stores",OB.stores,true)}</div>`}
+];
+V.onboarding = () => { const st=STEPS[S.onb.step]; const last=S.onb.step===STEPS.length-1;
+  return `<div class="obtop">${S.onb.step>0?'<button class="link" id="obBack">Back</button>':'<span></span>'}<span>Step ${S.onb.step+1} of ${STEPS.length}</span></div>
+  <div class="meter"><i style="width:${(S.onb.step+1)/STEPS.length*100}%"></i></div>
+  <h1>${st.t}</h1><p class="sub">${st.s}</p>${st.body()}
+  <div class="obfoot"><button class="btn" id="obNext" style="width:100%" ${st.ok()?"":"disabled"}>${last?"Build my profile":"Continue"}</button></div>`; };
+function profileTags(){ const p=S.pf, t=[...p.styles];
+  if(p.love.length) t.push("Loves "+p.love.slice(0,3).join(", ").toLowerCase());
+  if(p.avoid.length) t.push("Avoids "+p.avoid.slice(0,3).join(", ").toLowerCase());
+  if(p.budget.length) t.push(p.budget.join(", ")+" per item");
+  if(p.top) t.push("Top "+p.top);
+  if(p.bottom) t.push(p.gender==="Man"?"Waist "+p.bottom:"EU "+p.bottom);
+  if(p.shoe) t.push("Shoe "+p.shoe);
+  if(p.fit) t.push(p.fit+" fit");
+  if(p.height) t.push(p.height+" cm");
+  [p.gender,p.age,p.country].forEach(x=>x&&t.push(x));
+  return t; }
+function render(keep){ renderNav(); $("#nav").style.display = S.onb?"none":""; $("#view").innerHTML = S.onb?V.onboarding():V[S.tab](); if(!keep) $("#view").scrollTop=0; }
+
+function upgradeSheet(){
+  $("#sheet").innerHTML = `<div style="font-family:var(--display);font-size:28px;line-height:1.1">WearWise Premium</div>
+  <p class="sub" style="margin-top:6px">Discovery, occasion reminders and price alerts stay free. Premium goes deeper on you.</p>
+  <div style="font-size:14px;margin:10px 0">
+    <div class="chk"><b class="good">✓</b>Colour type and body shape analysis</div>
+    <div class="chk"><b class="good">✓</b>Unlimited “Does this suit me?” checks</div>
+    <div class="chk"><b class="good">✓</b>Stylist chat with your budget and dates</div>
+    <div class="chk"><b class="good">✓</b>Gift ideas for unlimited people</div>
+    <div class="chk"><b class="good">✓</b>Trip capsules and unlimited price tracking</div>
+  </div>
+  <button class="planopt best" data-buy="year" style="width:100%;text-align:left"><div><b>Yearly</b><div class="who" style="font-size:12px;color:var(--muted)">$1.67 a month</div></div><b>$19.99</b></button>
+  <button class="planopt" data-buy="month" style="width:100%;text-align:left"><b>Monthly</b><b>$2.99</b></button>
+  <button class="planopt" data-buy="once" style="width:100%;text-align:left"><div><b>Colour analysis only</b><div style="font-size:12px;color:var(--muted)">One-time, no subscription</div></div><b>$4.99</b></button>
+  <button class="btn ghost" style="width:100%;margin-top:14px" data-close>Not now</button>`;
+  $("#scrim").classList.add("open");
+}
+
+function swipe(act){
+  const card = $("#topcard"); const x = S.deck[0]; if(!card||!x) return;
+  if(act==="save"){ if(!S.saved.find(s=>s.id===x.id)) S.saved.push(x); toast("Saved to your profile"); }
+  if(act==="shop"){ toast(`Opening ${x.s} · tracked affiliate link`); }
+  if(act==="like") toast("Got it, more like this");
+  if(act==="no") toast("Noted, fewer like this");
+  S.learned = Math.min(100, S.learned + 7);
+  card.classList.add(act==="no"?"out-left":"out-right");
+  setTimeout(()=>{ S.deck.shift(); render(); }, 260);
+}
+
+document.addEventListener("click", e=>{
+  const t = e.target.closest("button"); if(!t) return;
+  if(t.dataset.pf){ const k=t.dataset.pf, v=t.dataset.v;
+    if(t.dataset.multi==="1"){ const a=S.pf[k]; const i=a.indexOf(v); i>-1?a.splice(i,1):a.push(v); }
+    else { if(k==="gender" && S.pf.gender!==v) S.pf.bottom=null; S.pf[k]=v; }
+    render(true); return; }
+  if(t.dataset.col){ const n=t.dataset.col, p=S.pf;
+    if(p.love.includes(n)){ p.love=p.love.filter(x=>x!==n); p.avoid.push(n); }
+    else if(p.avoid.includes(n)){ p.avoid=p.avoid.filter(x=>x!==n); }
+    else p.love.push(n);
+    render(true); return; }
+  if(t.id==="obNext"){ if(S.onb.step<STEPS.length-1){ S.onb.step++; render(); } else { S.onb=null; S.tab="home"; S.learned=Math.max(S.learned,25); render(); toast("Your style profile is ready"); } return; }
+  if(t.id==="obBack"){ S.onb.step--; render(); return; }
+  if(t.id==="redo"){ S.onb={step:0}; render(); return; }
+  if(t.dataset.tab){ S.tab=t.dataset.tab; render(); return; }
+  if(t.dataset.go){ S.tab=t.dataset.go; render(); return; }
+  if(t.dataset.act){ swipe(t.dataset.act); return; }
+  if(t.id==="reload"){ S.deck=[...P]; render(); return; }
+  if(t.id==="analyse"){ if(!S.premium) S.checks--; S.analysed=true; render(); return; }
+  if(t.id==="trackIt"){
+    if(!S.premium && S.tracked.length>=5){ upgradeSheet(); return; }
+    S.tracked.push({n:"Similar ribbed jumper",s:"Any store",was:44,now:44}); toast("Watching price and similar items"); t.disabled=true; return; }
+  if(t.dataset.occ){ S.openOcc=+t.dataset.occ; render(); return; }
+  if("upgrade" in t.dataset){ if(S.premium && t.closest(".lock")){ S.colorDone=true; render(); toast("Colour analysis complete"); } else upgradeSheet(); return; }
+  if(t.id==="planBtn"){ upgradeSheet(); return; }
+  if(t.dataset.buy){
+    $("#scrim").classList.remove("open");
+    if(t.dataset.buy==="once"){ S.colorDone=true; toast("Colour analysis complete"); }
+    else { S.premium=true; toast("Premium is on"); }
+    render(); return; }
+  if("close" in t.dataset){ $("#scrim").classList.remove("open"); return; }
+});
+$("#scrim").addEventListener("click", e=>{ if(e.target.id==="scrim") $("#scrim").classList.remove("open"); });
+document.addEventListener("submit", e=>{
+  if(e.target.id!=="addOcc") return; e.preventDefault();
+  const f = new FormData(e.target); const gift = f.get("who")==="gift";
+  if(gift && !S.premium && S.occ.filter(o=>o.gift).length>=2){ upgradeSheet(); return; }
+  S.occ.push({t:f.get("t"),who:gift?"Gift":"You",d:+f.get("d"),k:"",gift});
+  S.occ.sort((a,b)=>a.d-b.d); S.openOcc=S.occ.findIndex(o=>o.t===f.get("t")); render(); toast("Date added");
+});
+document.addEventListener("keydown", e=>{
+  if(S.tab!=="discover") return;
+  if(e.key==="ArrowLeft") swipe("no"); if(e.key==="ArrowRight") swipe("like");
+});
+document.addEventListener("input", e=>{ if(e.target.id==="height") S.pf.height=e.target.value; });
+render();
+</script>
+</body>
+</html>

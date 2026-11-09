@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import type {
-  AssistantReply, CalendarDay, FitCheck, Garment, Meta, ShoppingSuggestion, Outfit, OutfitSet, Paged, Scores, Stats, User, VideoScan, Weather,
+  AssistantReply, CalendarDay, FitCheck, Garment, HomeFeed, Look, OccasionItem, Product, SavedItem, Meta, ShoppingSuggestion, Outfit, OutfitSet, Paged, Scores, Stats, User, VideoScan, Weather,
 } from '../types';
 
 // The deployed backend a standalone build talks to.
@@ -297,3 +297,77 @@ export const getStats = () => http.get<Stats>('/stats/').then((r) => r.data);
 /** Settings → Send feedback; staff read it in the admin panel. */
 export const sendAppFeedback = (body: { kind: 'idea' | 'problem' | 'other'; message: string; platform: string; app_version: string }) =>
   http.post('/app-feedback/', body).then(() => undefined);
+
+// ── Shopping catalogue (MVP v2) ─────────────────────────────────────────────
+
+export type ProductAction = 'like' | 'not_me' | 'save' | 'shop';
+
+export const catalog = {
+  home: (lat?: number, lon?: number) =>
+    http.get<HomeFeed>('/home/', { params: lat !== undefined ? { lat, lon } : undefined }).then((r) => r.data),
+  discover: () => http.get<{ products: Product[]; next_drop: string; learned: number }>('/discover/').then((r) => r.data),
+  /** Shop returns the tracked link to open. */
+  act: (id: string, action: ProductAction) =>
+    http.post<{ learned: number; saved?: boolean; url?: string }>(`/products/${id}/action/`, { action }).then((r) => r.data),
+  saved: () => http.get<{ items: SavedItem[]; tracking_limit: number | null }>('/saved/').then((r) => r.data),
+  save: (id: string) => http.post('/saved/', { product: id }).then(() => undefined),
+  unsave: (id: string) => http.delete(`/saved/${id}/`).then(() => undefined),
+  track: (id: string, tracking: boolean) => http.patch<{ tracking: boolean }>(`/saved/${id}/`, { tracking }).then((r) => r.data),
+};
+
+export const occasions = {
+  list: () => http.get<OccasionItem[]>('/occasions/').then((r) => r.data),
+  get: (id: number) => http.get<OccasionItem & { looks: Look[] }>(`/occasions/${id}/`).then((r) => r.data),
+  add: (body: { title: string; date: string; kind: string; for_gift: boolean; person: string }) =>
+    http.post<OccasionItem>('/occasions/', body).then((r) => r.data),
+  remove: (id: number) => http.delete(`/occasions/${id}/`).then(() => undefined),
+};
+
+export interface SuitsMe {
+  score: number;
+  verdict: 'great' | 'good' | 'risky' | 'skip';
+  subcategory: string | null;
+  category: string | null;
+  color: string | null;
+  rgb: [number, number, number] | null;
+  style_ok: boolean;
+  color_fit: 'love' | 'avoid' | 'ok' | 'unknown';
+  pairs_with: number;
+  better_color: boolean;
+  alternatives: Product[];
+  left: number | null;
+}
+
+/** "Does this suit me?" from a photo or a product link; free plan: 5 a month. */
+export const suitsMe = {
+  left: () => http.get<{ left: number | null }>('/suits-me/').then((r) => r.data.left),
+  photo: (image: LocalImage) => {
+    const form = new FormData();
+    form.append('image', { uri: image.uri, name: image.fileName || 'check.jpg', type: image.mimeType || 'image/jpeg' } as any);
+    return http.post<SuitsMe>('/suits-me/', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 }).then((r) => r.data);
+  },
+  link: (link: string) => http.post<SuitsMe>('/suits-me/', { link }).then((r) => r.data),
+};
+
+export interface Inspiration {
+  id: number;
+  image: string | null;
+  link: string;
+  subcategory: string;
+  color: string;
+  rgb: [number, number, number] | null;
+  note: string;
+  created_at: string;
+}
+
+/** The inspiration board: photos and links of things the user liked, which teach Discovery their taste. */
+export const inspirations = {
+  list: () => http.get<{ items: Inspiration[]; learned: number }>('/inspirations/').then((r) => r.data),
+  photo: (image: LocalImage) => {
+    const form = new FormData();
+    form.append('image', { uri: image.uri, name: image.fileName || 'inspiration.jpg', type: image.mimeType || 'image/jpeg' } as any);
+    return http.post<Inspiration>('/inspirations/', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 }).then((r) => r.data);
+  },
+  link: (link: string) => http.post<Inspiration>('/inspirations/', { link }).then((r) => r.data),
+  remove: (id: number) => http.delete(`/inspirations/${id}/`).then(() => undefined),
+};
