@@ -1378,3 +1378,14 @@ class CatalogTests(APITestCase):
         self.assertEqual(self.client.post('/api/inspirations/', {'link': 'not a link'}, format='json').status_code, 400)
         self.assertEqual(self.client.delete(f"/api/inspirations/{r.data['id']}/").status_code, 204)
         self.assertEqual(len(self.client.get('/api/inspirations/').data['items']), 1)
+
+
+class VoiceOffTests(APITestCase):
+    def test_shared_server_never_loads_local_models(self):
+        from unittest import mock
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from . import speech
+        with mock.patch.dict('os.environ', {'WEARWISE_LOCAL_VOICE': '0', 'GROQ_API_KEY': '', 'OPENAI_API_KEY': ''}), \
+                mock.patch.object(speech, '_get_model', side_effect=AssertionError('loaded')):
+            self.assertIsNone(speech.transcribe(SimpleUploadedFile('q.m4a', b'x'), 'en'))
+            speech.warm_up()  # returns without starting a load

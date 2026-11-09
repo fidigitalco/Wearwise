@@ -74,9 +74,14 @@ def _get_detector():
         return _detector
 
 
+def local_voice():
+    """False on a shared server (WEARWISE_LOCAL_VOICE=0): the local models never load, voice needs a cloud key."""
+    return os.environ.get('WEARWISE_LOCAL_VOICE', '1') != '0'
+
+
 def warm_up():
     """Loads the local models in the background so the first voice question does not wait for them."""
-    if _cloud():
+    if _cloud() or not local_voice():
         return
 
     def load():
@@ -176,6 +181,9 @@ def transcribe(audio_file, lang='en'):
     used only to break a tie.
     """
     provider = _cloud()
+    if not provider and not local_voice():
+        log.warning('voice: no cloud key and local voice is off')
+        return None
     if not provider:
         try:
             _get_detector()
