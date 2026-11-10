@@ -196,6 +196,11 @@ export const az: Strings = {
     seeAll: 'Hamısı',
   },
   onb: {
+    fitMany: 'Sevdiyin kəsim (bir neçəsini seç)',
+    length: 'Şalvar uzunluğu (L, düym)',
+    jacket: 'Pencək / kostyum (EU)',
+    drop: 'Drop',
+    optional: 'məcburi deyil',
     step: (i: number, n: number) => `Addım ${i}/${n}`,
     next: 'Davam et',
     finish: 'Profilimi yarat',

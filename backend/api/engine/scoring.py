@@ -149,9 +149,15 @@ _FIT_ORDER = ['slim', 'regular', 'relaxed', 'oversized']
 
 
 def fit_bonus(outfit, preference):
-    """−8…+8 towards the fit the user prefers, from the body pieces."""
-    if preference not in _FIT_ORDER:
+    """−8…+8 towards the fit(s) the user prefers, from the body pieces; with several, the closest one counts."""
+    prefs = [preference] if isinstance(preference, str) else list(preference or [])
+    prefs = [p for p in prefs if p in _FIT_ORDER]
+    if not prefs:
         return 0.0
+    return max(_fit_bonus_one(outfit, p) for p in prefs)
+
+
+def _fit_bonus_one(outfit, preference):
     body = [g for slot, g in outfit.items() if slot in ('top', 'bottom', 'dress', 'outerwear') and g.fit in _FIT_ORDER]
     if not body:
         return 0.0

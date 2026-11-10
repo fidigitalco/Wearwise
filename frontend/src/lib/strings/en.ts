@@ -194,6 +194,11 @@ export const en = {
     seeAll: 'See all',
   },
   onb: {
+    fitMany: 'Preferred fit (pick all that apply)',
+    length: 'Trouser length (L, inches)',
+    jacket: 'Jacket / suit (EU)',
+    drop: 'Drop',
+    optional: 'optional',
     step: (i: number, n: number) => `Step ${i} of ${n}`,
     next: 'Continue',
     finish: 'Build my profile',

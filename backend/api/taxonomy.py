@@ -63,7 +63,8 @@ STYLE_DIRECTIONS = [
     'cottagecore', 'korean', 'gorpcore', 'glam', 'modest', 'techwear', 'western',
 ]
 UNITS = ['metric', 'imperial']
-SIZE_KEYS = ['top', 'bottom', 'shoes']
+# bottom: EU size or waist (W); length: trouser leg (L), as in 32/30; jacket + drop: tailoring, as in 50/4.
+SIZE_KEYS = ['top', 'bottom', 'length', 'shoes', 'jacket', 'drop']
 
 # "About you": what a stylist asks before dressing someone. All optional.
 GENDERS = ['female', 'male', 'other', 'unsaid']
@@ -76,7 +77,11 @@ AGE_RANGES = ['18-24', '25-34', '35-44', '45-54', '55+']
 COUNTRIES = ['GB', 'TR', 'AZ', 'DE', 'FR', 'US', 'AE', 'other']
 # Price per piece in USD, lower bound inclusive, upper exclusive; the last is open-ended.
 BUDGET_RANGES = {'u30': (0, 30), '30-60': (30, 60), '60-120': (60, 120), '120-250': (120, 250), '250+': (250, 100000)}
-STORES = ['Trendyol', 'ASOS', 'Zara', 'H&M', 'Mango', 'Amazon', 'Shein', 'COS', 'Massimo Dutti', 'Uniqlo', 'Nike', 'Farfetch']
+STORES = [
+    'Trendyol', 'ASOS', 'Zara', 'H&M', 'Mango', 'Amazon', 'Shein', 'COS', 'Massimo Dutti', 'Uniqlo', 'Nike', 'Farfetch',
+    # Marketplaces and more high-street chains; their feeds can be added as affiliate deals arrive.
+    'Temu', 'eBay', 'AliExpress', 'Zalando', 'Pull&Bear', 'Bershka', 'Stradivarius', 'Lacoste', 'Adidas', 'Boohoo',
+]
 TOP_SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
 EU_BOTTOM_SIZES = ['32', '34', '36', '38', '40', '42', '44', '46', '48']
 WAIST_SIZES = ['28', '29', '30', '31', '32', '33', '34', '36', '38', '40']

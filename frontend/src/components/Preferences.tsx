@@ -3,20 +3,9 @@ import { Check } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
-import { STYLE_COLOR } from '../lib/styles';
+import { STYLE_COLOR, STYLE_PHOTOS } from '../lib/styles';
 import { space, type, useTheme } from '../theme';
 
-const STYLE_PHOTOS: Record<string, number> = {
-  casual: require('../../assets/images/style-casual.jpg'),
-  smart_casual: require('../../assets/images/style-smart_casual.jpg'),
-  business: require('../../assets/images/style-business.jpg'),
-  minimal: require('../../assets/images/style-minimal.jpg'),
-  streetwear: require('../../assets/images/style-streetwear.jpg'),
-  classic: require('../../assets/images/style-classic.jpg'),
-  sporty: require('../../assets/images/style-sporty.jpg'),
-  bohemian: require('../../assets/images/style-bohemian.jpg'),
-  formal: require('../../assets/images/style-formal.jpg'),
-};
 
 // Styles without a photo yet show their palette instead.
 const STYLE_PALETTES: Record<string, string[]> = {

@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -5,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '../components/Overlays';
 import { Button, Chip, ChipWrap, Field, FormScroll, Segmented } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { STYLE_COLOR } from '../lib/styles';
+import { STYLE_COLOR, STYLE_PHOTOS } from '../lib/styles';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
 import { errorMessage } from '../services/api';
@@ -20,19 +21,28 @@ const WAIST = ['28', '29', '30', '31', '32', '33', '34', '36', '38', '40'];
 const SHOES = Array.from({ length: 13 }, (_, i) => String(35 + i));
 const FITS = ['slim', 'regular', 'relaxed', 'oversized'] as const;
 const BUDGETS = ['u30', '30-60', '60-120', '120-250', '250+'];
-const STORES = ['Trendyol', 'ASOS', 'Zara', 'H&M', 'Mango', 'Amazon', 'Shein', 'COS', 'Massimo Dutti', 'Uniqlo', 'Nike', 'Farfetch'];
+const LENGTHS = ['28', '30', '32', '34', '36'];
+const JACKETS_MEN = ['44', '46', '48', '50', '52', '54', '56', '58', '60'];
+const DROPS = ['4', '6', '8'];
+const STORES = [
+  'Trendyol', 'ASOS', 'Zara', 'H&M', 'Mango', 'Amazon', 'Shein', 'Temu', 'eBay', 'AliExpress', 'Zalando', 'COS',
+  'Massimo Dutti', 'Uniqlo', 'Pull&Bear', 'Bershka', 'Stradivarius', 'Nike', 'Adidas', 'Lacoste', 'Boohoo', 'Farfetch',
+];
 
 
 type Draft = {
   age_range: User['age_range']; gender: User['gender']; country: string; styles: string[]; love: string[]; avoid: string[];
-  top: string; bottom: string; shoes: string; fit: User['fit_preference']; height: string; budgets: string[]; stores: string[];
+  top: string; bottom: string; length: string; jacket: string; drop: string; shoes: string; fits: string[]; height: string;
+  budgets: string[]; stores: string[];
 };
 
 function fromUser(u: User | null): Draft {
   return {
     age_range: u?.age_range ?? '', gender: u?.gender ?? '', country: u?.country ?? '',
     styles: u?.preferred_styles ?? [], love: u?.favorite_colors ?? [], avoid: u?.avoid_colors ?? [],
-    top: u?.sizes?.top ?? '', bottom: u?.sizes?.bottom ?? '', shoes: u?.sizes?.shoes ?? '', fit: u?.fit_preference ?? '',
+    top: u?.sizes?.top ?? '', bottom: u?.sizes?.bottom ?? '', length: u?.sizes?.length ?? '', jacket: u?.sizes?.jacket ?? '',
+    drop: u?.sizes?.drop ?? '', shoes: u?.sizes?.shoes ?? '',
+    fits: u?.fit_preferences?.length ? u.fit_preferences : u?.fit_preference ? [u.fit_preference] : [],
     height: u?.height_cm ? String(u.height_cm) : '', budgets: u?.budget_ranges ?? [], stores: u?.stores ?? [],
   };
 }
@@ -62,7 +72,7 @@ export default function OnboardingScreen() {
     { title: s.onb.aboutTitle, sub: s.onb.aboutSub, ok: !!(d.age_range && d.gender && d.country) },
     { title: s.onb.stylesTitle, sub: s.onb.stylesSub, ok: d.styles.length > 0 },
     { title: s.onb.colorsTitle, sub: s.onb.colorsSub, ok: d.love.length > 0 },
-    { title: s.onb.sizesTitle, sub: s.onb.sizesSub, ok: !!(d.top && d.bottom && d.shoes && d.fit) },
+    { title: s.onb.sizesTitle, sub: s.onb.sizesSub, ok: !!(d.top && d.bottom && d.shoes && d.fits.length) },
     { title: s.onb.budgetTitle, sub: s.onb.budgetSub, ok: d.budgets.length > 0 },
   ];
   const last = step === steps.length - 1;
@@ -73,8 +83,11 @@ export default function OnboardingScreen() {
       const height = parseInt(d.height, 10);
       await updateUser({
         age_range: d.age_range, gender: d.gender, country: d.country, preferred_styles: d.styles,
-        favorite_colors: d.love, avoid_colors: d.avoid, sizes: { top: d.top, bottom: d.bottom, shoes: d.shoes },
-        fit_preference: d.fit, height_cm: Number.isFinite(height) ? height : null, budget_ranges: d.budgets, stores: d.stores,
+        favorite_colors: d.love, avoid_colors: d.avoid,
+        // Only the sizes that were picked; empty ones are left out rather than sent blank.
+        sizes: Object.fromEntries(Object.entries({ top: d.top, bottom: d.bottom, length: d.length, shoes: d.shoes, jacket: d.jacket, drop: d.drop })
+          .filter(([, v]) => v)),
+        fit_preferences: d.fits, height_cm: Number.isFinite(height) ? height : null, budget_ranges: d.budgets, stores: d.stores,
         wardrobe_style: men ? 'menswear' : d.gender === 'female' ? 'womenswear' : 'neutral', onboarded: true,
       });
       toast(s.onb.done);
@@ -126,7 +139,7 @@ export default function OnboardingScreen() {
             {one(AGES, d.age_range, (v) => set({ age_range: v as Draft['age_range'] }))}
             {h(s.onb.shoppingFor)}
             <Segmented options={['female', 'male', 'unsaid'] as const} value={d.gender} label={(v) => s.about.genders[v]}
-              onChange={(v) => set({ gender: v, bottom: '' })} />
+              onChange={(v) => set({ gender: v, bottom: '', jacket: '', length: '', drop: '' })} />
             {men ? <Text style={[type.caption, { color: t.accent }]}>{s.onb.menSoon}</Text> : null}
             {h(s.onb.country)}
             {one(COUNTRIES, d.country, (v) => set({ country: v }), (v) => s.onb.countries[v])}
@@ -143,7 +156,11 @@ export default function OnboardingScreen() {
                   <Pressable key={st} onPress={() => set({ styles: toggle(d.styles, st) })} accessibilityRole="checkbox"
                     accessibilityState={{ checked: on }} accessibilityLabel={label('styles', st)}
                     style={[styles.styleCard, { backgroundColor: t.card, borderColor: on ? t.primary : t.border, borderWidth: on ? 2 : 1 }]}>
-                    <View style={[styles.styleSwatch, { backgroundColor: STYLE_COLOR[st] ?? t.cardAlt }]} />
+                    {STYLE_PHOTOS[st] ? (
+                      <Image source={STYLE_PHOTOS[st]} style={styles.styleSwatch} contentFit="cover" transition={120} />
+                    ) : (
+                      <View style={[styles.styleSwatch, { backgroundColor: STYLE_COLOR[st] ?? t.cardAlt }]} />
+                    )}
                     <Text style={[type.caption, { color: on ? t.primary : t.text, fontWeight: '600', textAlign: 'center' }]} numberOfLines={2}>
                       {label('styles', st)}
                     </Text>
@@ -184,10 +201,26 @@ export default function OnboardingScreen() {
             {one(TOPS, d.top, (v) => set({ top: v }))}
             {h(men ? s.onb.bottomsWaist : s.onb.bottomsEu)}
             {one(men ? WAIST : EU, d.bottom, (v) => set({ bottom: v }))}
+            {men ? (
+              <>
+                {h(`${s.onb.length} · ${s.onb.optional}`)}
+                {one(LENGTHS, d.length, (v) => set({ length: d.length === v ? '' : v }))}
+              </>
+            ) : null}
+            {h(`${s.onb.jacket} · ${s.onb.optional}`)}
+            {one(men ? JACKETS_MEN : EU, d.jacket, (v) => set({ jacket: d.jacket === v ? '' : v }))}
+            {men ? (
+              <>
+                {h(`${s.onb.drop} · ${s.onb.optional}`)}
+                {one(DROPS, d.drop, (v) => set({ drop: d.drop === v ? '' : v }))}
+              </>
+            ) : null}
             {h(s.onb.shoes)}
             {one(SHOES, d.shoes, (v) => set({ shoes: v }))}
-            {h(s.onb.fit)}
-            {one(FITS, d.fit, (v) => set({ fit: v as Draft['fit'] }), (v) => label('fits', v))}
+            {h(s.onb.fitMany)}
+            <ChipWrap>
+              {FITS.map((f) => <Chip key={f} label={label('fits', f)} selected={d.fits.includes(f)} onPress={() => set({ fits: toggle(d.fits, f) })} />)}
+            </ChipWrap>
             {h(s.onb.height)}
             <View style={{ width: 140 }}>
               <Field value={d.height} onChangeText={(v) => set({ height: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad" maxLength={3} placeholder="cm" />
@@ -224,7 +257,7 @@ const styles = StyleSheet.create({
   wrap: { paddingHorizontal: gutter, paddingVertical: space.lg, gap: space.md, paddingBottom: space.xxl },
   styleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   styleCard: { width: '31.5%', borderRadius: radius.md, padding: space.sm, gap: space.xs, alignItems: 'center' },
-  styleSwatch: { width: '100%', aspectRatio: 1.4, borderRadius: radius.sm },
+  styleSwatch: { width: '100%', aspectRatio: 1, borderRadius: radius.sm },
   colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   colorCell: { width: '48.5%', flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.sm, borderRadius: radius.md },
   colorDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1 },

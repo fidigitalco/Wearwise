@@ -196,6 +196,11 @@ export const es: Strings = {
     seeAll: 'Ver todo',
   },
   onb: {
+    fitMany: 'Corte preferido (elige varios)',
+    length: 'Largo de pantalón (L, pulgadas)',
+    jacket: 'Chaqueta / traje (EU)',
+    drop: 'Drop',
+    optional: 'opcional',
     step: (i: number, n: number) => `Paso ${i} de ${n}`,
     next: 'Continuar',
     finish: 'Crear mi perfil',

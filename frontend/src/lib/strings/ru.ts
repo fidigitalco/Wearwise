@@ -206,6 +206,11 @@ export const ru: Strings = {
     seeAll: 'Все',
   },
   onb: {
+    fitMany: 'Любимый крой (можно несколько)',
+    length: 'Длина брюк (L, дюймы)',
+    jacket: 'Пиджак / костюм (EU)',
+    drop: 'Дроп',
+    optional: 'необязательно',
     step: (i: number, n: number) => `Шаг ${i} из ${n}`,
     next: 'Далее',
     finish: 'Создать профиль',

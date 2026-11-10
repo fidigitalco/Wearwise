@@ -196,6 +196,11 @@ export const tr: Strings = {
     seeAll: 'Tümünü gör',
   },
   onb: {
+    fitMany: 'Tercih ettiğin kesim (birden fazla)',
+    length: 'Pantolon boyu (L, inç)',
+    jacket: 'Ceket / takım (EU)',
+    drop: 'Drop',
+    optional: 'isteğe bağlı',
     step: (i: number, n: number) => `Adım ${i} / ${n}`,
     next: 'Devam et',
     finish: 'Profilimi oluştur',

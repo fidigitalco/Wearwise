@@ -32,7 +32,7 @@ def build_context(user, data, lang='en'):
         'style': data.get('style') or user.style_direction,
         'favorite_colors': list(user.favorite_colors or []),
         'avoid_colors': list(user.avoid_colors or []),
-        'fit_preference': user.fit_preference,
+        'fit_preference': user.fit_preferences or ([user.fit_preference] if user.fit_preference else []),
         'lang': lang,
     }
     if (ctx['temp_c'] is None or ctx['precip_prob'] is None) and lat is not None and lon is not None:
@@ -59,7 +59,7 @@ def stored_context(outfit, user, lang):
         'style': c.get('style') or user.style_direction,
         'favorite_colors': list(user.favorite_colors or []),
         'avoid_colors': list(user.avoid_colors or []),
-        'fit_preference': user.fit_preference,
+        'fit_preference': user.fit_preferences or ([user.fit_preference] if user.fit_preference else []),
         'lang': lang,
     }
 

@@ -105,7 +105,8 @@ export interface User {
   onboarded: boolean;
   preferred_styles?: string[];
   favorite_colors?: string[];
-  sizes?: { top?: string; bottom?: string; shoes?: string };
+  /** bottom: EU size or waist (W); length: leg (L), as in 32/30; jacket + drop: tailoring, as in 50/4. */
+  sizes?: { top?: string; bottom?: string; length?: string; shoes?: string; jacket?: string; drop?: string };
   typical_occasions?: string[];
   units?: 'metric' | 'imperial';
   notifications_enabled?: boolean;
@@ -121,6 +122,8 @@ export interface User {
   weight_kg?: number | null;
   body_shape?: '' | 'rectangle' | 'triangle' | 'inverted_triangle' | 'hourglass' | 'oval';
   fit_preference?: '' | 'slim' | 'regular' | 'relaxed' | 'oversized';
+  /** Several fits can feel right; fit_preference mirrors the first. */
+  fit_preferences?: string[];
   budget?: '' | 'low' | 'mid' | 'high';
   avoid_colors?: string[];
   /** MVP v2 profile. */

@@ -22,7 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'email', 'display_name', 'wardrobe_style', 'style_direction', 'main_occasion', 'onboarded',
             'latitude', 'longitude', 'preferred_styles', 'favorite_colors', 'sizes', 'typical_occasions',
             'units', 'notifications_enabled', 'plan', 'is_guest', 'date_joined',
-            'gender', 'birth_year', 'height_cm', 'weight_kg', 'body_shape', 'fit_preference', 'budget', 'avoid_colors',
+            'gender', 'birth_year', 'height_cm', 'weight_kg', 'body_shape', 'fit_preference', 'fit_preferences', 'budget', 'avoid_colors',
             'age_range', 'country', 'budget_ranges', 'stores',
         ]
         read_only_fields = ['id', 'email', 'plan', 'is_guest', 'date_joined']
@@ -32,6 +32,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate_favorite_colors(self, v):
         return _choice_list(v, tx.COLORS, 'colour')
+
+    def validate_fit_preferences(self, v):
+        return _choice_list(v, tx.FIT_PREFERENCES, 'fit')
 
     def validate_budget_ranges(self, v):
         return _choice_list(v, tx.BUDGET_RANGES, 'budget')
@@ -77,6 +80,11 @@ class UserSerializer(serializers.ModelSerializer):
         # The scorer reads style_direction; keep it in step with the first preferred style.
         if data.get('preferred_styles'):
             data['style_direction'] = data['preferred_styles'][0]
+        # The list leads; the single field follows its first entry for older clients.
+        if 'fit_preferences' in data:
+            data['fit_preference'] = data['fit_preferences'][0] if data['fit_preferences'] else ''
+        elif data.get('fit_preference'):
+            data['fit_preferences'] = [data['fit_preference']]
         # A favourite colour cannot also be one to avoid; the newer choice wins.
         if 'avoid_colors' in data:
             fav = data.get('favorite_colors', getattr(self.instance, 'favorite_colors', []) or [])

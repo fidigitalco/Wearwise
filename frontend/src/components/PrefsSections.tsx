@@ -8,7 +8,7 @@ import { PreferenceSelector } from './Preferences';
 import { Chip, ChipWrap, Field, Segmented } from './ui';
 
 export type Prefs = Required<Pick<User, 'preferred_styles' | 'favorite_colors' | 'typical_occasions' | 'sizes' | 'units' | 'avoid_colors'>> &
-  Pick<User, 'wardrobe_style' | 'gender' | 'birth_year' | 'height_cm' | 'weight_kg' | 'body_shape' | 'fit_preference' | 'budget'>;
+  Pick<User, 'wardrobe_style' | 'gender' | 'birth_year' | 'height_cm' | 'weight_kg' | 'body_shape' | 'budget'> & { fit_preferences: string[] };
 
 const LETTER_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
@@ -25,7 +25,7 @@ export function prefsFromUser(u: User | null): Prefs {
     height_cm: u?.height_cm ?? null,
     weight_kg: u?.weight_kg ?? null,
     body_shape: u?.body_shape ?? '',
-    fit_preference: u?.fit_preference ?? '',
+    fit_preferences: u?.fit_preferences?.length ? u.fit_preferences : u?.fit_preference ? [u.fit_preference] : [],
     budget: u?.budget ?? '',
     avoid_colors: u?.avoid_colors ?? [],
   };
@@ -104,9 +104,13 @@ export function AboutYouSection({ prefs, onChange }: { prefs: Prefs; onChange: (
           label={(b) => s.about.bodyShapes[b]} onChange={(body_shape) => set({ body_shape })} />
       </View>
       <View style={styles.field}>
-        <Text style={[type.label, { color: t.textSub }]}>{s.about.fit}</Text>
-        <OneOf options={['slim', 'regular', 'relaxed', 'oversized'] as const} value={prefs.fit_preference}
-          label={(f) => label('fits', f)} onChange={(fit_preference) => set({ fit_preference })} />
+        <Text style={[type.label, { color: t.textSub }]}>{s.onb.fitMany}</Text>
+        <ChipWrap>
+          {(['slim', 'regular', 'relaxed', 'oversized'] as const).map((f) => (
+            <Chip key={f} label={label('fits', f)} selected={prefs.fit_preferences.includes(f)}
+              onPress={() => set({ fit_preferences: prefs.fit_preferences.includes(f) ? prefs.fit_preferences.filter((x) => x !== f) : [...prefs.fit_preferences, f] })} />
+          ))}
+        </ChipWrap>
       </View>
       <View style={styles.field}>
         <Text style={[type.label, { color: t.textSub }]}>{s.about.budget}</Text>
@@ -177,7 +181,7 @@ export function AboutSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: 
 export function SizesSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: Prefs) => void }) {
   const t = useTheme();
   const { t: s } = useI18n();
-  const setSize = (k: 'top' | 'bottom' | 'shoes', v: string) => onChange({ ...prefs, sizes: { ...prefs.sizes, [k]: v.slice(0, 12) } });
+  const setSize = (k: 'top' | 'bottom' | 'length' | 'shoes' | 'jacket' | 'drop', v: string) => onChange({ ...prefs, sizes: { ...prefs.sizes, [k]: v.slice(0, 12) } });
   return (
     <>
       <View style={styles.section}>
@@ -190,9 +194,25 @@ export function SizesSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: 
           <Text style={[type.label, { color: t.textSub }]}>{s.prefs.sizeBottom}</Text>
           <OneOf options={LETTER_SIZES} value={prefs.sizes.bottom} label={(x) => x} onChange={(v) => setSize('bottom', v)} />
         </View>
-        <View style={{ width: 120 }}>
-          <Field label={s.prefs.sizeShoes} value={prefs.sizes.shoes ?? ''} keyboardType="decimal-pad" maxLength={5}
-            onChangeText={(v) => setSize('shoes', v)} placeholder="42" />
+        <View style={styles.sizes}>
+          <View style={{ flex: 1 }}>
+            <Field label={s.prefs.sizeShoes} value={prefs.sizes.shoes ?? ''} keyboardType="decimal-pad" maxLength={5}
+              onChangeText={(v) => setSize('shoes', v)} placeholder="42" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Field label={s.onb.length} value={prefs.sizes.length ?? ''} keyboardType="number-pad" maxLength={2}
+              onChangeText={(v) => setSize('length', v)} placeholder="30" />
+          </View>
+        </View>
+        <View style={styles.sizes}>
+          <View style={{ flex: 1 }}>
+            <Field label={s.onb.jacket} value={prefs.sizes.jacket ?? ''} keyboardType="number-pad" maxLength={3}
+              onChangeText={(v) => setSize('jacket', v)} placeholder="50" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Field label={s.onb.drop} value={prefs.sizes.drop ?? ''} keyboardType="number-pad" maxLength={2}
+              onChangeText={(v) => setSize('drop', v)} placeholder="4" />
+          </View>
         </View>
       </View>
       <View style={styles.section}>

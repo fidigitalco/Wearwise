@@ -92,6 +92,8 @@ class User(AbstractUser):
     body_shape = models.CharField(max_length=20, blank=True, choices=tx.choices(tx.BODY_SHAPES))
     # How they like clothes to sit; nudges the silhouette score.
     fit_preference = models.CharField(max_length=10, blank=True, choices=tx.choices(tx.FIT_PREFERENCES))
+    # Several fits can feel right (slim and regular); fit_preference keeps the first for older clients.
+    fit_preferences = models.JSONField(default=list, blank=True)
     budget = models.CharField(max_length=4, blank=True, choices=tx.choices(tx.BUDGETS))
     # Colours they never want suggested; outfits wearing them are pushed down.
     avoid_colors = models.JSONField(default=list, blank=True)

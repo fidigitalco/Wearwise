@@ -1419,3 +1419,24 @@ class OccasionOutfitTests(APITestCase):
         self.assertEqual(len(r.data['looks']), 3)  # the store's ideas stay
         self.assertIsNone(self.client.patch(f"/api/occasions/{o['id']}/", {'outfit': None}, format='json').data['outfit'])
         self.assertEqual(self.client.patch(f"/api/occasions/{o['id']}/", {'outfit': 'o_nope'}, format='json').status_code, 404)
+
+
+class FitAndSizeTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'fit@example.com', 'password': 'wardrobe-123', 'display_name': 'F'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_several_fits_tailoring_sizes_and_new_stores(self):
+        r = self.client.patch('/api/auth/me/', {
+            'fit_preferences': ['slim', 'regular'], 'stores': ['Temu', 'eBay', 'Amazon'],
+            'sizes': {'top': 'L', 'bottom': '32', 'length': '30', 'jacket': '50', 'drop': '4', 'shoes': '43'},
+        }, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual((r.data['fit_preferences'], r.data['fit_preference']), (['slim', 'regular'], 'slim'))
+        self.assertEqual((r.data['sizes']['jacket'], r.data['sizes']['drop'], r.data['sizes']['length']), ('50', '4', '30'))
+        self.assertEqual(self.client.patch('/api/auth/me/', {'fit_preferences': ['baggy']}, format='json').status_code, 400)
+        from types import SimpleNamespace
+        from .engine.scoring import fit_bonus
+        g = lambda fit: SimpleNamespace(fit=fit)
+        slim_look = {'top': g('slim'), 'bottom': g('slim')}
+        self.assertEqual(fit_bonus(slim_look, ['regular', 'slim']), fit_bonus(slim_look, 'slim'))
