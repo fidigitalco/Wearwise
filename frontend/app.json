@@ -16,7 +16,7 @@
       "package": "app.wearwise",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F6F4EF"
+        "backgroundColor": "#F6F2EA"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
