@@ -502,6 +502,8 @@ class Occasion(models.Model):
     # Gift mode: the date is someone else's and the picks are gift ideas for them.
     for_gift = models.BooleanField(default=False)
     person = models.CharField(max_length=60, blank=True)
+    # What the user will wear: one of their saved outfits, or one built from their closet.
+    outfit = models.ForeignKey('Outfit', on_delete=models.SET_NULL, null=True, blank=True, related_name='occasions')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

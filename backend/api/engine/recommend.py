@@ -142,12 +142,12 @@ _COLOR_PHRASES = {
         'contrasting': 'a bold colour contrast',
     },
     'az': {
-        'tonal': 'eyni rəng çalarları sakit və bütöv görünür',
-        'neutral': 'rahat neytral birləşmə',
+        'tonal': 'eyni rəngin çalarları sakit və bütöv görünür',
+        'neutral': 'sadə neytral uyğunluq',
         'neutral_base': 'neytral fonda {accent} rəng önə çıxır',
         'analogous': 'bir-birinə yaxın rənglər yumşaq keçid yaradır',
         'complementary': 'bir-birini tamamlayan cəsarətli kontrast',
-        'contrasting': 'cəsarətli rəng kontrastı',
+        'contrasting': 'cəsarətli rəng təzadı',
     },
 }
 
@@ -171,7 +171,7 @@ def explain(outfit, scores, ctx):
     p, t = ctx.get('precip_prob'), ctx.get('temp_c')
     if outer and outer.rain_ok and p is not None and p >= 0.5:
         parts.append((scores['weather'] + 5, say(lang, 'the {outer} covers the {pct}% rain chance',
-                                                 '{outer} {pct}% yağış ehtimalına qarşı qoruyur',
+                                                 '{pct}% yağış ehtimalı var, {outer} səni qoruyacaq',
                                                  outer=_lower_first(_label(outer, lang)), pct=round(p * 100))))
     elif t is not None:
         deg = round(t)
@@ -180,11 +180,11 @@ def explain(outfit, scores, ctx):
         parts.append((scores['weather'], text))
 
     occ = ctx['occasion']
-    parts.append((scores['occasion'], say(lang, 'right on the formality for {occasion}', '{occasion} üçün tam uyğundur',
+    parts.append((scores['occasion'], say(lang, 'right on the formality for {occasion}', 'rəsmilik səviyyəsi {occasion} üçün tam uyğundur',
                                           occasion=name(lang, 'occasions', occ, OCCASION_AZ))))
     if scores['rotation'] >= 90:
         parts.append((scores['rotation'] - 5, say(lang, 'it brings back pieces you have not worn lately',
-                                                  'çoxdan geyinmədiyin paltarları da yenidən ortaya çıxarır')))
+                                                  'çoxdan geyinmədiyin paltarlara da yenidən şans verir')))
 
     parts.sort(key=lambda x: -x[0])
     lead, *rest = [text for _, text in parts[:2]]

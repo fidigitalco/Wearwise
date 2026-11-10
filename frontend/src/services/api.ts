@@ -321,6 +321,9 @@ export const occasions = {
   add: (body: { title: string; date: string; kind: string; for_gift: boolean; person: string }) =>
     http.post<OccasionItem>('/occasions/', body).then((r) => r.data),
   remove: (id: number) => http.delete(`/occasions/${id}/`).then(() => undefined),
+  /** Wear one of my outfits on the date, or null to clear it. */
+  setOutfit: (id: number, outfit: string | null) =>
+    http.patch<OccasionItem & { looks: Look[] }>(`/occasions/${id}/`, { outfit }).then((r) => r.data),
 };
 
 export interface SuitsMe {

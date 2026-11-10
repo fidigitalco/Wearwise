@@ -548,7 +548,7 @@ class TitleAndReasonTests(APITestCase):
         self.assertEqual(title_for(self.outfit(), ctx(precip_prob=0.1, lang='en')), 'Effortless Smart Casual')
         self.assertEqual(title_for(self.outfit(), ctx(precip_prob=0.1, lang='az')), 'Rahat smart casual')
         self.assertEqual(title_for(self.outfit(outerwear=self.rain), ctx(lang='en')), 'Rainy Day Layers')
-        self.assertEqual(title_for(self.outfit(outerwear=self.rain), ctx(lang='az')), 'Yağışlı gün qatları')
+        self.assertEqual(title_for(self.outfit(outerwear=self.rain), ctx(lang='az')), 'Yağışlı gün üçün')
         self.assertEqual(title_for(self.outfit(), ctx(occasion='date', precip_prob=0, lang='en')), 'Evening Out')
         self.assertEqual(title_for(self.outfit(), ctx(occasion='sport', precip_prob=0, lang='az')), 'Aktiv gün')
 
@@ -1391,3 +1391,31 @@ class VoiceOffTests(APITestCase):
                 mock.patch.object(speech, '_get_model', side_effect=AssertionError('loaded')):
             self.assertIsNone(speech.transcribe(SimpleUploadedFile('q.m4a', b'x'), 'en'))
             speech.warm_up()  # returns without starting a load
+
+
+
+class OccasionOutfitTests(APITestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'shopper@example.com', 'password': 'wardrobe-123', 'display_name': 'S'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_date_can_wear_my_own_outfit(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .models import User
+        user = User.objects.get(email='shopper@example.com')
+        self.client.post('/api/garments/sample/')
+        top = next(g.id for g in Garment.objects.filter(user=user, category='top'))
+        bottom = next(g.id for g in Garment.objects.filter(user=user, category='bottom'))
+        shoes = next(g.id for g in Garment.objects.filter(user=user, category='shoes'))
+        built = self.client.post('/api/check-outfit/', {'garment_ids': [top, bottom, shoes], 'occasion': 'formal', 'save': True}, format='json').data['outfit']
+        day = (timezone.localdate() + timedelta(days=20)).isoformat()
+        o = self.client.post('/api/occasions/', {'title': 'Toy', 'date': day, 'kind': 'wedding'}, format='json').data
+        r = self.client.patch(f"/api/occasions/{o['id']}/", {'outfit': built['id']}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data['outfit']['id'], built['id'])
+        self.assertEqual(len(r.data['looks']), 3)  # the store's ideas stay
+        self.assertIsNone(self.client.patch(f"/api/occasions/{o['id']}/", {'outfit': None}, format='json').data['outfit'])
+        self.assertEqual(self.client.patch(f"/api/occasions/{o['id']}/", {'outfit': 'o_nope'}, format='json').status_code, 404)

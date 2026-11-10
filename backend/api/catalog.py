@@ -118,8 +118,17 @@ MEN = [
 ]
 
 
+def demo_photos():
+    """{product name: {url, photographer, page}}: free Unsplash photos for the demo catalogue (catalog_photos.json)."""
+    import json
+    from pathlib import Path
+    path = Path(__file__).with_name('catalog_photos.json')
+    return json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+
+
 def demo_rows():
     """DEMO as Product field dicts."""
+    photos = demo_photos()
     out = []
     rows = [(r, 'unisex' if r[0] in UNISEX else 'women') for r in DEMO] + [(r, 'men') for r in MEN]
     for (name, store, price, prev, cat, sub, color, material, styles, formality, warmth, rating, small), gender in rows:
@@ -132,6 +141,7 @@ def demo_rows():
             'sizes': EU_SHOES if cat == 'shoes' else ([] if cat in ('bag', 'accessory') else ALL_SIZES),
             'url': STORE_SEARCH.get(store, STORE_SEARCH['Amazon']).format(q=quote_plus(name)),
             'gender': gender, 'is_demo': True,
+            'image_url': (photos.get(name) or {}).get('url', ''),
         })
     return out
 
@@ -239,15 +249,15 @@ def why(p, user, lang='en'):
     if styles:
         st = vocab(lang, 'styles', styles[0], tx.STYLE_AZ, styles[0].replace('_', ' ').title())
         if p.color in (user.favorite_colors or []):
-            return say(lang, 'Your {style} style, in a colour you love', 'Sevdiyin rəngdə, {style} üslubuna uyğun', style=st)
+            return say(lang, 'Your {style} style, in a colour you love', 'Sənin {style} üslubunda, sevdiyin rəngdə', style=st)
         return say(lang, 'Matches your {style} style', '{style} üslubuna uyğundur', style=st)
     if p.color in (user.favorite_colors or []):
         return say(lang, 'In a colour you love', 'Sevdiyin rəngdədir')
     if user.budget_ranges and in_budget(p.price, user.budget_ranges):
         return say(lang, 'Within your budget', 'Büdcənə uyğundur')
     if p.small_brand and p.rating:
-        return say(lang, 'Small brand, {rating}★, not ad-boosted', 'Kiçik brend, {rating}★, reklamla irəli çəkilməyib', rating=p.rating)
-    return say(lang, 'Well rated and easy to wear', 'Yüksək reytinqli və rahat geyinilən')
+        return say(lang, 'Small brand, {rating}★, not ad-boosted', 'Kiçik brend, {rating}★, reklamla önə çəkilməyib', rating=p.rating)
+    return say(lang, 'Well rated and easy to wear', 'Yüksək reytinqli, geyinməsi rahat')
 
 
 # ── Discovery ─────────────────────────────────────────────────────────────
@@ -362,10 +372,16 @@ OUTFITS_FROM, REMIND_AT = 15, 7
 
 def occasion_payload(o, user, ctx, lang='en'):
     days = (o.date - timezone.localdate()).days
-    return {
+    out = {
         'id': o.id, 'title': o.title, 'date': o.date.isoformat(), 'kind': o.kind, 'for_gift': o.for_gift, 'person': o.person,
-        'days': days, 'ready': days <= OUTFITS_FROM, 'remind': days <= REMIND_AT,
+        'days': days, 'ready': days <= OUTFITS_FROM, 'remind': days <= REMIND_AT, 'outfit': None,
     }
+    if o.outfit_id and ctx.get('request'):
+        from .serializers import OutfitSerializer
+        from .services import outfit_qs
+        mine = outfit_qs().filter(pk=o.outfit_id).first()
+        out['outfit'] = OutfitSerializer(mine, context=ctx).data if mine else None
+    return out
 
 
 def occasion_looks(o, user, ctx):

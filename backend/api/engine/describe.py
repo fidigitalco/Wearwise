@@ -13,16 +13,16 @@ from .scoring import WARMTH_SLOTS, style_bonus, target_warmth
 
 # (full title, core used when a colour prefix is needed to tell titles apart)
 _TITLES = {
-    'rain': {'en': ('Rainy Day Layers', 'Rain Layers'), 'az': ('Yağışlı gün qatları', 'yağış qatları')},
+    'rain': {'en': ('Rainy Day Layers', 'Rain Layers'), 'az': ('Yağışlı gün üçün', 'yağış obrazı')},
     'sport': {'en': ('Active Day', 'Active Look'), 'az': ('Aktiv gün', 'aktiv obraz')},
     'travel': {'en': ('Easy Travel', 'Travel Look'), 'az': ('Rahat səyahət', 'səyahət obrazı')},
     'evening_classic': {'en': ('Evening Classic', 'Evening Classic'), 'az': ('Axşam klassikası', 'axşam klassikası')},
-    'evening_out': {'en': ('Evening Out', 'Evening Look'), 'az': ('Axşam çıxışı', 'axşam obrazı')},
-    'meeting': {'en': ('Polished Meeting Look', 'Meeting Look'), 'az': ('Səliqəli görüş obrazı', 'görüş obrazı')},
+    'evening_out': {'en': ('Evening Out', 'Evening Look'), 'az': ('Axşam üçün', 'axşam obrazı')},
+    'meeting': {'en': ('Polished Meeting Look', 'Meeting Look'), 'az': ('İşgüzar görüş obrazı', 'görüş obrazı')},
     'office': {'en': ('Modern Office Look', 'Office Look'), 'az': ('Müasir ofis obrazı', 'ofis obrazı')},
     'smart_casual': {'en': ('Effortless Smart Casual', 'Smart Casual'), 'az': ('Rahat smart casual', 'smart casual')},
-    'minimal': {'en': ('Minimal Weekend', 'Minimal Look'), 'az': ('Minimal həftəsonu', 'minimal obraz')},
-    'everyday': {'en': ('Relaxed Everyday', 'Everyday Look'), 'az': ('Rahat gündəlik', 'gündəlik obraz')},
+    'minimal': {'en': ('Minimal Weekend', 'Minimal Look'), 'az': ('Minimal həftə sonu', 'minimal obraz')},
+    'everyday': {'en': ('Relaxed Everyday', 'Everyday Look'), 'az': ('Rahat gündəlik obraz', 'gündəlik obraz')},
 }
 
 
@@ -152,12 +152,12 @@ _COLOR_REASONS = {
         'contrasting': '{A} and {b} make a bold, deliberate contrast.',
     },
     'az': {
-        'tonal': 'Eyni {a} çalarları obrazı sakit və bütöv göstərir.',
+        'tonal': 'Eyni {a} tonlu paltarlar obrazı sakit və bütöv göstərir.',
         'neutral': '{A} və {b} balanslı, universal palitra yaradır.',
-        'neutral_base': '{Base} fon {accent} rəngi uyğunsuzluq yaratmadan önə çıxarır.',
-        'analogous': '{A} və {b} rəng çarxında yaxındır, ona görə yumşaq birləşir.',
+        'neutral_base': '{Base} fon {accent} rəngi ziddiyyət yaratmadan önə çıxarır.',
+        'analogous': '{A} və {b} rəng çarxında yaxındır, ona görə bir-birinə yumşaq keçir.',
         'complementary': '{A} və {b} bir-birini tamamlayan rənglərdir, cəsarətli kontrast yaradır.',
-        'contrasting': '{A} və {b} cəsarətli, düşünülmüş kontrast yaradır.',
+        'contrasting': '{A} və {b} cəsarətli, düşünülmüş təzad yaradır.',
     },
 }
 
@@ -173,13 +173,13 @@ _TEXT = {
         'silhouette': 'The fits balance each other for a clean silhouette.',
     },
     'az': {
-        'rain': '{outer} {pct}% yağış ehtimalına qarşı qoruyur.',
-        'outer_temp': '{outer} {deg}°C üçün düzgün üst qatdır.',
-        'light_temp': 'Yüngül, nəfəs alan geyimlər {deg}°C üçün uyğundur.',
-        'warm_temp': 'Qatlar birlikdə {deg}°C üçün lazım olan istiliyi verir.',
-        'style': 'Bu geyimlər sənin {style} üslubuna uyğundur.',
+        'rain': '{outer} səni yağışdan qoruyacaq (yağış ehtimalı {pct}%).',
+        'outer_temp': '{outer} {deg}°C üçün ən uyğun üst qatdır.',
+        'light_temp': 'Yüngül, hava keçirən paltarlar {deg}°C üçün uyğundur.',
+        'warm_temp': 'Qatlar birlikdə {deg}°C üçün lazımi istiliyi verir.',
+        'style': 'Bu paltarlar sənin {style} üslubuna uyğundur.',
         'occasion': 'Rəsmilik səviyyəsi {occasion} üçün tam uyğundur.',
-        'rotation': 'Çoxdan geyinmədiyin paltarları yenidən ortaya çıxarır.',
+        'rotation': 'Çoxdan geyinmədiyin paltarlara yenidən şans verir.',
         'silhouette': 'Kəsimlər bir-birini tamamlayır, siluet səliqəli görünür.',
     },
 }

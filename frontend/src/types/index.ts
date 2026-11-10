@@ -184,6 +184,8 @@ export interface OccasionItem {
   /** Outfits are ready 15 days before; the reminder is at 7. */
   ready: boolean;
   remind: boolean;
+  /** The user's own outfit for the date, if they picked one. */
+  outfit?: Outfit | null;
 }
 
 export interface HomeFeed {

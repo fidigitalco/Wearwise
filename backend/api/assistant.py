@@ -212,7 +212,7 @@ def _closet_gap(garments, lang):
         return say(lang, 'Your closet is empty so far. Add a top and a bottom (or a dress) plus a pair of shoes, '
                          'or load the sample wardrobe to try me out.',
                    'Qarderobun hələ boşdur. Üst və alt geyim (və ya don), bir də ayaqqabı əlavə et, '
-                   'ya da sınamaq üçün nümunə qarderobu yüklə.')
+                   'ya da məni sınamaq üçün nümunə qarderobu yüklə.')
     missing = []
     if 'dress' not in cats:
         if 'top' not in cats:
@@ -222,7 +222,7 @@ def _closet_gap(garments, lang):
     if 'shoes' not in cats:
         missing.append(say(lang, 'a pair of shoes', 'ayaqqabı'))
     return say(lang, "Your closet doesn't have enough pieces for a full outfit yet. Add {missing} and I can start styling looks.",
-               'Qarderobunda hələ tam obraz üçün kifayət qədər geyim yoxdur. {Missing} əlavə et, sonra obrazlar hazırlaya bilərəm.',
+               'Qarderobunda tam kombin üçün hələ kifayət qədər paltar yoxdur. {Missing} əlavə et, sonra kombinlər hazırlaya bilərəm.',
                missing=_join(missing, lang), Missing=_cap(_join(missing, lang)))
 
 
@@ -252,11 +252,11 @@ def _looks(user, garments, lang, occasion, when):
         return _closet_gap(garments, lang), []
     n, occ = len(outfits), occasion_name(occasion, lang)
     if when == 'tomorrow':
-        text = say(lang, 'Here are {n} looks for {occasion} tomorrow.', 'Sabah {occasion} üçün {n} obraz hazırladım.', n=n, occasion=occ)
+        text = say(lang, 'Here are {n} looks for {occasion} tomorrow.', 'Sabah {occasion} üçün {n} kombin hazırladım.', n=n, occasion=occ)
     elif when == 'today':
-        text = say(lang, 'Here are {n} looks for {occasion} today.', 'Bu gün {occasion} üçün {n} obraz hazırladım.', n=n, occasion=occ)
+        text = say(lang, 'Here are {n} looks for {occasion} today.', 'Bu gün {occasion} üçün {n} kombin hazırladım.', n=n, occasion=occ)
     else:
-        text = say(lang, 'Here are {n} looks for {occasion}.', '{occasion} üçün {n} obraz hazırladım.', n=n, occasion=occ)
+        text = say(lang, 'Here are {n} looks for {occasion}.', '{occasion} üçün {n} kombin hazırladım.', n=n, occasion=occ)
     pick = ' ' + say(lang, 'My top pick is "{title}".', 'Ən yaxşı seçimim: «{title}».', title=outfits[0].title)
     return _cap(text) + _weather_sentence(ctx, lang) + pick, outfits
 
@@ -278,7 +278,7 @@ def _style_piece(user, garments, lang, raw, folded):
         if not garments:
             return _closet_gap(garments, lang), []
         return say(lang, "I couldn't find that piece in your closet. Add it with a photo and I'll style it for you.",
-                   'Bu geyimi qarderobunda tapa bilmədim. Şəklini çəkib əlavə et, sonra onu sənin üçün kombinləyərəm.'), []
+                   'Bu paltarı qarderobunda tapa bilmədim. Şəklini çəkib əlavə et, sonra onunla kombinlər qurum.'), []
     occasion = _occasion_for_piece(g, user, detect_occasion(raw, folded))
     ctx = build_context(user, {'occasion': occasion}, lang)
     try:
@@ -290,7 +290,7 @@ def _style_piece(user, garments, lang, raw, folded):
                n=n, piece=label.lower() if lang == 'en' else label, Piece=_cap(label))
     if n < 3:
         text += ' ' + say(lang, "That's every distinct look your closet allows right now.",
-                          'Hazırkı qarderobunla bu qədər fərqli obraz alınır.')
+                          'Hazırkı qarderobunla bundan artıq fərqli kombin alınmır.')
     return text, outfits
 
 
@@ -310,13 +310,13 @@ def _colors(user, garments, lang, raw, folded):
             if not garments:
                 return _closet_gap(garments, lang)
             return say(lang, 'Tell me which piece you mean, for example "which colours go with my navy blazer?"',
-                       'Hansı geyimi nəzərdə tutduğunu yaz, məsələn: "tünd göy pencəyə hansı rənglər yaraşır?"')
+                       'Hansı paltarı nəzərdə tutduğunu yaz, məsələn: "tünd göy pencəyə hansı rənglər yaraşır?"')
         base, subject = named[0], color_name(named[0], lang)
         owned_from = garments
     else:
         if not g.primary_color:
             return say(lang, "I don't know the colour of your {piece} yet. Add a photo or pick its colour, then ask again.",
-                       '{Piece} rəngini hələ bilmirəm. Şəklini əlavə et və ya rəngini seç, sonra yenə soruş.',
+                       '{Piece}: rəngini hələ bilmirəm. Şəklini əlavə et və ya rəngini seç, sonra yenidən soruş.',
                        piece=_label(g, lang).lower() if lang == 'en' else _label(g, lang), Piece=_cap(_label(g, lang)))
         base = g.primary_color
         subject = say(lang, 'your {piece} ({color})', '{piece} ({color})',
@@ -326,21 +326,21 @@ def _colors(user, garments, lang, raw, folded):
     owned = {x.primary_color for x in owned_from}
     have = [color_name(c, lang) for c in top if c in owned]
     names = _join([color_name(c, lang) for c in top], lang)
-    text = say(lang, 'These colours go well with {subject}: {colors}.', '{Subject} ilə bu rənglər yaxşı gedir: {colors}.',
+    text = say(lang, 'These colours go well with {subject}: {colors}.', '{Subject} ilə bu rənglər yaxşı uyğun gəlir: {colors}.',
                subject=subject, Subject=_cap(subject), colors=names)
     if have:
-        text += ' ' + say(lang, 'You already own {colors} pieces.', 'Bunlardan səndə artıq {colors} geyimlər var.',
+        text += ' ' + say(lang, 'You already own {colors} pieces.', 'Bunlardan səndə artıq {colors} rəngli paltarlar var.',
                           colors=_join(have, lang))
     else:
-        text += ' ' + say(lang, "You don't own any of these yet.", 'Bunlardan hələ heç biri qarderobunda yoxdur.')
+        text += ' ' + say(lang, "You don't own any of these yet.", 'Bu rənglərdən hələ heç biri qarderobunda yoxdur.')
     return text
 
 
 def _help(garments, lang):
     text = say(lang, 'I can pick what to wear tomorrow, put together looks for an occasion like work or a dinner, '
                      'show you several ways to wear one piece, or tell you which colours go with something you own.',
-               'Sabah nə geyinəcəyini seçə, iş və ya şam yeməyi kimi bir məqsəd üçün obrazlar yığa, bir geyimi '
-               'bir neçə cür kombinləyə, ya da qarderobundakı bir əşyaya hansı rənglərin yaraşdığını deyə bilərəm.')
+               'Sabah nə geyinəcəyini seçə, iş və ya şam yeməyi kimi tədbirlər üçün kombin yığa, bir paltarı '
+               'bir neçə cür kombinləyə, ya da qarderobundakı paltara hansı rənglərin yaraşdığını deyə bilərəm.')
     if not _can_dress(garments):
         text += ' ' + _closet_gap(garments, lang)
     return text
@@ -358,7 +358,7 @@ def _piece_of(garments, categories):
 def suggestions(garments, lang, intent):
     """3–4 follow-up prompts that the intents above understand, skipping the one just answered."""
     out = [('tomorrow', say(lang, 'What should I wear tomorrow?', 'Sabah nə geyinim?')),
-           ('occasion', say(lang, 'Outfits for a dinner date', 'Şam yeməyi üçün obrazlar'))]
+           ('occasion', say(lang, 'Outfits for a dinner date', 'Şam yeməyi üçün kombinlər'))]
     bottom = _piece_of(garments, ('bottom', 'dress'))
     if bottom:
         kind = kind_name(bottom.subcategory or bottom.category, lang)
@@ -366,11 +366,11 @@ def suggestions(garments, lang, intent):
     outer = _piece_of(garments, ('outerwear', 'top'))
     if outer:
         kind = kind_name(outer.subcategory or outer.category, lang)
-        out.append(('colors', say(lang, 'Which colours go with my {kind}?', '{Kind} ilə hansı rənglər yaxşı gedir?',
+        out.append(('colors', say(lang, 'Which colours go with my {kind}?', '{Kind} ilə hansı rənglər yaraşır?',
                                   kind=kind, Kind=_cap(kind))))
     out.append(('shop', say(lang, 'What should I buy next?', 'Qarderobuma nə almalıyam?')))
-    out.append(('work', say(lang, 'Looks for the office', 'İş üçün obrazlar')))
-    out.append(('casual', say(lang, 'Looks for the weekend', 'Həftəsonu üçün obrazlar')))
+    out.append(('work', say(lang, 'Looks for the office', 'İş üçün kombinlər')))
+    out.append(('casual', say(lang, 'Looks for the weekend', 'Həftə sonu üçün kombinlər')))
     picked = [text for key, text in out if key != intent]
     return picked[:4]
 
@@ -402,10 +402,10 @@ def _photo(garments, lang, image):
     category, sub, color, is_garment = _identify(image, lang)
     if not is_garment:
         return say(lang, "I couldn't spot a piece of clothing in this photo. Try one item on a plain background.",
-                   'Bu şəkildə geyim tapa bilmədim. Bir geyimi sadə fonda çəkib yenə göndər.'), [], None
+                   'Bu şəkildə paltar tapa bilmədim. Bir paltarı sadə fonda çəkib yenidən göndər.'), [], None
     if not color:
         return say(lang, "I couldn't make out the colours in this photo. Try again in better light.",
-                   'Bu şəkildəki rəngləri ayırd edə bilmədim. Daha yaxşı işıqda yenə cəhd et.'), [], None
+                   'Bu şəkildəki rəngləri ayırd edə bilmədim. Daha yaxşı işıqda yenidən çək.'), [], None
     kind = kind_name(sub or category, lang) if (sub or category) else None
     cname = color_name(color, lang)
     names = _join([color_name(c, lang) for c in best_colors(color)], lang)
@@ -413,9 +413,9 @@ def _photo(garments, lang, image):
     piece_name = say(lang, '{color} {kind}', '{color} {kind}', color=cname, kind=kind) if kind else None
     text = (say(lang, 'This looks like a {piece}.', 'Bu, {piece} kimi görünür.', piece=piece_name) if kind
             else say(lang, 'The main colour in this photo is {color}.', 'Şəkildəki əsas rəng: {color}.', color=cname))
-    text += ' ' + say(lang, 'These colours go well with it: {colors}.', 'Onunla bu rənglər yaxşı gedir: {colors}.', colors=names)
-    text += ' ' + (say(lang, 'From your closet, these pair well with it:', 'Qarderobundan bunlar ona yaraşır:') if matches
-                   else say(lang, "You don't have pieces in matching colours yet.", 'Qarderobunda hələ ona uyğun rəngdə geyim yoxdur.'))
+    text += ' ' + say(lang, 'These colours go well with it: {colors}.', 'Ona bu rənglər yaraşır: {colors}.', colors=names)
+    text += ' ' + (say(lang, 'From your closet, these pair well with it:', 'Qarderobundakı bu paltarlar ona yaraşır:') if matches
+                   else say(lang, "You don't have pieces in matching colours yet.", 'Qarderobunda hələ ona uyğun rəngdə paltar yoxdur.'))
     piece = None
     if category:
         piece = {'category': category, 'subcategory': sub, 'colors': [{'name': color}]}
@@ -453,7 +453,7 @@ def answer(user, message, lang='en', image=None):
                         'Qarderobunu tamamlamaq üçün bunlara bax. Hər birini mağazada axtarmaq üçün linklər var:')
         else:
             reply = say(lang, 'Your wardrobe is well rounded; nothing to add right now.',
-                        'Qarderobun yaxşı tamamlanıb, hələlik əlavə bir şey lazım deyil.')
+                        'Qarderobunda hər şey var, hələlik nəsə almağa ehtiyac yoxdur.')
     elif intent == 'occasion':
         reply, outfits = _looks(user, garments, lang, detect_occasion(raw, folded), None)
     else:

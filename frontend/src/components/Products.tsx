@@ -88,7 +88,13 @@ export function ShopSheet({ products, onClose }: { products: Product[] | null; o
         {products?.map((p) => (
           <Pressable key={p.id} onPress={() => open(p)} accessibilityRole="link" accessibilityLabel={s.product.open(p.store)}
             style={({ pressed }) => [styles.storeRow, { borderColor: t.border, backgroundColor: pressed ? t.cardAlt : t.card }]}>
-            <View style={{ width: 40 }}><GarmentSketch subcategory={p.subcategory} category={p.category} rgb={p.rgb} size={36} /></View>
+            <View style={{ width: 44 }}>
+              {p.image_url ? (
+                <Image source={{ uri: p.image_url }} style={styles.thumb} contentFit="cover" />
+              ) : (
+                <GarmentSketch subcategory={p.subcategory} category={p.category} rgb={p.rgb} size={36} />
+              )}
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={[type.bodyStrong, { color: t.text }]} numberOfLines={1}>{products.length === 1 ? s.product.open(p.store) : p.name}</Text>
               <Text style={[type.caption, { color: t.textMuted }]}>{p.store} · {money(p.price, p.currency)}</Text>
@@ -174,11 +180,18 @@ export function LookCard({ look, title, kicker, onShop }: { look: Look; title: s
             <Text style={[type.overline, { color: t.accent, fontSize: 10 }]}>{kicker}</Text>
           </View>
         ) : null}
-        {look.items.map((p) => (
-          <View key={p.id} style={styles.flatItem}>
-            <GarmentSketch subcategory={p.subcategory} category={p.category} rgb={p.rgb} size={look.items.length > 4 ? 74 : 92} />
-          </View>
-        ))}
+        {look.items.map((p) => {
+          const size = look.items.length > 4 ? 84 : 100;
+          return (
+            <View key={p.id} style={styles.flatItem}>
+              {p.image_url ? (
+                <Image source={{ uri: p.image_url }} style={[styles.flatPhoto, { width: size, height: size }]} contentFit="cover" transition={150} />
+              ) : (
+                <GarmentSketch subcategory={p.subcategory} category={p.category} rgb={p.rgb} size={size * 0.85} />
+              )}
+            </View>
+          );
+        })}
       </View>
       <View style={styles.cardInfo}>
         <View style={{ flex: 1, gap: 2 }}>
@@ -207,4 +220,6 @@ const styles = StyleSheet.create({
   cardInfo: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingTop: space.xs },
   flatLay: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', padding: space.md, gap: space.sm, minHeight: 220, borderRadius: 22 },
   flatItem: { alignItems: 'center', justifyContent: 'center' },
+  flatPhoto: { borderRadius: 14 },
+  thumb: { width: 44, height: 44, borderRadius: 10 },
 });

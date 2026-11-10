@@ -119,7 +119,7 @@ COLOR_AZ = {
     'purple': 'bənövşəyi', 'yellow': 'sarı', 'orange': 'narıncı', 'mustard': 'xardal',
 }
 KIND_AZ = {
-    'top': 'üst', 'bottom': 'alt', 'dress': 'don', 'outerwear': 'gödəkçə', 'shoes': 'ayaqqabı', 'accessory': 'aksesuar',
+    'top': 'üst geyim', 'bottom': 'alt geyim', 'dress': 'don', 'outerwear': 'gödəkçə', 'shoes': 'ayaqqabı', 'accessory': 'aksesuar',
     'bag': 'çanta',
     't_shirt': 'futbolka', 'shirt': 'köynək', 'blouse': 'bluzka', 'polo': 'polo', 'sweater': 'sviter', 'hoodie': 'hudi',
     'cardigan': 'kardiqan', 'tank_top': 'mayka', 'jeans': 'cins', 'trousers': 'şalvar', 'chinos': 'çinos',
@@ -139,11 +139,11 @@ OCCASION_AZ = {
     'home': 'evdə qalmaq', 'outdoor': 'təbiət gəzintisi',
 }
 STYLE_AZ = {
-    'casual': 'gündəlik', 'smart_casual': 'smart casual', 'business': 'biznes', 'formal': 'rəsmi',
-    'sporty': 'idman', 'streetwear': 'küçə', 'minimal': 'minimal', 'classic': 'klassik', 'bohemian': 'bohem',
+    'casual': 'gündəlik', 'smart_casual': 'smart casual', 'business': 'işgüzar', 'formal': 'rəsmi',
+    'sporty': 'idman', 'streetwear': 'küçə', 'minimal': 'minimalist', 'classic': 'klassik', 'bohemian': 'boho',
     'old_money': 'old money', 'preppy': 'preppy', 'romantic': 'romantik',
     'quiet_luxury': 'sakit lüks', 'athleisure': 'athleisure', 'scandi': 'skandinav', 'parisian_chic': 'Paris şıkı',
-    'vintage': 'vintaj', 'y2k': 'Y2K', 'grunge': 'qranj', 'edgy': 'rok', 'coastal': 'sahil', 'cottagecore': 'kottecor',
-    'korean': 'Koreya üslubu', 'gorpcore': 'qorpkor', 'glam': 'qlamur', 'modest': 'qapalı geyim', 'techwear': 'texvear',
+    'vintage': 'vintaj', 'y2k': 'Y2K', 'grunge': 'qranj', 'edgy': 'rok', 'coastal': 'sahil', 'cottagecore': 'cottagecore',
+    'korean': 'Koreya', 'gorpcore': 'gorpcore', 'glam': 'qlamur', 'modest': 'qapalı', 'techwear': 'techwear',
     'western': 'vestern',
 }

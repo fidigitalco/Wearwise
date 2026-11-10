@@ -1,24 +1,24 @@
 import { useFocusEffect } from 'expo-router';
-import { Trash2 } from 'lucide-react-native';
+import { CalendarDays, Check, Layers, Shirt, Trash2 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/AppHeader';
-import { useToast } from '../../components/Overlays';
+import { GarmentImage } from '../../components/Garment';
+import { isoDay, longDate, MonthPicker } from '../../components/MonthPicker';
+import { OutfitCollage } from '../../components/Outfit';
+import { BottomSheet, useToast } from '../../components/Overlays';
 import { LookCard, ShopSheet } from '../../components/Products';
 import { Button, Chip, ChipWrap, Field, FormScroll, LoadingSkeleton, SectionHeader } from '../../components/ui';
-import { useI18n } from '../../lib/i18n';
-import { errorMessage, occasions as api } from '../../services/api';
+import { LOCALES, useI18n, useLabel } from '../../lib/i18n';
+import { errorMessage, garments as garmentsApi, occasions as api, outfits as outfitsApi } from '../../services/api';
 import { radius, space, type, useTheme, gutter } from '../../theme';
-import type { Look, OccasionItem, Product } from '../../types';
+import type { Garment, Look, OccasionItem, Outfit, Product } from '../../types';
 
 const KINDS = ['birthday', 'wedding', 'holiday', 'work', 'trip', 'date', 'other'] as const;
 
-function inDays(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+// One piece per kind when building an outfit from the closet.
+const BUILD_ORDER = ['outerwear', 'top', 'dress', 'bottom', 'shoes', 'bag', 'accessory'];
 
 /**
  * Dates (MVP v2 §4): birthdays, weddings, holidays and trips, counted down.
@@ -27,14 +27,22 @@ function inDays(n: number): string {
  */
 export default function DatesScreen() {
   const t = useTheme();
-  const { t: s } = useI18n();
+  const { t: s, lang } = useI18n();
+  const label = useLabel();
   const toast = useToast();
+  const locale = LOCALES[lang];
   const [list, setList] = useState<OccasionItem[] | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [looks, setLooks] = useState<Look[] | null>(null);
   const [shop, setShop] = useState<Product[] | null>(null);
   const [title, setTitle] = useState('');
-  const [days, setDays] = useState('');
+  const [date, setDate] = useState<string>(() => isoDay(new Date(Date.now() + 14 * 86400000)));
+  const [picking, setPicking] = useState(false);
+  const [sheet, setSheet] = useState<'outfits' | 'closet' | null>(null);
+  const [saved, setSaved] = useState<Outfit[] | null>(null);
+  const [closet, setCloset] = useState<Garment[] | null>(null);
+  const [chosen, setChosen] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
   const [kind, setKind] = useState<(typeof KINDS)[number]>('birthday');
   const [gift, setGift] = useState(false);
   const [person, setPerson] = useState('');
@@ -43,7 +51,64 @@ export default function DatesScreen() {
   const open = (id: number) => {
     setOpenId(id);
     setLooks(null);
-    api.get(id).then((d) => setLooks(d.looks)).catch(() => setLooks([]));
+    api.get(id).then((d) => {
+      setLooks(d.looks);
+      setList((l) => l?.map((x) => (x.id === id ? { ...x, outfit: d.outfit } : x)) ?? l);
+    }).catch(() => setLooks([]));
+  };
+
+  const wear = (outfitId: string | null) => {
+    if (openId === null) return;
+    setBusy(true);
+    api.setOutfit(openId, outfitId)
+      .then((d) => {
+        setList((l) => l?.map((x) => (x.id === d.id ? { ...x, outfit: d.outfit } : x)) ?? l);
+        setSheet(null);
+        if (outfitId) toast(s.dates.outfitSet);
+      })
+      .catch((e) => toast(errorMessage(e), 'error'))
+      .finally(() => setBusy(false));
+  };
+
+  const openSheet = (which: 'outfits' | 'closet') => {
+    setSheet(which);
+    if (which === 'outfits' && saved === null) outfitsApi.list({ saved: true }).then(setSaved).catch(() => setSaved([]));
+    if (which === 'closet') {
+      setChosen({});
+      if (closet === null) garmentsApi.list({ status: 'available' }).then(setCloset).catch(() => setCloset([]));
+    }
+  };
+
+  // Build from the closet: the picked pieces are scored and saved as an outfit, then worn on the date.
+  const buildAndWear = () => {
+    const ids = Object.values(chosen);
+    if (!ids.length) return;
+    setBusy(true);
+    outfitsApi.check({ garment_ids: ids, occasion: 'casual', save: true })
+      .then((r) => {
+        const id = r.outfit?.id;
+        if (id) wear(id);
+        else setBusy(false);
+      })
+      .catch((e) => {
+        toast(errorMessage(e), 'error');
+        setBusy(false);
+      });
+  };
+
+  const pickPiece = (g: Garment) => {
+    // A dress replaces top and bottom, and the other way round.
+    setChosen((c) => {
+      const next = { ...c };
+      if (next[g.category] === g.id) {
+        delete next[g.category];
+        return next;
+      }
+      if (g.category === 'dress') { delete next.top; delete next.bottom; }
+      if (g.category === 'top' || g.category === 'bottom') delete next.dress;
+      next[g.category] = g.id;
+      return next;
+    });
   };
 
   const load = useCallback(() => {
@@ -58,15 +123,14 @@ export default function DatesScreen() {
   useFocusEffect(load);
 
   const add = () => {
-    const n = parseInt(days, 10);
-    if (!title.trim() || !Number.isFinite(n) || n < 0) return;
+    if (!title.trim() || !date) return;
     setAdding(true);
-    api.add({ title: title.trim(), date: inDays(n), kind, for_gift: gift, person: gift ? person.trim() : '' })
+    api.add({ title: title.trim(), date, kind, for_gift: gift, person: gift ? person.trim() : '' })
       .then((o) => {
         toast(s.dates.added);
         setTitle('');
-        setDays('');
         setPerson('');
+        setPicking(false);
         setList((l) => [...(l ?? []), o].sort((a, b) => a.days - b.days));
         open(o.id);
       })
@@ -106,6 +170,7 @@ export default function DatesScreen() {
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={[type.bodyStrong, { color: t.text }]} numberOfLines={1}>{o.title}</Text>
+                    <Text style={[type.caption, { color: t.textSub, textTransform: 'capitalize' }]} numberOfLines={1}>{longDate(o.date, locale)}</Text>
                     <Text style={[type.caption, { color: t.textMuted }]}>
                       {s.dates.kinds[o.kind]}{o.for_gift ? ` · ${s.dates.forGift}${o.person ? `: ${o.person}` : ''}` : ''}
                     </Text>
@@ -122,9 +187,28 @@ export default function DatesScreen() {
           </View>
         )}
 
+        {current && !current.for_gift ? (
+          <View style={{ gap: space.md }}>
+            <SectionHeader title={s.dates.myOutfit} />
+            {current.outfit ? (
+              <View style={[styles.mine, { backgroundColor: t.card }]}>
+                <OutfitCollage outfit={current.outfit} style={styles.mineCollage} gap={4} />
+                <View style={{ flex: 1, gap: space.sm }}>
+                  <Text style={[type.bodyStrong, { color: t.text }]} numberOfLines={2}>{current.outfit.title || s.looks.fallbackTitle}</Text>
+                  <Button title={s.dates.removeOutfit} variant="ghost" size="sm" onPress={() => wear(null)} loading={busy} />
+                </View>
+              </View>
+            ) : null}
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}><Button title={s.dates.fromOutfits} variant="secondary" size="sm" icon={<Layers size={16} color={t.text} />} onPress={() => openSheet('outfits')} /></View>
+              <View style={{ flex: 1 }}><Button title={s.dates.fromCloset} variant="secondary" size="sm" icon={<Shirt size={16} color={t.text} />} onPress={() => openSheet('closet')} /></View>
+            </View>
+          </View>
+        ) : null}
+
         {current ? (
           <View style={{ gap: space.md }}>
-            <SectionHeader title={current.for_gift ? s.dates.giftsFor(current.person || current.title) : s.dates.outfitsFor(current.title)} />
+            <SectionHeader title={current.for_gift ? s.dates.giftsFor(current.person || current.title) : `${s.dates.fromStore} · ${s.dates.outfitsFor(current.title)}`} />
             {!current.ready ? <Text style={[type.caption, { color: t.textMuted }]}>{s.dates.preview(current.days - 15)}</Text> : null}
             {looks === null ? <LoadingSkeleton height={240} radius={radius.lg} /> : looks.map((l, i) => (
               <LookCard key={i} look={l} title={l.items.length === 1 ? l.items[0].name : `${s.dates.kinds[current.kind]} ${i + 1}`} onShop={() => setShop(l.items)} />
@@ -143,12 +227,70 @@ export default function DatesScreen() {
             <Chip label={s.dates.forGift} selected={gift} onPress={() => setGift(true)} />
           </ChipWrap>
           {gift ? <Field value={person} onChangeText={setPerson} placeholder={s.dates.person} maxLength={60} /> : null}
-          <Field value={days} onChangeText={(v) => setDays(v.replace(/[^0-9]/g, ''))} placeholder={s.dates.inDays} keyboardType="number-pad" maxLength={3} />
-          <Button title={s.dates.add} onPress={add} loading={adding} disabled={!title.trim() || !days} />
+          <Pressable onPress={() => setPicking((v) => !v)} accessibilityRole="button" accessibilityLabel={s.dates.when}
+            style={({ pressed }) => [styles.dateRow, { borderColor: t.border, backgroundColor: pressed ? t.cardAlt : t.card }]}>
+            <CalendarDays size={18} color={t.primary} />
+            <Text style={[type.body, { color: t.text, flex: 1, textTransform: 'capitalize' }]}>{longDate(date, locale)}</Text>
+            <Text style={{ color: t.highlight, fontWeight: '600' }}>{s.common.change}</Text>
+          </Pressable>
+          {picking ? <MonthPicker value={date} onChange={(d) => { setDate(d); setPicking(false); }} /> : null}
+          <Button title={s.dates.add} onPress={add} loading={adding} disabled={!title.trim() || !date} />
           <Text style={[type.caption, { color: t.textMuted }]}>{s.dates.giftLimit}</Text>
         </View>
       </FormScroll>
       <ShopSheet products={shop} onClose={() => setShop(null)} />
+
+      <BottomSheet visible={sheet === 'outfits'} onClose={() => setSheet(null)} title={s.dates.fromOutfits} closeLabel={s.common.close}>
+        {saved === null ? <LoadingSkeleton height={120} radius={radius.lg} /> : saved.length === 0 ? (
+          <Text style={[type.body, { color: t.textMuted }]}>{s.dates.noSaved}</Text>
+        ) : (
+          <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: space.sm }}>
+            {saved.map((o) => (
+              <Pressable key={o.id} onPress={() => wear(o.id)} disabled={busy} accessibilityRole="button"
+                style={({ pressed }) => [styles.pickRow, { borderColor: t.border, backgroundColor: pressed ? t.cardAlt : t.card }]}>
+                <OutfitCollage outfit={o} style={styles.pickCollage} gap={2} />
+                <Text style={[type.bodyStrong, { color: t.text, flex: 1 }]} numberOfLines={2}>{o.title || s.looks.fallbackTitle}</Text>
+                {current?.outfit?.id === o.id ? <Check size={18} color={t.primary} /> : null}
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+      </BottomSheet>
+
+      <BottomSheet visible={sheet === 'closet'} onClose={() => setSheet(null)} title={s.dates.fromCloset} closeLabel={s.common.close}>
+        {closet === null ? <LoadingSkeleton height={160} radius={radius.lg} /> : closet.length === 0 ? (
+          <Text style={[type.body, { color: t.textMuted }]}>{s.dates.emptyCloset}</Text>
+        ) : (
+          <>
+            <Text style={[type.caption, { color: t.textMuted }]}>{s.dates.pickPieces}</Text>
+            <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ gap: space.md }}>
+              {BUILD_ORDER.map((cat) => {
+                const pieces = closet.filter((g) => g.category === cat);
+                if (!pieces.length) return null;
+                return (
+                  <View key={cat} style={{ gap: space.xs }}>
+                    <Text style={[type.overline, { color: t.textMuted }]}>{label('categories', cat)}</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+                      {pieces.map((g) => {
+                        const on = chosen[cat] === g.id;
+                        return (
+                          <Pressable key={g.id} onPress={() => pickPiece(g)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
+                            accessibilityLabel={g.name || label('subcategories', g.subcategory)}
+                            style={[styles.piece, { borderColor: on ? t.primary : t.border, borderWidth: on ? 2 : 1 }]}>
+                            <GarmentImage garment={g} style={{ width: '100%', height: '100%' }} />
+                            {on ? <View style={[styles.pieceCheck, { backgroundColor: t.primary }]}><Check size={12} color={t.onPrimary} /></View> : null}
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                );
+              })}
+            </ScrollView>
+            <Button title={s.dates.useThis} onPress={buildAndWear} loading={busy} disabled={!Object.keys(chosen).length} />
+          </>
+        )}
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -159,4 +301,12 @@ const styles = StyleSheet.create({
   daysBox: { width: 54, height: 54, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   form: { gap: space.md, padding: space.lg, borderRadius: radius.lg, borderWidth: 1 },
+  row: { flexDirection: 'row', gap: space.sm },
+  mine: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: 22 },
+  mineCollage: { width: 96, aspectRatio: 0.9, borderRadius: radius.md, overflow: 'hidden' },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 48, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1 },
+  pickRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.sm, borderRadius: radius.md, borderWidth: 1 },
+  pickCollage: { width: 56, aspectRatio: 0.9, borderRadius: radius.sm, overflow: 'hidden' },
+  piece: { width: 84, height: 84, borderRadius: radius.md, overflow: 'hidden' },
+  pieceCheck: { position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });

@@ -879,9 +879,9 @@ def occasions(request):
     return Response([occasion_payload(o, request.user, {}, lang) for o in rows])
 
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'PATCH', 'DELETE'])
 def occasion_detail(request, pk):
-    """GET a date with its three outfits (or gift ideas); DELETE it."""
+    """GET a date with its three outfits (or gift ideas); PATCH {outfit: id|null} to wear one of mine; DELETE it."""
     from .catalog import occasion_looks, occasion_payload
     o = Occasion.objects.filter(user=request.user, pk=pk).first()
     if not o:
@@ -889,6 +889,12 @@ def occasion_detail(request, pk):
     if request.method == 'DELETE':
         o.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    if request.method == 'PATCH':
+        outfit_id = request.data.get('outfit')
+        if outfit_id and not Outfit.objects.filter(pk=outfit_id, user=request.user).exists():
+            return Response({'detail': 'Outfit not found.'}, status=status.HTTP_404_NOT_FOUND)
+        o.outfit_id = outfit_id or None
+        o.save(update_fields=['outfit'])
     ctx = _product_ctx(request)
     return Response({**occasion_payload(o, request.user, ctx, request_lang(request)), 'looks': occasion_looks(o, request.user, ctx)})
 

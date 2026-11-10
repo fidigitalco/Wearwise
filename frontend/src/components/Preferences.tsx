@@ -3,7 +3,8 @@ import { Check } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
-import { radius, space, type, useTheme } from '../theme';
+import { STYLE_COLOR } from '../lib/styles';
+import { space, type, useTheme } from '../theme';
 
 const STYLE_PHOTOS: Record<string, number> = {
   casual: require('../../assets/images/style-casual.jpg'),
@@ -35,7 +36,7 @@ export function PreferenceSelector({ value, onChange }: { value: string[]; onCha
   const label = useLabel();
   const meta = useMeta();
   const { width } = useWindowDimensions();
-  const w = (width - space.lg * 2 - space.md) / 2;
+  const w = (width - space.lg * 2 - space.sm) / 2;
   return (
     <View style={styles.grid}>
       {meta.style_directions.map((st) => {
@@ -57,7 +58,7 @@ export function PreferenceSelector({ value, onChange }: { value: string[]; onCha
                   {STYLE_PALETTES[st].map((c) => <View key={c} style={{ flex: 1, backgroundColor: rgbCss(meta.colors[c]) }} />)}
                 </View>
               ) : (
-                <View style={[styles.photo, { backgroundColor: t.cardAlt }]} />
+                <View style={[styles.photo, { backgroundColor: STYLE_COLOR[st] ?? t.cardAlt }]} />
               )}
               {on ? (
                 <View style={[styles.check, { backgroundColor: t.primary }]}>
@@ -78,8 +79,10 @@ export function PreferenceSelector({ value, onChange }: { value: string[]; onCha
 
 const styles = StyleSheet.create({
   palette: { flexDirection: 'row', overflow: 'hidden' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
-  card: { borderRadius: radius.lg, borderWidth: 2, overflow: 'hidden' },
-  photo: { width: '100%', aspectRatio: 1.1 },
-  check: { position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  card: { borderRadius: 16, borderWidth: 2, overflow: 'hidden' },
+  // A short strip, not a tall photo: 28 styles in two columns must not make the page endless.
+  photo: { width: '100%', aspectRatio: 2.6 },
+  name: { paddingHorizontal: space.sm, paddingVertical: 8 },
+  check: { position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
 });
