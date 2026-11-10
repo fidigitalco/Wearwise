@@ -5,7 +5,7 @@ import { useMeta } from '../lib/meta';
 import { space, type, useTheme } from '../theme';
 import type { User } from '../types';
 import { PreferenceSelector } from './Preferences';
-import { Chip, ChipWrap, Field } from './ui';
+import { Chip, ChipWrap, Field, Segmented } from './ui';
 
 export type Prefs = Required<Pick<User, 'preferred_styles' | 'favorite_colors' | 'typical_occasions' | 'sizes' | 'units' | 'avoid_colors'>> &
   Pick<User, 'wardrobe_style' | 'gender' | 'birth_year' | 'height_cm' | 'weight_kg' | 'body_shape' | 'fit_preference' | 'budget'>;
@@ -80,7 +80,7 @@ export function AboutYouSection({ prefs, onChange }: { prefs: Prefs; onChange: (
       <Heading title={s.about.title} body={s.about.body} />
       <View style={styles.field}>
         <Text style={[type.label, { color: t.textSub }]}>{s.about.gender}</Text>
-        <OneOf options={['female', 'male', 'other', 'unsaid'] as const} value={prefs.gender} label={(g) => s.about.genders[g]} onChange={(gender) => set({ gender })} />
+        <Segmented options={['female', 'male', 'unsaid'] as const} value={prefs.gender} label={(g) => s.about.genders[g]} onChange={(gender) => set({ gender })} />
       </View>
       <View style={styles.sizes}>
         <View style={{ flex: 1, gap: 4 }}>

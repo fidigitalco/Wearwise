@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useI18n } from '../lib/i18n';
 import { elevation, radius, space, touch, type, useTheme } from '../theme';
 
@@ -48,10 +49,11 @@ type ButtonProps = {
 
 export function Button({ title, onPress, variant = 'primary', size = 'md', loading, disabled, style, icon }: ButtonProps) {
   const t = useTheme();
-  const bg = { primary: t.primary, secondary: t.card, ghost: 'transparent', danger: 'transparent' }[variant];
+  const bg = { primary: 'transparent', secondary: t.card, ghost: 'transparent', danger: 'transparent' }[variant];
   const fg = { primary: t.onPrimary, secondary: t.text, ghost: t.primary, danger: t.danger }[variant];
-  const border = { primary: t.primary, secondary: t.border, ghost: 'transparent', danger: t.danger }[variant];
+  const border = { primary: 'transparent', secondary: t.border, ghost: 'transparent', danger: t.danger }[variant];
   const off = disabled || loading;
+  const primary = variant === 'primary';
   return (
     <Pressable
       accessibilityRole="button"
@@ -61,14 +63,16 @@ export function Button({ title, onPress, variant = 'primary', size = 'md', loadi
       style={({ pressed }) => [
         styles.button,
         size === 'sm' && styles.buttonSm,
+        primary && !off && elevation(t),
         {
-          backgroundColor: pressed && variant === 'primary' ? t.primaryPressed : pressed && variant !== 'ghost' ? t.bg : bg,
-          borderColor: pressed && variant === 'primary' ? t.primaryPressed : border,
-          opacity: off ? 0.45 : 1,
+          backgroundColor: pressed && !primary && variant !== 'ghost' ? t.bg : bg,
+          borderColor: border,
+          opacity: off ? 0.45 : pressed && primary ? 0.88 : 1,
         },
         style,
       ]}
     >
+      {primary ? <LinearGradient colors={t.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: size === 'sm' ? 19 : 24 }]} /> : null}
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
@@ -124,13 +128,36 @@ export function Chip({
       onPress={onPress}
       style={[
         styles.chip,
-        { backgroundColor: selected ? t.primary : t.card, borderColor: selected ? t.primary : t.border },
+        { backgroundColor: selected ? 'transparent' : t.card, borderColor: selected ? 'transparent' : t.border },
+        selected && elevation(t),
       ]}
     >
+      {selected ? <LinearGradient colors={t.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]} /> : null}
       {icon}
       {swatch ? <View style={[styles.swatch, { backgroundColor: swatch, borderColor: t.border }]} /> : null}
       <Text style={[type.label, { color: selected ? t.onPrimary : t.text, fontWeight: selected ? '600' : '500' }]}>{label}</Text>
     </Pressable>
+  );
+}
+
+/** One choice out of a few, as a segmented track with the picked one lifted (gender, units). */
+export function Segmented<T extends string>({ options, value, onChange, label }: {
+  options: readonly T[]; value: T | '' | undefined; onChange: (v: T) => void; label: (v: T) => string;
+}) {
+  const t = useTheme();
+  return (
+    <View style={[styles.segTrack, { backgroundColor: t.tile }]} accessibilityRole="radiogroup">
+      {options.map((o) => {
+        const on = value === o;
+        return (
+          <Pressable key={o} onPress={() => onChange(o)} accessibilityRole="radio" accessibilityState={{ checked: on }}
+            style={[styles.segItem, on && elevation(t)]}>
+            {on ? <LinearGradient colors={t.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]} /> : null}
+            <Text style={[type.label, { color: on ? t.onPrimary : t.textSub, fontWeight: on ? '600' : '500' }]} numberOfLines={1}>{label(o)}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -158,7 +185,7 @@ export function ChipWrap({ children }: { children: ReactNode }) {
 export function Card({ children, style, raised }: { children: ReactNode; style?: StyleProp<ViewStyle>; raised?: boolean }) {
   const t = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }, raised && elevation(t), style]}>{children}</View>
+    <View style={[styles.card, { backgroundColor: t.card, borderColor: 'transparent' }, elevation(t, raised ? 2 : 1), style]}>{children}</View>
   );
 }
 
@@ -372,10 +399,12 @@ const styles = StyleSheet.create({
   eye: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 48, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   button: {
-    minHeight: 48, borderRadius: radius.md, paddingHorizontal: space.lg, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1,
+    minHeight: 48, borderRadius: 24, paddingHorizontal: space.lg, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, overflow: 'visible',
   },
-  buttonSm: { minHeight: 38, paddingHorizontal: space.md, borderRadius: radius.sm },
+  buttonSm: { minHeight: 38, paddingHorizontal: space.md, borderRadius: 19 },
+  segTrack: { flexDirection: 'row', borderRadius: radius.pill, padding: 4, gap: 4 },
+  segItem: { flex: 1, minHeight: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.sm },
   iconButton: { width: touch, height: touch, borderRadius: touch / 2, alignItems: 'center', justifyContent: 'center' },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 34,
@@ -383,7 +412,7 @@ const styles = StyleSheet.create({
   },
   chipRow: { flexDirection: 'row', gap: space.sm, paddingVertical: 2 },
   swatch: { width: 14, height: 14, borderRadius: 7, borderWidth: StyleSheet.hairlineWidth },
-  card: { borderRadius: radius.lg, borderWidth: 1, padding: space.lg, gap: space.md },
+  card: { borderRadius: 22, borderWidth: 1, padding: space.lg, gap: space.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   input: { minHeight: 48, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: space.md },
   search: {

@@ -264,12 +264,14 @@ class ProductSerializer(serializers.ModelSerializer):
     rgb = serializers.SerializerMethodField()
     why = serializers.SerializerMethodField()
     saved = serializers.SerializerMethodField()
+    match = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'store', 'brand', 'price', 'previous_price', 'currency', 'category', 'subcategory', 'color',
             'rgb', 'material', 'styles', 'image_url', 'rating', 'small_brand', 'sponsored', 'is_demo', 'why', 'saved',
+            'match',
         ]
 
     def get_rgb(self, p):
@@ -279,6 +281,17 @@ class ProductSerializer(serializers.ModelSerializer):
         from .catalog import why
         req = self.context.get('request')
         return why(p, req.user, self.context.get('lang', 'en')) if req else ''
+
+    def get_match(self, p):
+        """55–98 %: the profile score shown as "92% match" on cards."""
+        from .catalog import match_percent
+        req = self.context.get('request')
+        if not req:
+            return None
+        if 'taste' not in self.context:
+            from .catalog import learned_taste
+            self.context['taste'] = learned_taste(req.user)
+        return match_percent(p, req.user, self.context['taste'])
 
     def get_saved(self, p):
         saved = self.context.get('saved_ids')

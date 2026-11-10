@@ -89,6 +89,8 @@ export const tr: Strings = {
     affiliateBody: 'Bu bağlantılardan alışveriş yaparsan WearWise küçük bir komisyon kazanabilir. Fiyat senin için değişmez.',
   },
   product: {
+    match: (n: number) => `%${n} uyum`,
+    lookKicker: 'Günün kombini',
     save: 'Kaydet',
     saved: 'Kaydedildi',
     shop: 'Satın al',

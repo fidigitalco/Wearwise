@@ -87,6 +87,8 @@ export const en = {
     affiliateBody: 'WearWise may earn a small commission if you buy through these links. The price is the same for you.',
   },
   product: {
+    match: (n: number) => `${n}% match`,
+    lookKicker: 'Today’s look',
     save: 'Save',
     saved: 'Saved',
     shop: 'Shop',

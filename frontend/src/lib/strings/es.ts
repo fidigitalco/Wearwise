@@ -89,6 +89,8 @@ export const es: Strings = {
     affiliateBody: 'WearWise puede ganar una pequeña comisión si compras con estos enlaces. Para ti, el precio es el mismo.',
   },
   product: {
+    match: (n: number) => `${n}% de afinidad`,
+    lookKicker: 'Look del día',
     save: 'Guardar',
     saved: 'Guardado',
     shop: 'Comprar',

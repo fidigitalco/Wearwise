@@ -219,6 +219,11 @@ def score_product(p, user, taste):
     return s
 
 
+def match_percent(p, user, taste):
+    """The profile score as a percentage for the card's "92% match" tag (55–98)."""
+    return int(max(55, min(98, round(62 + 3.2 * score_product(p, user, taste)))))
+
+
 def _wanted_gender(user):
     return {'female': ['women', 'unisex'], 'male': ['men', 'unisex']}.get(user.gender, ['women', 'men', 'unisex'])
 

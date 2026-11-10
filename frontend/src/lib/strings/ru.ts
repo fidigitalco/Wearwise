@@ -98,6 +98,8 @@ export const ru: Strings = {
     affiliateBody: 'WearWise может получить небольшую комиссию, если ты купишь по этим ссылкам. Цена для тебя не меняется.',
   },
   product: {
+    match: (n: number) => `Совпадение ${n}%`,
+    lookKicker: 'Образ дня',
     save: 'Сохранить',
     saved: 'Сохранено',
     shop: 'Купить',

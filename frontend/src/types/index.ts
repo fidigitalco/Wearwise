@@ -155,6 +155,8 @@ export interface Product {
   /** "Why this?": the strongest true reason it was picked. */
   why: string;
   saved: boolean;
+  /** 55–98: how well it fits the profile, shown as "92% match". */
+  match?: number | null;
 }
 
 export interface Look {

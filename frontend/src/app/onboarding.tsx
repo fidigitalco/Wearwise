@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '../components/Overlays';
-import { Button, Chip, ChipWrap, Field, FormScroll } from '../components/ui';
+import { Button, Chip, ChipWrap, Field, FormScroll, Segmented } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
@@ -132,8 +132,8 @@ export default function OnboardingScreen() {
             {h(s.onb.age)}
             {one(AGES, d.age_range, (v) => set({ age_range: v as Draft['age_range'] }))}
             {h(s.onb.shoppingFor)}
-            {one(['female', 'male', 'unsaid'], d.gender, (v) => set({ gender: v as Draft['gender'], bottom: '' }),
-              (v) => s.about.genders[v])}
+            <Segmented options={['female', 'male', 'unsaid'] as const} value={d.gender} label={(v) => s.about.genders[v]}
+              onChange={(v) => set({ gender: v, bottom: '' })} />
             {men ? <Text style={[type.caption, { color: t.accent }]}>{s.onb.menSoon}</Text> : null}
             {h(s.onb.country)}
             {one(COUNTRIES, d.country, (v) => set({ country: v }), (v) => s.onb.countries[v])}

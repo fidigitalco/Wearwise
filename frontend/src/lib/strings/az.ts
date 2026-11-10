@@ -89,6 +89,8 @@ export const az: Strings = {
     affiliateBody: 'Bu linklərlə alış etsən, WearWise kiçik komissiya qazana bilər. Sənin üçün qiymət dəyişmir.',
   },
   product: {
+    match: (n: number) => `${n}% uyğunluq`,
+    lookKicker: 'Bu günün obrazı',
     save: 'Saxla',
     saved: 'Saxlanıb',
     shop: 'Al',

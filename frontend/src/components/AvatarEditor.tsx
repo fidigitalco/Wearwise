@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SKIN_TONES, type AvatarProfile } from '../lib/avatar';
 import { useI18n } from '../lib/i18n';
-import { radius, space, type, useTheme } from '../theme';
+import { elevation, space, type, useTheme } from '../theme';
 import { Avatar } from './Avatar';
 import { useToast } from './Overlays';
 import { Button, Label } from './ui';
@@ -35,7 +35,7 @@ export function AvatarEditor({ avatar, heightCm, weightKg, onChange }: {
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: t.tile }]}>
+    <View style={[styles.card, { backgroundColor: t.card }, elevation(t, 2)]}>
       <Avatar profile={figure} items={[]} width={110} />
       <View style={{ flex: 1, gap: space.md }}>
         <Text style={[type.title, { color: t.text }]}>{s.avatar.title}</Text>
@@ -46,6 +46,10 @@ export function AvatarEditor({ avatar, heightCm, weightKg, onChange }: {
             <Button title={s.avatar.addFace} variant="secondary" size="sm" onPress={pickFace} />
             {avatar.face ? <Button title={s.avatar.removeFace} variant="ghost" size="sm" onPress={() => onChange({ face: null })} /> : null}
           </View>
+        </View>
+        <View style={styles.measures}>
+          <View><Text style={[type.title, { color: t.text, fontFamily: type.display.fontFamily }]}>{figure.heightCm} cm</Text><Text style={[type.caption, { color: t.textMuted }]}>{s.avatar.height}</Text></View>
+          <View><Text style={[type.title, { color: t.text, fontFamily: type.display.fontFamily }]}>{figure.weightKg} kg</Text><Text style={[type.caption, { color: t.textMuted }]}>{s.avatar.weight}</Text></View>
         </View>
         <View style={{ gap: space.xs }}>
           <Label>{s.avatar.skin}</Label>
@@ -63,7 +67,8 @@ export function AvatarEditor({ avatar, heightCm, weightKg, onChange }: {
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', gap: space.lg, padding: space.lg, borderRadius: radius.lg, alignItems: 'center' },
+  card: { flexDirection: 'row', gap: space.lg, padding: space.lg, borderRadius: 26, alignItems: 'center' },
+  measures: { flexDirection: 'row', gap: space.lg },
   row: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   tones: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   tone: { width: 28, height: 28, borderRadius: 14 },

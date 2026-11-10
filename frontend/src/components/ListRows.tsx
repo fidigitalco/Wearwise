@@ -1,7 +1,7 @@
 import { ChevronRight, CircleCheck, Circle } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { radius, space, type, useTheme } from '../theme';
+import { elevation, space, type, useTheme } from '../theme';
 
 /** Grouped list rows in the style of a phone's Settings app: a titled card of rows. */
 export function Section({ title, hint, children }: { title?: string; hint?: string; children: ReactNode }) {
@@ -14,7 +14,7 @@ export function Section({ title, hint, children }: { title?: string; hint?: stri
           {hint ? <Text style={[type.label, { color: t.textMuted }]}>{hint}</Text> : null}
         </View>
       ) : null}
-      <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>{children}</View>
+      <View style={[styles.card, { backgroundColor: t.card, borderColor: 'transparent' }, elevation(t)]}>{children}</View>
     </View>
   );
 }
@@ -84,6 +84,6 @@ export function Row({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
+  card: { borderRadius: 22, borderWidth: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, minHeight: 54, paddingVertical: space.md },
 });

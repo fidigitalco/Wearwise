@@ -11,7 +11,7 @@ import { useAuth } from '../../lib/auth';
 import { LOCALES, useI18n } from '../../lib/i18n';
 import { readWeather, type WeatherInfo } from '../../lib/weather';
 import { catalog } from '../../services/api';
-import { gutter, radius, space, type, useTheme } from '../../theme';
+import { elevation, gutter, radius, space, type, useTheme } from '../../theme';
 import type { HomeFeed, Product } from '../../types';
 
 /**
@@ -56,7 +56,9 @@ export default function HomeScreen() {
             {greeting}{user?.display_name ? `, ${user.display_name.split(' ')[0]}` : ''}
           </Text>
           <Text style={[type.body, { color: t.textSub }]}>{s.feed.sub}</Text>
-          {weather ? <WeatherLine info={weather} /> : null}
+          {weather ? (
+            <View style={[styles.weatherPill, { backgroundColor: t.card }, elevation(t)]}><WeatherLine info={weather} /></View>
+          ) : null}
         </View>
 
         <GuestBanner />
@@ -68,7 +70,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {feed.look ? <LookCard look={feed.look} title={s.feed.todayLook} onShop={() => setShop(feed.look!.items)} /> : null}
+            {feed.look ? <LookCard look={feed.look} title={s.feed.todayLook} kicker={s.product.lookKicker} onShop={() => setShop(feed.look!.items)} /> : null}
 
             {feed.picks.length ? (
               <View style={{ gap: space.md }}>
@@ -124,6 +126,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: gutter, paddingTop: space.lg, gap: space.xxl, paddingBottom: space.xxl * 2 },
+  weatherPill: { alignSelf: 'flex-start', paddingHorizontal: space.md, paddingVertical: 6, borderRadius: 999, marginTop: space.sm },
   occasion: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderRadius: radius.lg },
   count: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   drop: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.md, borderWidth: 1 },

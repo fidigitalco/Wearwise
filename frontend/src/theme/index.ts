@@ -45,6 +45,9 @@ export const LIGHT = {
   frosted: 'rgba(255,255,255,0.92)', // small controls floating on photos
   swatchFallback: '#E4E0D8',
   shadow: '#242722',
+  // The active olive is a soft diagonal gradient (selected chips, primary buttons).
+  gradient: ['#6C7556', '#474E3A'] as [string, string],
+  glass: 'rgba(255,255,255,0.88)', // the floating tab bar
 };
 
 export const DARK: typeof LIGHT = {
@@ -75,6 +78,8 @@ export const DARK: typeof LIGHT = {
   frosted: 'rgba(31,34,29,0.9)',
   swatchFallback: '#33372F',
   shadow: '#000000',
+  gradient: ['#A3AC92', '#7E8870'] as [string, string],
+  glass: 'rgba(32,35,30,0.9)',
 };
 
 export type Theme = typeof LIGHT;
@@ -117,9 +122,9 @@ export const type = {
 export function elevation(t: Theme, level: 1 | 2 = 1) {
   return {
     shadowColor: t.shadow,
-    shadowOpacity: t.isDark ? 0.3 : level === 1 ? 0.04 : 0.08,
-    shadowRadius: level === 1 ? 6 : 14,
-    shadowOffset: { width: 0, height: level === 1 ? 1 : 4 },
-    elevation: level === 1 ? 1 : 3,
+    shadowOpacity: t.isDark ? 0.3 : level === 1 ? 0.07 : 0.11,
+    shadowRadius: level === 1 ? 12 : 20,
+    shadowOffset: { width: 0, height: level === 1 ? 5 : 9 },
+    elevation: level === 1 ? 2 : 5,
   };
 }

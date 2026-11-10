@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useI18n } from '../lib/i18n';
 import { catalog, errorMessage } from '../services/api';
-import { radius, space, type, useTheme } from '../theme';
+import { elevation, radius, space, type, useTheme } from '../theme';
 import type { Look, Product } from '../types';
 import { GarmentSketch } from './GarmentSketch';
 import { BottomSheet, useToast } from './Overlays';
@@ -124,32 +124,37 @@ export function ProductCard({ product, footer, onSavedChange }: { product: Produ
   const t = useTheme();
   const { t: s } = useI18n();
   return (
-    <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+    <View style={[styles.card, { backgroundColor: t.card }, elevation(t, 2)]}>
       <View>
         <ProductImage product={product} size={200} />
         <View style={styles.heartPos}><HeartButton product={product} onChange={onSavedChange} /></View>
         {product.sponsored ? (
           <View style={[styles.badge, { backgroundColor: t.card }]}><Text style={[type.caption, { color: t.text, fontWeight: '700' }]}>{s.product.sponsored}</Text></View>
+        ) : product.match ? (
+          <View style={[styles.badge, styles.glassTag, { backgroundColor: t.frosted, borderColor: t.card }]}>
+            <Text style={[type.caption, { color: t.primaryPressed, fontWeight: '700' }]}>{s.product.match(product.match)}</Text>
+          </View>
         ) : null}
       </View>
       <View style={styles.cardInfo}>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[type.subtitle, { color: t.text }]} numberOfLines={2}>{product.name}</Text>
+          <Text style={[type.title, { color: t.text, fontFamily: type.display.fontFamily, fontWeight: '500' }]} numberOfLines={2}>{product.name}</Text>
           <Text style={[type.caption, { color: t.textMuted }]}>
             {product.store}{product.rating ? ` · ${product.rating}★` : ''}{product.small_brand ? ` · ${s.product.smallBrand}` : ''}
           </Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={[type.subtitle, { color: t.text }]}>{money(product.price, product.currency)}</Text>
+          <Text style={[type.title, { color: t.text, fontFamily: type.display.fontFamily, fontWeight: '500' }]}>{money(product.price, product.currency)}</Text>
           {product.previous_price && product.previous_price > product.price ? (
             <Text style={[type.caption, { color: t.textMuted, textDecorationLine: 'line-through' }]}>{money(product.previous_price, product.currency)}</Text>
           ) : null}
         </View>
       </View>
       {product.why ? (
-        <Text style={[type.caption, { color: t.textSub, paddingHorizontal: space.md }]}>
-          <Text style={{ fontWeight: '700' }}>{s.product.why} </Text>{product.why}
-        </Text>
+        <View style={[styles.why, { backgroundColor: t.highlightBg }]}>
+          <Text style={[type.caption, { color: t.primaryPressed, fontWeight: '700' }]}>{s.product.why}</Text>
+          <Text style={[type.body, { color: t.textSub }]}>{product.why}</Text>
+        </View>
       ) : null}
       {footer ? <View style={{ padding: space.md, paddingTop: 0 }}>{footer}</View> : <View style={{ height: space.md }} />}
     </View>
@@ -157,13 +162,18 @@ export function ProductCard({ product, footer, onSavedChange }: { product: Produ
 }
 
 /** An outfit as a flat lay: the pieces laid out on a tile, the total and a button to shop them. */
-export function LookCard({ look, title, onShop }: { look: Look; title: string; onShop: () => void }) {
+export function LookCard({ look, title, kicker, onShop }: { look: Look; title: string; kicker?: string; onShop: () => void }) {
   const t = useTheme();
   const { t: s } = useI18n();
   const currency = look.items[0]?.currency ?? 'USD';
   return (
-    <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+    <View style={[styles.card, { backgroundColor: t.card }, elevation(t, 2)]}>
       <View style={[styles.flatLay, { backgroundColor: t.tile }]}>
+        {kicker ? (
+          <View style={[styles.kicker, { backgroundColor: t.frosted }]}>
+            <Text style={[type.overline, { color: t.accent, fontSize: 10 }]}>{kicker}</Text>
+          </View>
+        ) : null}
         {look.items.map((p) => (
           <View key={p.id} style={styles.flatItem}>
             <GarmentSketch subcategory={p.subcategory} category={p.category} rgb={p.rgb} size={look.items.length > 4 ? 74 : 92} />
@@ -172,7 +182,7 @@ export function LookCard({ look, title, onShop }: { look: Look; title: string; o
       </View>
       <View style={styles.cardInfo}>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[type.bodyStrong, { color: t.text }]}>{title}</Text>
+          <Text style={[type.title, { color: t.text, fontFamily: type.display.fontFamily, fontWeight: '500' }]}>{title}</Text>
           <Text style={[type.caption, { color: t.textMuted }]} numberOfLines={1}>
             {s.feed.lookMeta(look.items.length, money(look.total, currency))} · {look.stores.join(', ')}
           </Text>
@@ -184,14 +194,17 @@ export function LookCard({ look, title, onShop }: { look: Look; title: string; o
 }
 
 const styles = StyleSheet.create({
-  well: { borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  well: { borderRadius: 22, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   heart: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   heartPos: { position: 'absolute', top: 8, right: 8 },
   badge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  glassTag: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 5 },
+  why: { marginHorizontal: space.sm, padding: space.md, borderRadius: 16, gap: 2 },
+  kicker: { position: 'absolute', top: 12, left: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, zIndex: 1 },
   tag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   storeRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 56, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1 },
-  card: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden', gap: space.sm },
+  card: { borderRadius: 28, padding: space.sm, gap: space.sm },
   cardInfo: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingTop: space.xs },
-  flatLay: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', padding: space.md, gap: space.sm, minHeight: 200 },
+  flatLay: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', padding: space.md, gap: space.sm, minHeight: 220, borderRadius: 22 },
   flatItem: { alignItems: 'center', justifyContent: 'center' },
 });

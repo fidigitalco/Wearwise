@@ -11,10 +11,12 @@
       },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://wearwise.164.68.119.214.sslip.io/api"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {

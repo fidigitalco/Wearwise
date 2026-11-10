@@ -25,8 +25,17 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
-      ]
+      ],
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -91,6 +100,9 @@
         "projectId": "e04a4bf2-ad08-44b7-b598-a97371733695"
       }
     },
-    "owner": "fidigital"
+    "owner": "fidigital",
+    "updates": {
+      "url": "https://u.expo.dev/e04a4bf2-ad08-44b7-b598-a97371733695"
+    }
   }
 }

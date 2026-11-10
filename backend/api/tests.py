@@ -1282,6 +1282,8 @@ class CatalogTests(APITestCase):
         d = self.client.get('/api/discover/').data
         self.assertEqual(len(d['products']), 10)  # the first drop is ten pieces
         self.assertTrue(all(p['why'] for p in d['products']))
+        self.assertTrue(all(55 <= p['match'] <= 98 for p in d['products']))
+        self.assertGreaterEqual(d['products'][0]['match'], d['products'][-1]['match'])
         self.assertFalse([p for p in d['products'] if p['color'] == 'orange'])
         self.assertEqual([p['id'] for p in self.client.get('/api/discover/').data['products']], [p['id'] for p in d['products']])
         first = d['products'][0]
