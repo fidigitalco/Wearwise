@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import { auth, loadToken, setToken, setUnauthorizedHandler } from '../services/api';
 import type { User } from '../types';
 
@@ -11,6 +12,8 @@ type AuthState = {
   continueAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
+  /** Re-read the account from the server, e.g. after Premium was granted elsewhere. */
+  refreshUser: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 };
 
@@ -40,6 +43,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
     return () => setUnauthorizedHandler(null);
   }, [clear]);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      if (await loadToken()) setUser(await auth.me());
+    } catch {}
+  }, []);
+
+  // The plan can change on the server (a grant from the admin panel), so pick it up on return to the app.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') void refreshUser();
+    });
+    return () => sub.remove();
+  }, [refreshUser]);
 
   const value = useMemo<AuthState>(
     () => ({
@@ -77,12 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clear();
       },
       updateUser: async (patch) => setUser(await auth.update(patch)),
+      refreshUser,
       deleteAccount: async () => {
         await auth.deleteAccount();
         await clear();
       },
     }),
-    [user, ready, clear],
+    [user, ready, clear, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

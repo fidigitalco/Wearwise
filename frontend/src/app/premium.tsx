@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Check, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../components/Overlays';
@@ -52,7 +52,10 @@ export default function PremiumScreen() {
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const { t: s } = useI18n();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const premium = user?.plan === 'premium';
+  // Fresh plan on open, so a grant made meanwhile shows at once.
+  useEffect(() => { void refreshUser(); }, [refreshUser]);
   const [plan, setPlan] = useState<Plan>('year');
   const save = yearlySavings();
   const price = plan === 'year' ? `${formatPrice(PRICING.yearly)} ${s.premium.perYear}` : `${formatPrice(PRICING.monthly)} ${s.premium.perMonth}`;
@@ -77,7 +80,7 @@ export default function PremiumScreen() {
             <Text style={[type.overline, { color: t.primary }]}>{s.premium.label}</Text>
             <Text style={[type.display, { color: t.text }]} accessibilityRole="header">{s.premium.title}</Text>
             <Text style={[type.label, { color: t.textMuted }]}>
-              {s.premium.currentPlan(user?.plan === 'premium' ? s.premium.premiumPlan : s.premium.freePlan)}
+              {s.premium.currentPlan(premium ? s.premium.premiumPlan : s.premium.freePlan)}
             </Text>
           </View>
 
@@ -90,14 +93,26 @@ export default function PremiumScreen() {
             ))}
           </View>
 
+          {premium ? (
+            <View style={[styles.active, { backgroundColor: t.highlightBg }]}>
+              <Text style={[type.bodyStrong, { color: t.text, fontSize: 16 }]}>{s.premium.active}</Text>
+              <Text style={[type.label, { color: t.textMuted }]}>{s.premium.activeBody}</Text>
+            </View>
+          ) : (
           <View accessibilityRole="radiogroup" accessibilityLabel={s.premium.plans} style={{ gap: space.md, paddingTop: space.sm }}>
             <PlanCard on={plan === 'year'} onPress={() => setPlan('year')} title={s.premium.yearly} note={s.premium.yearlyNote(formatPrice(PRICING.yearly / 12))}
               amount={formatPrice(PRICING.yearly)} badge={save > 0 ? s.premium.best(save) : undefined} />
             <PlanCard on={plan === 'month'} onPress={() => setPlan('month')} title={s.premium.monthly} note={s.premium.monthlyNote} amount={formatPrice(PRICING.monthly)} />
           </View>
+          )}
         </View>
       </ScrollView>
 
+      {premium ? (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + space.md, borderTopColor: t.border, backgroundColor: t.card }]}>
+          <Button title={s.premium.close} variant="secondary" onPress={close} />
+        </View>
+      ) : (
       <View style={[styles.footer, { paddingBottom: insets.bottom + space.md, borderTopColor: t.border, backgroundColor: t.card }]}>
         <Button title={s.premium.subscribe} onPress={() => toast(s.premium.soon)} />
         <Text style={[type.caption, { color: t.textMuted, textAlign: 'center' }]}>{s.premium.fine(price)}</Text>
@@ -109,6 +124,7 @@ export default function PremiumScreen() {
           <Text style={[type.caption, { color: t.textMuted, textDecorationLine: 'underline' }]}>{s.premium.privacy}</Text>
         </View>
       </View>
+      )}
     </View>
   );
 }
@@ -119,6 +135,7 @@ const styles = StyleSheet.create({
   close: { position: 'absolute', right: space.lg, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   body: { marginTop: -24, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: gutter, paddingTop: space.xl, gap: space.lg },
   feature: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  active: { gap: 4, padding: space.lg, borderRadius: radius.xl },
   plan: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderRadius: radius.xl },
   radio: { width: 22, height: 22, borderRadius: 11 },
   badge: { position: 'absolute', top: -10, right: space.md, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },

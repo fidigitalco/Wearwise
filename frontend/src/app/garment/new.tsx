@@ -101,7 +101,7 @@ export default function NewGarmentScreen() {
   };
 
   /** Ask for access and let the user pick; resolves to the photos, or null if they backed out. */
-  const chooseImages = async (source: 'camera' | 'library'): Promise<LocalImage[] | null> => {
+  const chooseImages = async (source: 'camera' | 'library' | 'many'): Promise<LocalImage[] | null> => {
     const perm =
       source === 'camera'
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -114,17 +114,21 @@ export default function NewGarmentScreen() {
       source === 'camera'
         // One shot at a time, so the person can crop it to just the garment.
         ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8, allowsEditing: true })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
-            allowsMultipleSelection: true,
-            selectionLimit: MAX_PHOTOS,
-          });
+        : source === 'library'
+          // One photo from the gallery gets the same crop step as the camera.
+          ? await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsEditing: true })
+          // Several at once: the picker cannot crop a multiple selection.
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              quality: 0.8,
+              allowsMultipleSelection: true,
+              selectionLimit: MAX_PHOTOS,
+            });
     if (res.canceled || !res.assets.length) return null;
     return res.assets.slice(0, MAX_PHOTOS).map((a) => ({ uri: a.uri, mimeType: a.mimeType, fileName: a.fileName }));
   };
 
-  const pick = (source: 'camera' | 'library') => chooseImages(source).then((images) => images && run(images));
+  const pick = (source: 'camera' | 'library' | 'many') => chooseImages(source).then((images) => images && run(images));
 
   const chooseVideo = () =>
     Alert.alert(s.add.videoTitle, s.add.videoHint, [
@@ -310,7 +314,9 @@ export default function NewGarmentScreen() {
           icon={<ImageIcon size={18} color={t.text} />}
         />
       </View>
-      <Body muted style={{ textAlign: 'center' }}>{s.add.multiHint}</Body>
+      <Pressable onPress={() => pick('many')} disabled={working} accessibilityRole="button" hitSlop={8}>
+        <Text style={{ textAlign: 'center', color: t.primary, fontWeight: '600', opacity: working ? 0.5 : 1 }}>{s.add.multiHint}</Text>
+      </Pressable>
       <Button
         title={s.add.video}
         variant="secondary"
