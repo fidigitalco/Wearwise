@@ -1,5 +1,6 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -74,8 +75,24 @@ function AuthGate() {
   );
 }
 
+/**
+ * On launch, look for a newer over-the-air update and switch to it at once,
+ * instead of waiting for the next cold start (the default). Skipped in
+ * development and when updates are off; a failed check never blocks the app.
+ */
+function useApplyUpdates() {
+  useEffect(() => {
+    if (__DEV__ || !Updates.isEnabled) return;
+    Updates.checkForUpdateAsync()
+      .then((r) => (r.isAvailable ? Updates.fetchUpdateAsync() : null))
+      .then((f) => (f?.isNew ? Updates.reloadAsync() : undefined))
+      .catch(() => {});
+  }, []);
+}
+
 export default function RootLayout() {
   const t = useTheme();
+  useApplyUpdates();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
