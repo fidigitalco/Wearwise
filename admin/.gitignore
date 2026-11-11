@@ -12,3 +12,6 @@ next-env.d.ts
 # Misc
 .DS_Store
 *.log
+
+# Written on the server by setup-admin.sh
+.env.production

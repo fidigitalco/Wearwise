@@ -1,0 +1,15 @@
+[Unit]
+Description=WearWise admin panel (Next.js)
+After=network.target wearwise-gunicorn.service
+
+[Service]
+User=wearwise
+Group=wearwise
+WorkingDirectory=/opt/wearwise/admin
+Environment=NODE_ENV=production
+# 127.0.0.1:3012 so it never collides with SaveDo; Caddy is the only way in.
+ExecStart=/usr/bin/env node node_modules/.bin/next start -p 3012 -H 127.0.0.1
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -93,3 +93,13 @@ sudo /opt/wearwise/backend/deploy/deploy.sh
 ```
 
 Logs: `journalctl -u wearwise-gunicorn -f`. Media (uploaded photos) live in `/opt/wearwise/backend/media`.
+
+## Admin panel
+
+One time, as root on the server:
+
+```bash
+bash /opt/wearwise/backend/deploy/setup-admin.sh
+```
+
+It installs Node 20 if needed, builds `admin/` against the live API, adds the panel's origin to `CORS_ALLOWED_ORIGINS`, installs the `wearwise-admin` service (127.0.0.1:3012) and adds a Caddy block for `https://wearwise-admin.164.68.119.214.sslip.io`. After that, `deploy.sh` rebuilds and restarts the panel on every deploy. Sign in with a staff account (`manage.py createsuperuser`, step 5).
