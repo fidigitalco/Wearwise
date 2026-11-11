@@ -130,7 +130,7 @@ export function StylesSection({ prefs, onChange }: { prefs: Prefs; onChange: (p:
   return (
     <View style={styles.section}>
       <Heading title={s.prefs.stylesTitle} body={s.prefs.stylesBody} />
-      <PreferenceSelector value={prefs.preferred_styles} onChange={(v) => onChange({ ...prefs, preferred_styles: v })} />
+      <PreferenceSelector gender={prefs.gender} value={prefs.preferred_styles} onChange={(v) => onChange({ ...prefs, preferred_styles: v })} />
     </View>
   );
 }

@@ -3,7 +3,7 @@ import { Check } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
-import { STYLE_COLOR, STYLE_PHOTOS } from '../lib/styles';
+import { STYLE_COLOR, stylePhoto, stylesFor } from '../lib/styles';
 import { space, type, useTheme } from '../theme';
 
 
@@ -19,15 +19,16 @@ function toggle(list: string[], v: string) {
 }
 
 /** Style choices as photo cards, several at once; the first picked leads. */
-export function PreferenceSelector({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+export function PreferenceSelector({ value, onChange, gender }: { value: string[]; onChange: (v: string[]) => void; gender?: string }) {
   const t = useTheme();
   const { t: s } = useI18n();
   const label = useLabel();
   const meta = useMeta();
   return (
     <View style={styles.grid}>
-      {meta.style_directions.map((st) => {
+      {stylesFor(gender, meta.style_directions, value).map((st) => {
         const on = value.includes(st);
+        const photo = stylePhoto(st, gender);
         return (
           <Pressable
             key={st}
@@ -38,8 +39,8 @@ export function PreferenceSelector({ value, onChange }: { value: string[]; onCha
             style={[styles.card, { borderColor: on ? t.primary : t.border, backgroundColor: t.card }]}
           >
             <View>
-              {STYLE_PHOTOS[st] ? (
-                <Image source={STYLE_PHOTOS[st]} style={styles.photo} contentFit="cover" transition={120} />
+              {photo ? (
+                <Image source={photo} style={styles.photo} contentFit="cover" transition={120} />
               ) : STYLE_PALETTES[st] ? (
                 <View style={[styles.photo, styles.palette]}>
                   {STYLE_PALETTES[st].map((c) => <View key={c} style={{ flex: 1, backgroundColor: rgbCss(meta.colors[c]) }} />)}

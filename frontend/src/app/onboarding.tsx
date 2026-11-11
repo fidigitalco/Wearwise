@@ -8,7 +8,7 @@ import { Button, Chip, ChipWrap, Field, FormScroll, Segmented } from '../compone
 import { SwipeDeck } from '../components/SwipeDeck';
 import { useAuth } from '../lib/auth';
 import { SWIPE_MEN, SWIPE_WOMEN } from '../lib/swipeItems';
-import { STYLE_COLOR, STYLE_PHOTOS } from '../lib/styles';
+import { STYLE_COLOR, stylePhoto, stylesFor } from '../lib/styles';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
 import { errorMessage } from '../services/api';
@@ -207,14 +207,15 @@ export default function OnboardingScreen() {
           <View style={{ gap: space.sm }}>
             <Text style={[type.caption, { color: t.text, fontWeight: '600' }]}>{s.onb.selected(d.styles.length)}</Text>
             <View style={styles.styleGrid}>
-              {meta.style_directions.map((st) => {
+              {stylesFor(d.gender, meta.style_directions, d.styles).map((st) => {
                 const on = d.styles.includes(st);
+                const photo = stylePhoto(st, d.gender);
                 return (
                   <Pressable key={st} onPress={() => set({ styles: toggle(d.styles, st) })} accessibilityRole="checkbox"
                     accessibilityState={{ checked: on }} accessibilityLabel={label('styles', st)}
                     style={[styles.styleCard, { backgroundColor: t.card, borderColor: on ? t.primary : t.border, borderWidth: on ? 2 : 1 }]}>
-                    {STYLE_PHOTOS[st] ? (
-                      <Image source={STYLE_PHOTOS[st]} style={styles.styleSwatch} contentFit="cover" transition={120} />
+                    {photo ? (
+                      <Image source={photo} style={styles.styleSwatch} contentFit="cover" transition={120} />
                     ) : (
                       <View style={[styles.styleSwatch, { backgroundColor: STYLE_COLOR[st] ?? t.cardAlt }]} />
                     )}

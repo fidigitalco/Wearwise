@@ -28,3 +28,11 @@ All photos are from Unsplash under the Unsplash License (free for commercial use
 | style-glam.jpg | https://unsplash.com/photos/a-bunch-of-different-colored-sequins-hanging-on-a-wall-PuFAl8RA8eg (Caitlyn Wilson) |
 | style-modest.jpg | https://unsplash.com/photos/MzImhIYa3-I (Abdul Raheem Kannath) |
 | style-western.jpg | https://unsplash.com/photos/wkH4ugpF4ek (Brice Cooper) |
+| style-casual-men.jpg | https://unsplash.com/photos/1553859943-a02c5418b798 ("man wearing white crew-neck t-shirt") |
+| style-business-men.jpg | https://unsplash.com/photos/1617137968427-85924c800a22 ("man in blue suit standing on sidewalk") |
+| style-formal-men.jpg | https://unsplash.com/photos/1785336871874-43d03b6da4a6 ("elegant man in a tuxedo") |
+| style-minimal-men.jpg | https://unsplash.com/photos/1630173250799-2813d34ed14b (Mohamad Khosravi) |
+| style-classic-men.jpg | https://unsplash.com/photos/1770404295179-20767296ad2d ("man in a blue blazer and tan pants") |
+| style-quiet_luxury-men.jpg | https://unsplash.com/photos/1619603364904-c0498317e145 ("man in brown coat") |
+| style-edgy-men.jpg | https://unsplash.com/photos/1553591589-2e96ef7eca65 ("man wearing black leather jacket") |
+| style-coastal-men.jpg | https://unsplash.com/photos/1627686011747-74adda3d2343 ("man in white shirt near green plants") |

@@ -33,3 +33,36 @@ export const STYLE_PHOTOS: Record<string, number> = {
   modest: require('../../assets/images/style-modest.jpg'),
   western: require('../../assets/images/style-western.jpg'),
 };
+
+/** Menswear photos for the styles whose shared photo shows womenswear. */
+const STYLE_PHOTOS_MEN: Record<string, number> = {
+  casual: require('../../assets/images/style-casual-men.jpg'),
+  business: require('../../assets/images/style-business-men.jpg'),
+  formal: require('../../assets/images/style-formal-men.jpg'),
+  minimal: require('../../assets/images/style-minimal-men.jpg'),
+  classic: require('../../assets/images/style-classic-men.jpg'),
+  quiet_luxury: require('../../assets/images/style-quiet_luxury-men.jpg'),
+  edgy: require('../../assets/images/style-edgy-men.jpg'),
+  coastal: require('../../assets/images/style-coastal-men.jpg'),
+};
+
+/** Styles shown to men: menswear photos, or a shared photo that is not womenswear. */
+const MEN_STYLES = [
+  'casual', 'smart_casual', 'business', 'formal', 'minimal', 'classic', 'old_money', 'quiet_luxury', 'preppy',
+  'sporty', 'streetwear', 'scandi', 'grunge', 'edgy', 'coastal', 'western',
+];
+
+/**
+ * The styles to offer, in the order the server lists them: for men only
+ * menswear ones, and for everyone only styles that have a photo (no empty
+ * cards). Styles already picked stay so they can be cleared.
+ */
+export function stylesFor(gender: string | undefined, all: string[], picked: string[] = []): string[] {
+  const men = gender === 'male';
+  return all.filter((st) => picked.includes(st) || (men ? MEN_STYLES.includes(st) : !!STYLE_PHOTOS[st]));
+}
+
+/** The photo for a style card, the menswear one for men. */
+export function stylePhoto(st: string, gender?: string): number | undefined {
+  return (gender === 'male' ? STYLE_PHOTOS_MEN[st] : undefined) ?? STYLE_PHOTOS[st];
+}
