@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
 import { Camera, ImageIcon, Link2, Trash2 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { GarmentSketch } from '../components/GarmentSketch';
 import { useToast } from '../components/Overlays';
 import { Button, EmptyState, Field, FormScroll } from '../components/ui';
@@ -26,6 +26,7 @@ export default function InspirationScreen() {
   const [items, setItems] = useState<Inspiration[] | null>(null);
   const [link, setLink] = useState('');
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const tile = (width - gutter * 2 - space.md) / 2;
 
   useFocusEffect(useCallback(() => {
@@ -40,7 +41,10 @@ export default function InspirationScreen() {
       toast(s.inspo.added);
     })
       .catch((e) => toast(e?.response?.data?.link?.[0] ?? errorMessage(e), 'error'))
-      .finally(() => setBusy(false));
+      .finally(() => {
+        setBusy(false);
+        setUploading(false);
+      });
   };
 
   const pick = async (source: 'camera' | 'library') => {
@@ -53,7 +57,10 @@ export default function InspirationScreen() {
       ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 })
       : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     const a = !res.canceled ? res.assets[0] : null;
-    if (a) add(api.photo({ uri: a.uri, mimeType: a.mimeType, fileName: a.fileName } as LocalImage));
+    if (a) {
+      setUploading(true);
+      add(api.photo({ uri: a.uri, mimeType: a.mimeType, fileName: a.fileName } as LocalImage));
+    }
   };
 
   const remove = (i: Inspiration) =>
@@ -68,7 +75,7 @@ export default function InspirationScreen() {
 
       <View style={[styles.box, { backgroundColor: t.card, borderColor: t.border }]}>
         <View style={styles.row}>
-          <View style={{ flex: 1 }}><Button title={s.inspo.photo} icon={<Camera size={18} color={t.onPrimary} />} onPress={() => pick('camera')} disabled={busy} /></View>
+          <View style={{ flex: 1 }}><Button title={s.inspo.photo} icon={<Camera size={18} color={t.onPrimary} />} onPress={() => pick('camera')} disabled={busy} loading={uploading} /></View>
           <View style={{ flex: 1 }}><Button title={s.inspo.library} variant="secondary" icon={<ImageIcon size={18} color={t.text} />} onPress={() => pick('library')} disabled={busy} /></View>
         </View>
         <Field value={link} onChangeText={setLink} placeholder={s.inspo.linkPlaceholder} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
@@ -78,6 +85,14 @@ export default function InspirationScreen() {
 
       {items && items.length === 0 ? <EmptyState title={s.inspo.title} body={s.inspo.empty} /> : null}
       <View style={styles.grid}>
+        {uploading ? (
+          <View style={{ width: tile, gap: 6 }}>
+            <View style={[styles.tile, { width: tile, height: tile, backgroundColor: t.tile }]}>
+              <ActivityIndicator color={t.primary} />
+            </View>
+            <Text style={[type.caption, { color: t.textMuted }]}>{s.inspo.uploading}</Text>
+          </View>
+        ) : null}
         {items?.map((i) => (
           <View key={i.id} style={{ width: tile, gap: 6 }}>
             <Pressable onPress={() => (i.link ? Linking.openURL(i.link).catch(() => {}) : undefined)} accessibilityRole={i.link ? 'link' : undefined}

@@ -83,7 +83,13 @@ export default function MyStyleScreen() {
         {/* The style profile in short: what Discovery, dates and checks are tuned to. */}
         <View style={[styles.block, { borderTopColor: t.border }]}>
           <Text style={[type.overline, { color: t.textMuted }]}>{s.me.styleTitle}</Text>
-          {tags.length ? (
+          {!user?.age_range ? (
+            <Pressable onPress={() => router.push({ pathname: '/onboarding', params: { edit: '1' } })} accessibilityRole="button"
+              style={({ pressed }) => [styles.setup, { backgroundColor: t.highlightBg, opacity: pressed ? 0.85 : 1 }]}>
+              <Text style={[type.bodyStrong, { color: t.text }]}>{s.me.setupTitle}</Text>
+              <Text style={[type.caption, { color: t.textSub }]}>{s.me.setupSub}</Text>
+            </Pressable>
+          ) : tags.length ? (
             <View style={styles.tags}>
               {tags.map((x) => (
                 <View key={x} style={[styles.tag, { backgroundColor: t.cardAlt }]}>
@@ -200,6 +206,7 @@ const styles = StyleSheet.create({
   avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   block: { borderTopWidth: 1, paddingTop: space.lg, gap: space.sm },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
+  setup: { padding: space.md, borderRadius: 16, gap: 4 },
   tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   swatches: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap', marginVertical: 2 },
   swatch: { width: 22, height: 22, borderRadius: 11, borderWidth: 1 },

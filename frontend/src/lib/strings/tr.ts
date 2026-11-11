@@ -196,6 +196,14 @@ export const tr: Strings = {
     seeAll: 'Tümünü gör',
   },
   onb: {
+    swipeTitle: 'Bunları giyer miydin?',
+    swipeSub: 'Her birine evet ya da hayır de. Sağa kaydır: evet, sola: hayır.',
+    swipeCount: (i: number, n: number) => `${i} / ${n}`,
+    yes: 'Evet',
+    no: 'Hayır',
+    undo: 'Geri al',
+    swipeDone: 'Tamam. Bu, zevkin hakkında çok şey söylüyor.',
+    bodyLabel: 'Boy ve kilo',
     fitMany: 'Tercih ettiğin kesim (birden fazla)',
     length: 'Pantolon boyu (L, inç)',
     jacket: 'Ceket / takım (EU)',
@@ -236,6 +244,8 @@ export const tr: Strings = {
     done: 'Stil profilin hazır',
   },
   me: {
+    setupTitle: 'Stil profilini oluştur',
+    setupSub: 'Yaklaşık 90 saniye: ölçülerin, kıyafetlere hızlı evet / hayır ve sevdiğin tarzlar.',
     styleTitle: 'Tarzın',
     editStyle: 'Stil profilini düzenle',
     priceAlerts: 'Bildirimler',
@@ -244,6 +254,7 @@ export const tr: Strings = {
     noTags: 'Stil profilini oluşturmak için birkaç soruyu yanıtla.',
   },
   inspo: {
+    uploading: 'Yükleniyor…',
     title: 'İlham panosu',
     sub: 'Beğendiğin bir şey mi gördün? Fotoğrafını ya da linkini paylaş, zevkini ondan öğrenelim.',
     photo: 'Fotoğraf çek',

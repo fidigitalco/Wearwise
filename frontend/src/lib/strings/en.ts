@@ -194,6 +194,14 @@ export const en = {
     seeAll: 'See all',
   },
   onb: {
+    swipeTitle: 'Would you wear these?',
+    swipeSub: 'Say yes or no to each. Swipe right for yes, left for no.',
+    swipeCount: (i: number, n: number) => `${i} of ${n}`,
+    yes: 'Yes',
+    no: 'No',
+    undo: 'Undo',
+    swipeDone: 'Done. That tells us a lot about your taste.',
+    bodyLabel: 'Height and weight',
     fitMany: 'Preferred fit (pick all that apply)',
     length: 'Trouser length (L, inches)',
     jacket: 'Jacket / suit (EU)',
@@ -234,6 +242,8 @@ export const en = {
     done: 'Your style profile is ready',
   },
   me: {
+    setupTitle: 'Build your style profile',
+    setupSub: 'About 90 seconds: your sizes, a quick yes / no on clothes and the styles you like.',
     styleTitle: 'Your style',
     editStyle: 'Edit style profile',
     priceAlerts: 'Notifications',
@@ -242,6 +252,7 @@ export const en = {
     noTags: 'Answer a few questions to build your style profile.',
   },
   inspo: {
+    uploading: 'Uploading…',
     title: 'Inspiration',
     sub: 'Seen something you love? Share a photo or a link. We learn your taste from it.',
     photo: 'Take a photo',

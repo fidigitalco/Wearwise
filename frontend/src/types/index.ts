@@ -131,6 +131,8 @@ export interface User {
   country?: string;
   budget_ranges?: string[];
   stores?: string[];
+  /** Onboarding swipe: garment type → 1 (yes) or -1 (no). */
+  type_prefs?: Record<string, number>;
 }
 
 /** A catalogue piece (MVP v2): something to buy, not something owned. */

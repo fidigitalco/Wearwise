@@ -102,6 +102,8 @@ class User(AbstractUser):
     country = models.CharField(max_length=6, blank=True, choices=tx.choices(tx.COUNTRIES))
     budget_ranges = models.JSONField(default=list, blank=True)
     stores = models.JSONField(default=list, blank=True)
+    # The yes / no swipe over garment types in onboarding: {"polo": 1, "hoodie": -1}.
+    type_prefs = models.JSONField(default=dict, blank=True)
     typical_occasions = models.JSONField(default=list, blank=True)
     units = models.CharField(max_length=8, default='metric', choices=tx.choices(tx.UNITS))
     notifications_enabled = models.BooleanField(default=True)

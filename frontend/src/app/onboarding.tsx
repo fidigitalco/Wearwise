@@ -1,11 +1,13 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '../components/Overlays';
 import { Button, Chip, ChipWrap, Field, FormScroll, Segmented } from '../components/ui';
+import { SwipeDeck } from '../components/SwipeDeck';
 import { useAuth } from '../lib/auth';
+import { SWIPE_MEN, SWIPE_WOMEN } from '../lib/swipeItems';
 import { STYLE_COLOR, STYLE_PHOTOS } from '../lib/styles';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
@@ -33,6 +35,7 @@ const STORES = [
 type Draft = {
   age_range: User['age_range']; gender: User['gender']; country: string; styles: string[]; love: string[]; avoid: string[];
   top: string; bottom: string; length: string; jacket: string; drop: string; shoes: string; fits: string[]; height: string;
+  weight: string; typePrefs: Record<string, number>;
   budgets: string[]; stores: string[];
 };
 
@@ -43,7 +46,8 @@ function fromUser(u: User | null): Draft {
     top: u?.sizes?.top ?? '', bottom: u?.sizes?.bottom ?? '', length: u?.sizes?.length ?? '', jacket: u?.sizes?.jacket ?? '',
     drop: u?.sizes?.drop ?? '', shoes: u?.sizes?.shoes ?? '',
     fits: u?.fit_preferences?.length ? u.fit_preferences : u?.fit_preference ? [u.fit_preference] : [],
-    height: u?.height_cm ? String(u.height_cm) : '', budgets: u?.budget_ranges ?? [], stores: u?.stores ?? [],
+    height: u?.height_cm ? String(u.height_cm) : '', weight: u?.weight_kg ? String(u.weight_kg) : '',
+    typePrefs: u?.type_prefs ?? {}, budgets: u?.budget_ranges ?? [], stores: u?.stores ?? [],
   };
 }
 
@@ -67,12 +71,17 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
   const men = d.gender === 'male';
+  const swipeItems = men ? SWIPE_MEN : SWIPE_WOMEN;
+  // Stable, so the deck's answer effect does not run twice for one swipe.
+  const answerSwipe = useCallback((sub: string, v: 1 | -1) => setD((x) => ({ ...x, typePrefs: { ...x.typePrefs, [sub]: v } })), []);
 
   const steps = [
+    // Who you are first (gender, age, body), then sizes, then what you like.
     { title: s.onb.aboutTitle, sub: s.onb.aboutSub, ok: !!(d.age_range && d.gender && d.country) },
+    { title: s.onb.sizesTitle, sub: s.onb.sizesSub, ok: !!(d.top && d.bottom && d.shoes && d.fits.length) },
+    { title: s.onb.swipeTitle, sub: s.onb.swipeSub, ok: Object.keys(d.typePrefs).length >= Math.min(10, swipeItems.length) },
     { title: s.onb.stylesTitle, sub: s.onb.stylesSub, ok: d.styles.length > 0 },
     { title: s.onb.colorsTitle, sub: s.onb.colorsSub, ok: d.love.length > 0 },
-    { title: s.onb.sizesTitle, sub: s.onb.sizesSub, ok: !!(d.top && d.bottom && d.shoes && d.fits.length) },
     { title: s.onb.budgetTitle, sub: s.onb.budgetSub, ok: d.budgets.length > 0 },
   ];
   const last = step === steps.length - 1;
@@ -81,13 +90,15 @@ export default function OnboardingScreen() {
     setSaving(true);
     try {
       const height = parseInt(d.height, 10);
+      const weight = parseInt(d.weight, 10);
       await updateUser({
         age_range: d.age_range, gender: d.gender, country: d.country, preferred_styles: d.styles,
         favorite_colors: d.love, avoid_colors: d.avoid,
         // Only the sizes that were picked; empty ones are left out rather than sent blank.
         sizes: Object.fromEntries(Object.entries({ top: d.top, bottom: d.bottom, length: d.length, shoes: d.shoes, jacket: d.jacket, drop: d.drop })
           .filter(([, v]) => v)),
-        fit_preferences: d.fits, height_cm: Number.isFinite(height) ? height : null, budget_ranges: d.budgets, stores: d.stores,
+        fit_preferences: d.fits, height_cm: Number.isFinite(height) ? height : null,
+        weight_kg: Number.isFinite(weight) ? weight : null, type_prefs: d.typePrefs, budget_ranges: d.budgets, stores: d.stores,
         wardrobe_style: men ? 'menswear' : d.gender === 'female' ? 'womenswear' : 'neutral', onboarded: true,
       });
       toast(s.onb.done);
@@ -143,10 +154,32 @@ export default function OnboardingScreen() {
             {men ? <Text style={[type.caption, { color: t.accent }]}>{s.onb.menSoon}</Text> : null}
             {h(s.onb.country)}
             {one(COUNTRIES, d.country, (v) => set({ country: v }), (v) => s.onb.countries[v])}
+            {h(`${s.onb.bodyLabel} · ${s.onb.optional}`)}
+            <View style={styles.pair}>
+              <View style={{ flex: 1 }}>
+                <Field value={d.height} onChangeText={(v) => set({ height: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad" maxLength={3} placeholder="cm" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field value={d.weight} onChangeText={(v) => set({ weight: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad" maxLength={3} placeholder="kg" />
+              </View>
+            </View>
           </View>
         ) : null}
 
-        {step === 1 ? (
+        {step === 2 ? (
+          <SwipeDeck items={swipeItems} answers={d.typePrefs}
+            onAnswer={answerSwipe}
+            onUndo={() => setD((x) => {
+              const answered = swipeItems.filter((i) => i.sub in x.typePrefs);
+              const last = answered[answered.length - 1];
+              if (!last) return x;
+              const next = { ...x.typePrefs };
+              delete next[last.sub];
+              return { ...x, typePrefs: next };
+            })} />
+        ) : null}
+
+        {step === 3 ? (
           <View style={{ gap: space.sm }}>
             <Text style={[type.caption, { color: t.text, fontWeight: '600' }]}>{s.onb.selected(d.styles.length)}</Text>
             <View style={styles.styleGrid}>
@@ -171,7 +204,7 @@ export default function OnboardingScreen() {
           </View>
         ) : null}
 
-        {step === 2 ? (
+        {step === 4 ? (
           <View style={styles.colorGrid}>
             {Object.entries(meta.colors).map(([c, rgb]) => {
               const state = d.love.includes(c) ? 'love' : d.avoid.includes(c) ? 'avoid' : '';
@@ -195,7 +228,7 @@ export default function OnboardingScreen() {
           </View>
         ) : null}
 
-        {step === 3 ? (
+        {step === 1 ? (
           <View style={{ gap: space.sm }}>
             {h(s.onb.tops)}
             {one(TOPS, d.top, (v) => set({ top: v }))}
@@ -221,14 +254,10 @@ export default function OnboardingScreen() {
             <ChipWrap>
               {FITS.map((f) => <Chip key={f} label={label('fits', f)} selected={d.fits.includes(f)} onPress={() => set({ fits: toggle(d.fits, f) })} />)}
             </ChipWrap>
-            {h(s.onb.height)}
-            <View style={{ width: 140 }}>
-              <Field value={d.height} onChangeText={(v) => set({ height: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad" maxLength={3} placeholder="cm" />
-            </View>
           </View>
         ) : null}
 
-        {step === 4 ? (
+        {step === 5 ? (
           <View style={{ gap: space.sm }}>
             {h(s.onb.budgetPer)}
             <ChipWrap>
@@ -255,6 +284,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter, paddingTop: space.md, minHeight: 36 },
   meter: { height: 4, borderRadius: 2, marginHorizontal: gutter, marginTop: space.sm },
   wrap: { paddingHorizontal: gutter, paddingVertical: space.lg, gap: space.md, paddingBottom: space.xxl },
+  pair: { flexDirection: 'row', gap: space.md },
   styleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   styleCard: { width: '31.5%', borderRadius: radius.md, padding: space.sm, gap: space.xs, alignItems: 'center' },
   styleSwatch: { width: '100%', aspectRatio: 1, borderRadius: radius.sm },

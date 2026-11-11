@@ -196,6 +196,14 @@ export const es: Strings = {
     seeAll: 'Ver todo',
   },
   onb: {
+    swipeTitle: '¿Te pondrías esto?',
+    swipeSub: 'Di sí o no a cada uno. Desliza a la derecha para sí, a la izquierda para no.',
+    swipeCount: (i: number, n: number) => `${i} de ${n}`,
+    yes: 'Sí',
+    no: 'No',
+    undo: 'Deshacer',
+    swipeDone: 'Listo. Esto dice mucho de tu gusto.',
+    bodyLabel: 'Altura y peso',
     fitMany: 'Corte preferido (elige varios)',
     length: 'Largo de pantalón (L, pulgadas)',
     jacket: 'Chaqueta / traje (EU)',
@@ -236,6 +244,8 @@ export const es: Strings = {
     done: 'Tu perfil de estilo está listo',
   },
   me: {
+    setupTitle: 'Crea tu perfil de estilo',
+    setupSub: 'Unos 90 segundos: tus tallas, un sí / no rápido a prendas y los estilos que te gustan.',
     styleTitle: 'Tu estilo',
     editStyle: 'Editar perfil de estilo',
     priceAlerts: 'Notificaciones',
@@ -244,6 +254,7 @@ export const es: Strings = {
     noTags: 'Responde unas preguntas para crear tu perfil de estilo.',
   },
   inspo: {
+    uploading: 'Subiendo…',
     title: 'Inspiración',
     sub: '¿Viste algo que te encanta? Comparte una foto o un enlace y aprendemos tu gusto.',
     photo: 'Hacer foto',

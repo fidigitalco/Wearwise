@@ -23,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
             'latitude', 'longitude', 'preferred_styles', 'favorite_colors', 'sizes', 'typical_occasions',
             'units', 'notifications_enabled', 'plan', 'is_guest', 'date_joined',
             'gender', 'birth_year', 'height_cm', 'weight_kg', 'body_shape', 'fit_preference', 'fit_preferences', 'budget', 'avoid_colors',
-            'age_range', 'country', 'budget_ranges', 'stores',
+            'age_range', 'country', 'budget_ranges', 'stores', 'type_prefs',
         ]
         read_only_fields = ['id', 'email', 'plan', 'is_guest', 'date_joined']
 
@@ -32,6 +32,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate_favorite_colors(self, v):
         return _choice_list(v, tx.COLORS, 'colour')
+
+    def validate_type_prefs(self, v):
+        if not isinstance(v, dict) or not all(k in tx.ALL_SUBCATEGORIES and val in (1, -1) for k, val in v.items()):
+            raise serializers.ValidationError('An object of garment type → 1 (yes) or -1 (no).')
+        return v
 
     def validate_fit_preferences(self, v):
         return _choice_list(v, tx.FIT_PREFERENCES, 'fit')

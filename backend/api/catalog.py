@@ -220,6 +220,8 @@ def score_product(p, user, taste):
         s -= 4
     if user.stores and p.store in user.stores:
         s += 1.5
+    # Yes / no from the onboarding swipe weighs about as much as a matching style.
+    s += 3.0 * (user.type_prefs or {}).get(p.subcategory, 0)
     if p.small_brand:
         s += 0.8
     if p.rating:
@@ -245,6 +247,9 @@ def candidates(user):
 
 def why(p, user, lang='en'):
     """The "Why this?" line under a product: the strongest true reason, never a made-up one."""
+    if (user.type_prefs or {}).get(p.subcategory) == 1:
+        kind = vocab(lang, 'kinds', p.subcategory, tx.KIND_AZ)
+        return say(lang, 'You said yes to {kind}', '{kind} sənə xoş gəlir dedin', kind=kind)
     styles = [s for s in (user.preferred_styles or []) if s in p.styles]
     if styles:
         st = vocab(lang, 'styles', styles[0], tx.STYLE_AZ, styles[0].replace('_', ' ').title())

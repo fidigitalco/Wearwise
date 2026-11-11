@@ -1440,3 +1440,23 @@ class FitAndSizeTests(APITestCase):
         g = lambda fit: SimpleNamespace(fit=fit)
         slim_look = {'top': g('slim'), 'bottom': g('slim')}
         self.assertEqual(fit_bonus(slim_look, ['regular', 'slim']), fit_bonus(slim_look, 'slim'))
+
+
+class TypeSwipeTests(APITestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'swipe@example.com', 'password': 'wardrobe-123', 'display_name': 'S'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_swipes_steer_discovery(self):
+        self.assertEqual(self.client.patch('/api/auth/me/', {'type_prefs': {'polo': 2}}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch('/api/auth/me/', {'type_prefs': {'nope': 1}}, format='json').status_code, 400)
+        r = self.client.patch('/api/auth/me/', {'gender': 'female', 'type_prefs': {'boots': 1, 'sneakers': -1}}, format='json')
+        self.assertEqual(r.status_code, 200)
+        picks = self.client.get('/api/discover/').data['products']
+        kinds = [p['subcategory'] for p in picks]
+        self.assertIn('boots', kinds[:3])
+        self.assertNotIn('sneakers', kinds[:5])
+        boot = next(p for p in picks if p['subcategory'] == 'boots')
+        self.assertIn('yes', boot['why'].lower())

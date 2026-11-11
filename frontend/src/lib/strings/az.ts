@@ -196,6 +196,14 @@ export const az: Strings = {
     seeAll: 'Hamısı',
   },
   onb: {
+    swipeTitle: 'Bunları geyinərdin?',
+    swipeSub: 'Hər birinə bəli və ya xeyr de. Sağa sürüşdür: bəli, sola: xeyr.',
+    swipeCount: (i: number, n: number) => `${i} / ${n}`,
+    yes: 'Bəli',
+    no: 'Xeyr',
+    undo: 'Geri al',
+    swipeDone: 'Hazırdır. Bu, zövqün haqqında çox şey deyir.',
+    bodyLabel: 'Boy və çəki',
     fitMany: 'Sevdiyin kəsim (bir neçəsini seç)',
     length: 'Şalvar uzunluğu (L, düym)',
     jacket: 'Pencək / kostyum (EU)',
@@ -236,6 +244,8 @@ export const az: Strings = {
     done: 'Stil profilin hazırdır',
   },
   me: {
+    setupTitle: 'Stil profilini qur',
+    setupSub: 'Təxminən 90 saniyə: ölçülərin, geyimlərə tez bəli / xeyr və sevdiyin üslublar.',
     styleTitle: 'Sənin üslubun',
     editStyle: 'Stil profilini dəyiş',
     priceAlerts: 'Bildirişlər',
@@ -244,6 +254,7 @@ export const az: Strings = {
     noTags: 'Stil profilini yaratmaq üçün bir neçə suala cavab ver.',
   },
   inspo: {
+    uploading: 'Yüklənir…',
     title: 'İlham lövhəsi',
     sub: 'Xoşuna gələn nəsə gördün? Şəklini və ya linkini paylaş, zövqünü bundan öyrənək.',
     photo: 'Şəkil çək',
