@@ -196,6 +196,12 @@ export const az: Strings = {
     seeAll: 'Hamısı',
   },
   onb: {
+    later: "Sonra",
+    exit: "Çıxış",
+    laterTitle: "Sonra davam etmək istəyirsən?",
+    laterBody: "Profil → Stil profilini qur ilə istədiyin vaxt davam edə bilərsən.",
+    exitTitle: "Qeydiyyatdan çıxırsan?",
+    exitBody: "Hesabdan çıxıb başlanğıc ekrana qayıdacaqsan.",
     swipeTitle: 'Bunları geyinərdin?',
     swipeSub: 'Hər birinə bəli və ya xeyr de. Sağa sürüşdür: bəli, sola: xeyr.',
     swipeCount: (i: number, n: number) => `${i} / ${n}`,

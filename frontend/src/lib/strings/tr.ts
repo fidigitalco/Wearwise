@@ -196,6 +196,12 @@ export const tr: Strings = {
     seeAll: 'Tümünü gör',
   },
   onb: {
+    later: "Sonra",
+    exit: "Çıkış",
+    laterTitle: "Sonra devam etmek ister misin?",
+    laterBody: "İstediğin zaman Profil → Stil profilini kur ile devam edebilirsin.",
+    exitTitle: "Kayıttan çıkıyor musun?",
+    exitBody: "Hesaptan çıkıp başlangıç ekranına döneceksin.",
     swipeTitle: 'Bunları giyer miydin?',
     swipeSub: 'Her birine evet ya da hayır de. Sağa kaydır: evet, sola: hayır.',
     swipeCount: (i: number, n: number) => `${i} / ${n}`,

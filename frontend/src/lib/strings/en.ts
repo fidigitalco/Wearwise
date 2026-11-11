@@ -194,6 +194,12 @@ export const en = {
     seeAll: 'See all',
   },
   onb: {
+    later: "Later",
+    exit: "Exit",
+    laterTitle: "Finish later?",
+    laterBody: "You can continue any time from Profile → Set up style profile.",
+    exitTitle: "Leave sign-up?",
+    exitBody: "You'll be signed out and back at the start screen.",
     swipeTitle: 'Would you wear these?',
     swipeSub: 'Say yes or no to each. Swipe right for yes, left for no.',
     swipeCount: (i: number, n: number) => `${i} of ${n}`,

@@ -196,6 +196,12 @@ export const es: Strings = {
     seeAll: 'Ver todo',
   },
   onb: {
+    later: "Más tarde",
+    exit: "Salir",
+    laterTitle: "¿Terminar más tarde?",
+    laterBody: "Puedes seguir cuando quieras desde Perfil → Configurar estilo.",
+    exitTitle: "¿Salir del registro?",
+    exitBody: "Cerrarás sesión y volverás a la pantalla de inicio.",
     swipeTitle: '¿Te pondrías esto?',
     swipeSub: 'Di sí o no a cada uno. Desliza a la derecha para sí, a la izquierda para no.',
     swipeCount: (i: number, n: number) => `${i} de ${n}`,

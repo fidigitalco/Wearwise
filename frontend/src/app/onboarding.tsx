@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useToast } from '../components/Overlays';
+import { ConfirmationDialog, useToast } from '../components/Overlays';
 import { Button, Chip, ChipWrap, Field, FormScroll, Segmented } from '../components/ui';
 import { SwipeDeck } from '../components/SwipeDeck';
 import { useAuth } from '../lib/auth';
@@ -65,7 +65,8 @@ export default function OnboardingScreen() {
   const label = useLabel();
   const meta = useMeta();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, signOut } = useAuth();
+  const [ask, setAsk] = useState<'later' | 'exit' | null>(null);
   const [step, setStep] = useState(0);
   const [d, setD] = useState<Draft>(fromUser(user));
   const [saving, setSaving] = useState(false);
@@ -79,7 +80,7 @@ export default function OnboardingScreen() {
     // Who you are first (gender, age, body), then sizes, then what you like.
     { title: s.onb.aboutTitle, sub: s.onb.aboutSub, ok: !!(d.age_range && d.gender && d.country) },
     { title: s.onb.sizesTitle, sub: s.onb.sizesSub, ok: !!(d.top && d.bottom && d.shoes && d.fits.length) },
-    { title: s.onb.swipeTitle, sub: s.onb.swipeSub, ok: Object.keys(d.typePrefs).length >= Math.min(10, swipeItems.length) },
+    { title: s.onb.swipeTitle, sub: s.onb.swipeSub, ok: Object.keys(d.typePrefs).length >= Math.min(6, swipeItems.length) },
     { title: s.onb.stylesTitle, sub: s.onb.stylesSub, ok: d.styles.length > 0 },
     { title: s.onb.colorsTitle, sub: s.onb.colorsSub, ok: d.love.length > 0 },
     { title: s.onb.budgetTitle, sub: s.onb.budgetSub, ok: d.budgets.length > 0 },
@@ -110,6 +111,18 @@ export default function OnboardingScreen() {
     }
   };
 
+  // Leave the first-time flow without finishing: the app opens normally and
+  // Profile offers "Set up style profile" until the rest is filled in.
+  const later = async () => {
+    setAsk(null);
+    try {
+      await updateUser({ onboarded: true, ...(d.gender ? { gender: d.gender } : {}) });
+      router.replace('/');
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    }
+  };
+
   // Love → avoid → cleared (MVP §1, step 3).
   const cycleColor = (c: string) => {
     if (d.love.includes(c)) set({ love: d.love.filter((x) => x !== c), avoid: [...d.avoid, c] });
@@ -133,8 +146,19 @@ export default function OnboardingScreen() {
           <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button">
             <Text style={[type.bodyStrong, { color: t.primary }]}>{s.common.cancel}</Text>
           </Pressable>
-        ) : <View />}
-        <Text style={[type.caption, { color: t.textMuted }]}>{s.onb.step(step + 1, steps.length)}</Text>
+        ) : (
+          <Pressable onPress={() => setAsk('exit')} hitSlop={10} accessibilityRole="button">
+            <Text style={[type.bodyStrong, { color: t.textSub }]}>{s.onb.exit}</Text>
+          </Pressable>
+        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.lg }}>
+          <Text style={[type.caption, { color: t.textMuted }]}>{s.onb.step(step + 1, steps.length)}</Text>
+          {!edit ? (
+            <Pressable onPress={() => setAsk('later')} hitSlop={10} accessibilityRole="button">
+              <Text style={[type.bodyStrong, { color: t.primary }]}>{s.onb.later}</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
       <View style={[styles.meter, { backgroundColor: t.cardAlt }]}>
         <View style={{ width: `${((step + 1) / steps.length) * 100}%`, height: 4, backgroundColor: t.primary, borderRadius: 2 }} />
@@ -276,6 +300,17 @@ export default function OnboardingScreen() {
         <Button title={last ? s.onb.finish : s.onb.next} onPress={() => (last ? finish() : setStep(step + 1))}
           disabled={!steps[step].ok} loading={saving} />
       </View>
+      <ConfirmationDialog
+        visible={ask !== null}
+        title={ask === 'exit' ? s.onb.exitTitle : s.onb.laterTitle}
+        message={ask === 'exit' ? s.onb.exitBody : s.onb.laterBody}
+        confirmLabel={ask === 'exit' ? s.onb.exit : s.onb.later}
+        cancelLabel={s.common.cancel}
+        onCancel={() => setAsk(null)}
+        onConfirm={() => {
+          if (ask === 'exit') { setAsk(null); signOut(); } else later();
+        }}
+      />
     </SafeAreaView>
   );
 }

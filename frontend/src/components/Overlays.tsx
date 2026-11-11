@@ -116,7 +116,7 @@ export function ConfirmationDialog({
             <Button
               title={confirmLabel}
               variant={destructive ? 'danger' : 'primary'}
-              style={[{ flex: 1 }, destructive && { backgroundColor: t.danger, borderColor: t.danger }]}
+              style={{ flex: 1 }}
               onPress={onConfirm}
             />
           </View>
