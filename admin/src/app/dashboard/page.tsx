@@ -34,7 +34,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-5">
         <MetricCard icon={Users} label={t('totalUsers')} value={stats.total_users} sub={`+${stats.new_today} ${t('newToday')}`} />
         <MetricCard icon={UserPlus} label={t('newThisWeek')} value={stats.new_this_week} />
-        <MetricCard icon={Activity} label={t('activeUsers')} value={stats.active_users} sub={t('last30Days')} />
+        <MetricCard icon={Activity} label={t('activeUsers')} value={stats.active_users} sub={`${t('last30Days')} · ${t('seenToday', { n: stats.seen_today })}`} />
         <MetricCard icon={Crown} label={t('premiumUsers')} value={stats.premium_users} />
       </div>
 

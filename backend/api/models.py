@@ -111,6 +111,19 @@ class User(AbstractUser):
     # Set by store billing once it is connected; everyone is on the free plan until then.
     plan = models.CharField(max_length=16, default='free', choices=[('free', 'Free'), ('premium', 'Premium')])
 
+    # What the app says about itself on every request (api/middleware.py), for the admin panel only.
+    # `country` above is where they shop, chosen in onboarding; these two are where the phone is set to
+    # (its region) and where its address was allocated (api/ip_countries.py). A VPN makes them differ.
+    platform = models.CharField(max_length=10, blank=True)  # ios | android
+    app_version = models.CharField(max_length=20, blank=True)
+    device_country = models.CharField(max_length=2, blank=True)
+    ip_country = models.CharField(max_length=2, blank=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Google Play's install referrer (Android only): the utm_* of the Play link that installed the app.
+    install_source = models.CharField(max_length=64, blank=True, db_index=True)
+    install_medium = models.CharField(max_length=64, blank=True)
+    install_campaign = models.CharField(max_length=100, blank=True)
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 
@@ -396,6 +409,45 @@ class AppFeedback(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class CrashReport(models.Model):
+    """A JavaScript error the app could not recover from, sent by its global error handler (POST /api/crash/)."""
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='crash_reports')
+    platform = models.CharField(max_length=10, blank=True)
+    app_version = models.CharField(max_length=20, blank=True)
+    message = models.TextField(max_length=2000)
+    stack = models.TextField(max_length=8000, blank=True)
+    device = models.CharField(max_length=200, blank=True)
+    fatal = models.BooleanField(default=True)
+    resolved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class ServerError(models.Model):
+    """
+    A 500 or an error logged on the server (api/logging.py). The same message
+    on the same endpoint is one row with a count while it stays open, so a
+    loop of failures does not bury everything else.
+    """
+
+    level = models.CharField(max_length=10, default='ERROR')
+    message = models.TextField(max_length=2000)
+    traceback = models.TextField(max_length=12000, blank=True)
+    endpoint = models.CharField(max_length=300, blank=True)
+    method = models.CharField(max_length=8, blank=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='server_errors')
+    count = models.PositiveIntegerField(default=1)
+    resolved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-last_seen_at']
 
 
 class AffiliateClick(models.Model):

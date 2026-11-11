@@ -54,9 +54,27 @@ const GENERIC: Record<string, { error: string; network: string }> = {
 
 export const http = axios.create({ baseURL: BASE_URL, timeout: 20000 });
 
+/** The phone's own region ("AZ") from its locale, or '' when it cannot be read. */
+function deviceRegion(): string {
+  try {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
+    const m = locale.replace(/_/g, '-').match(/-([A-Za-z]{2})(?:-|$)/);
+    return m ? m[1].toUpperCase() : '';
+  } catch {
+    return '';
+  }
+}
+
+export const APP_VERSION = Constants.expoConfig?.version ?? '';
+const REGION = deviceRegion();
+
 http.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Token ${token}`;
   config.headers['Accept-Language'] = language;
+  // Where the account is used from, for the admin panel (backend api/middleware.py).
+  config.headers['X-Platform'] = Platform.OS;
+  if (APP_VERSION) config.headers['X-App-Version'] = APP_VERSION;
+  if (REGION) config.headers['X-Country'] = REGION;
   return config;
 });
 
@@ -295,6 +313,14 @@ export const getWeather = (lat: number, lon: number) =>
 export const getStats = () => http.get<Stats>('/stats/').then((r) => r.data);
 
 /** Settings → Send feedback; staff read it in the admin panel. */
+/** A JavaScript error the app could not recover from; never throws. */
+export const reportCrash = (body: { message: string; stack?: string; fatal?: boolean; device?: string }) =>
+  http.post('/crash/', body, { timeout: 8000 }).then(() => undefined).catch(() => undefined);
+
+/** Google Play's install referrer (Android), sent once; the server keeps the first answer. */
+export const sendInstallSource = (body: { utm_source: string; utm_medium?: string; utm_campaign?: string }) =>
+  http.post('/me/install/', body).then(() => undefined);
+
 export const sendAppFeedback = (body: { kind: 'idea' | 'problem' | 'other'; message: string; platform: string; app_version: string }) =>
   http.post('/app-feedback/', body).then(() => undefined);
 

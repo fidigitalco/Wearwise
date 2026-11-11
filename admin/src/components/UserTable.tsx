@@ -1,8 +1,8 @@
 'use client'
 import { Users } from 'lucide-react'
 import type { UserRow } from '@/lib/api'
-import { useLabel, useLang } from '@/lib/i18n'
-import { EmptyIcon, Pill } from './ui'
+import { useLabel, useLang, type Key } from '@/lib/i18n'
+import { EmptyIcon, Pill, countryName, flag, sourceName } from './ui'
 import { formatDate } from './UserDrawer'
 
 /** The accounts table both the users and premium pages draw; a row opens that user. */
@@ -26,9 +26,13 @@ export function UserTable({ rows, onOpen, empty }: { rows: UserRow[]; onOpen: (i
             <th className={th}>{t('colUser')}</th>
             <th className={th}>{t('colMethod')}</th>
             <th className={th}>{t('colPlan')}</th>
+            <th className={th}>{t('colPlatform')}</th>
+            <th className={th}>{t('colCountry')}</th>
+            <th className={th}>{t('colLastSeen')}</th>
             <th className={`${th} text-right`}>{t('colCloset')}</th>
             <th className={`${th} text-right`}>{t('colOutfits')}</th>
             <th className={`${th} text-right`}>{t('colWears')}</th>
+            <th className={th}>{t('colSource')}</th>
             <th className={th}>{t('colJoined')}</th>
             <th className={th}>{t('colStatus')}</th>
           </tr>
@@ -51,9 +55,27 @@ export function UserTable({ rows, onOpen, empty }: { rows: UserRow[]; onOpen: (i
               <td className="px-4 py-3">
                 <Pill tone={u.plan === 'premium' ? 'accent' : 'neutral'}>{u.plan === 'premium' ? t('premium') : t('free')}</Pill>
               </td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                <div className="text-slate-700">{t(`platform_${u.platform}` as Key)}</div>
+                {u.app_version && <div className="text-xs text-slate-400 tabular-nums">v{u.app_version}</div>}
+              </td>
+              <td className="px-4 py-3 whitespace-nowrap" title={[
+                u.device_country && `${t('deviceCountry')}: ${countryName(u.device_country, lang)}`,
+                u.ip_country && `${t('ipCountry')}: ${countryName(u.ip_country, lang)}`,
+              ].filter(Boolean).join('\n')}>
+                {u.device_country || u.ip_country ? (
+                  <span className="text-slate-700">
+                    {flag(u.device_country || u.ip_country)} {u.device_country || u.ip_country}
+                    {u.ip_country && u.device_country && u.ip_country !== u.device_country &&
+                      <span className="text-xs text-slate-400"> · IP {u.ip_country}</span>}
+                  </span>
+                ) : <span className="text-slate-400">—</span>}
+              </td>
+              <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{u.last_seen_at ? formatDate(u.last_seen_at, lang, true) : '—'}</td>
               <td className="px-4 py-3 text-right tabular-nums text-slate-700">{u.garments}</td>
               <td className="px-4 py-3 text-right tabular-nums text-slate-700">{u.outfits}</td>
               <td className="px-4 py-3 text-right tabular-nums text-slate-700">{u.wears}</td>
+              <td className="px-4 py-3 whitespace-nowrap">{u.install_source ? <Pill>{sourceName(u.install_source)}</Pill> : <span className="text-slate-400">—</span>}</td>
               <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(u.date_joined, lang)}</td>
               <td className="px-4 py-3">
                 {u.is_active ? <Pill tone="success">{t('active')}</Pill> : <Pill tone="danger">{t('blocked')}</Pill>}

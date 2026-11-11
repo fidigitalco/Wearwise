@@ -1224,6 +1224,93 @@ class AdminPanelTests(APITestCase):
         self.assertEqual(self.client.delete(f'/api/admin/products/{pid}/').status_code, 204)
 
 
+class ClientContextTests(APITestCase):
+    """Platform, version, countries and last-seen from the app's headers; crashes, server errors and the install source."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(email='boss2@example.com', password='admin-pass-1', is_staff=True)
+        r = self.client.post('/api/auth/register/', {'email': 'phone@example.com', 'password': 'wardrobe-123', 'display_name': 'Phone'}, format='json')
+        self.token = r.data['token']
+        self.user = User.objects.get(email='phone@example.com')
+
+    def as_member(self, **headers):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token}', **headers)
+
+    def as_admin(self):
+        r = self.client.post('/api/admin/login/', {'email': 'boss2@example.com', 'password': 'admin-pass-1'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_headers_are_stored_validated_and_never_blanked(self):
+        self.as_member(HTTP_X_PLATFORM='android', HTTP_X_APP_VERSION='1.2.0', HTTP_X_COUNTRY='az-AZ',
+                       HTTP_X_FORWARDED_FOR='1.2.3.4, 8.8.8.8')
+        self.client.get('/api/auth/me/')
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.platform, self.user.app_version, self.user.device_country), ('android', '1.2.0', 'AZ'))
+        self.assertIsNotNone(self.user.last_seen_at)
+        # Junk is dropped and a missing header keeps what was known.
+        self.as_member(HTTP_X_PLATFORM='toaster', HTTP_X_APP_VERSION='<script>', HTTP_X_COUNTRY='Mars')
+        User.objects.filter(pk=self.user.pk).update(last_seen_at=None)
+        self.client.get('/api/auth/me/')
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.platform, self.user.app_version, self.user.device_country), ('android', '1.2.0', 'AZ'))
+        self.assertIsNotNone(self.user.last_seen_at)
+
+    def test_install_source_first_answer_stays(self):
+        self.as_member()
+        self.assertEqual(self.client.post('/api/me/install/', {}, format='json').status_code, 400)
+        r = self.client.post('/api/me/install/', {'utm_source': 'Instagram', 'utm_medium': 'cpc', 'utm_campaign': 'nov'}, format='json')
+        self.assertEqual(r.data['install_source'], 'instagram')
+        self.client.post('/api/me/install/', {'utm_source': 'google-play'}, format='json')
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.install_source, self.user.install_medium), ('instagram', 'cpc'))
+
+    def test_crashes_and_server_errors_reach_admin(self):
+        from unittest import mock
+        from .models import CrashReport, ServerError
+        self.client.credentials(HTTP_X_PLATFORM='ios', HTTP_X_APP_VERSION='1.0.3')  # signed out still reports
+        self.assertEqual(self.client.post('/api/crash/', {'message': ''}, format='json').status_code, 400)
+        r = self.client.post('/api/crash/', {'message': 'TypeError: x is undefined', 'stack': 'at Closet', 'fatal': True}, format='json')
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual((CrashReport.objects.get().platform, CrashReport.objects.get().app_version), ('ios', '1.0.3'))
+
+        # A 500 is recorded once, then counted.
+        self.as_member()
+        self.client.raise_request_exception = False
+        with mock.patch('api.views.read_plan', side_effect=RuntimeError('boom')):
+            for _ in range(2):
+                self.assertEqual(self.client.post('/api/plan/read/', {'text': 'x'}, format='json').status_code, 500)
+        e = ServerError.objects.get()
+        self.assertEqual((e.message, e.endpoint, e.count), ('RuntimeError: boom', '/api/plan/read/', 2))
+        self.assertIn('RuntimeError', e.traceback)
+
+        self.as_member()
+        self.assertEqual(self.client.get('/api/admin/errors/').status_code, 403)
+        self.as_admin()
+        data = self.client.get('/api/admin/errors/', {'kind': 'server'}).data
+        self.assertEqual((data['open'], data['count']), ({'crash': 1, 'server': 1}, 1))
+        r = self.client.patch(f'/api/admin/errors/server/{e.pk}/', {'resolved': True}, format='json')
+        self.assertTrue(r.data['resolved'])
+        self.assertEqual(self.client.get('/api/admin/errors/', {'kind': 'server'}).data['count'], 0)
+        self.assertEqual(self.client.get('/api/admin/stats/').data['open_errors'], 1)
+
+    def test_admin_sees_and_filters_client_info(self):
+        self.as_member(HTTP_X_PLATFORM='android', HTTP_X_APP_VERSION='1.2.0', HTTP_X_COUNTRY='TR')
+        self.client.get('/api/auth/me/')
+        self.client.post('/api/me/install/', {'utm_source': 'tiktok'}, format='json')
+        self.as_admin()
+        row = self.client.get('/api/admin/users/', {'platform': 'android'}).data['results'][0]
+        self.assertEqual((row['platform'], row['app_version'], row['device_country'], row['install_source']),
+                         ('android', '1.2.0', 'TR', 'tiktok'))
+        self.assertEqual(self.client.get('/api/admin/users/', {'platform': 'ios'}).data['count'], 0)
+        self.assertEqual(self.client.get('/api/admin/users/', {'country': 'TR'}).data['count'], 1)
+        self.assertEqual(self.client.get('/api/admin/users/', {'sort': '-last_seen_at'}).status_code, 200)
+        detail = self.client.get(f'/api/admin/users/{self.user.pk}/').data
+        self.assertEqual(detail['install_source'], 'tiktok')
+        a = self.client.get('/api/admin/analytics/').data
+        self.assertIn({'name': 'android', 'value': 1}, a['platforms'])
+        self.assertIn({'name': 'tiktok', 'value': 1}, a['install_sources'])
+
+
 class LocaleTests(APITestCase):
     def test_every_language_has_every_sentence_with_its_placeholders(self):
         import json

@@ -741,6 +741,56 @@ def app_feedback(request):
     return Response(status=status.HTTP_201_CREATED)
 
 
+class CrashThrottle(AnonRateThrottle):
+    """Per-IP cap on crash reports, signed in or not: a crash loop must not flood the table."""
+    scope = 'crash'
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {'scope': self.scope, 'ident': self.get_ident(request)}
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([CrashThrottle])
+def crash_report(request):
+    """The app's global error handler: {message, stack?, fatal?, device?}; platform and version come from its headers."""
+    from .middleware import normalise_platform, normalise_version
+    from .models import CrashReport
+    d = request.data
+    message = str(d.get('message', '')).strip()
+    if not message:
+        raise ValidationError({'message': 'required'})
+    user = request.user if request.user.is_authenticated else None
+    CrashReport.objects.create(
+        user=user, message=message[:2000], stack=str(d.get('stack', ''))[:8000], device=str(d.get('device', ''))[:200],
+        fatal=d.get('fatal') is not False,
+        platform=normalise_platform(request.headers.get('X-Platform')),
+        app_version=normalise_version(request.headers.get('X-App-Version')),
+    )
+    return Response(status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def install_source(request):
+    """
+    Google Play's install referrer, sent once by an Android app: {utm_source, utm_medium?, utm_campaign?}.
+    The first answer stays: a reinstall from somewhere else does not rewrite where the account came from.
+    """
+    import re
+    clean = lambda v, n: re.sub(r'[^\w .:/@+-]', '', str(v or '')).strip().lower()[:n]
+    source = clean(request.data.get('utm_source'), 64)
+    if not source:
+        raise ValidationError({'utm_source': 'required'})
+    source = {'google-play': 'google_play', '(direct)': 'direct'}.get(source, source)
+    u = request.user
+    if not u.install_source:
+        u.install_source = source
+        u.install_medium = clean(request.data.get('utm_medium'), 64)
+        u.install_campaign = clean(request.data.get('utm_campaign'), 100)
+        u.save(update_fields=['install_source', 'install_medium', 'install_campaign'])
+    return Response({'install_source': u.install_source})
+
+
 @api_view(['POST'])
 def plan_read(request):
     """{text: "Client meeting downtown, dinner after"} → {occasion: "client_meeting", level: "formal"}."""

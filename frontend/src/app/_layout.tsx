@@ -7,8 +7,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '../components/Overlays';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { installCrashReporter } from '../lib/crash';
+import { reportInstallSource } from '../lib/installReferrer';
 import { I18nProvider, useI18n } from '../lib/i18n';
 import { useTheme } from '../theme';
+
+installCrashReporter();
 
 const PUBLIC = new Set(['welcome', 'auth']);
 
@@ -18,6 +22,11 @@ function AuthGate() {
   const router = useRouter();
   const t = useTheme();
   const { t: s } = useI18n();
+
+  // Once per account: where the Android install came from (Play install referrer).
+  useEffect(() => {
+    if (user?.id) void reportInstallSource(user.id);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!ready) return;

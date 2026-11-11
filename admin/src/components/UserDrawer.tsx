@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react'
 import { Ban, Crown, MapPin, Trash2, X } from 'lucide-react'
 import { api, UserDetail } from '@/lib/api'
-import { useLabel, useLang } from '@/lib/i18n'
-import { Pill } from './ui'
+import { useLabel, useLang, type Key } from '@/lib/i18n'
+import { Pill, countryName, flag, sourceName } from './ui'
 
 export function formatDate(iso: string | null, lang: string, time = false) {
   if (!iso) return '—'
@@ -72,6 +72,7 @@ export function UserDrawer({ id, onClose, onChanged }: {
     [t('countAssistant'), user.counts.assistant],
     [t('countOutfits'), user.counts.outfits],
     [t('countScans'), user.counts.scans],
+    [t('countCrashes'), user.counts.crashes],
   ] as const : []
 
   const button = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50'
@@ -107,6 +108,13 @@ export function UserDrawer({ id, onClose, onChanged }: {
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <Field term={t('joined')} value={formatDate(user.date_joined, lang)} />
                 <Field term={t('lastActive')} value={user.last_active ? formatDate(user.last_active, lang, true) : t('never')} />
+                <Field term={t('colPlatform')} value={`${t(`platform_${user.platform}` as Key)}${user.app_version ? ` · v${user.app_version}` : ''}`} />
+                <Field term={t('colLastSeen')} value={user.last_seen_at ? formatDate(user.last_seen_at, lang, true) : '—'} />
+                <Field term={t('deviceCountry')} value={user.device_country ? `${flag(user.device_country)} ${countryName(user.device_country, lang)}` : '—'} />
+                <Field term={t('ipCountry')} value={user.ip_country ? `${flag(user.ip_country)} ${countryName(user.ip_country, lang)}` : '—'} />
+                <Field term={t('installSource')} value={user.install_source
+                  ? [sourceName(user.install_source), user.install_medium, user.install_campaign].filter(Boolean).join(' · ') : '—'} />
+                {user.shop_country && <Field term={t('shopCountry')} value={user.shop_country} />}
                 <Field term={t('style')} value={user.style_direction.replace(/_/g, ' ')} />
                 <Field term={t('occasion')} value={user.main_occasion.replace(/_/g, ' ')} />
                 {user.location && (

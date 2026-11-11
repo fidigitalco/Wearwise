@@ -62,3 +62,27 @@ export function EmptyIcon({ icon: Icon }: { icon: LucideIcon }) {
     </div>
   )
 }
+
+
+/** "AZ" → 🇦🇿; '' for anything that is not a two-letter code. */
+export function flag(code: string) {
+  return /^[A-Za-z]{2}$/.test(code)
+    ? String.fromCodePoint(...code.toUpperCase().split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))
+    : ''
+}
+
+/** "AZ" → "Azerbaijan" in the panel's language; the code itself where the browser cannot name it. */
+export function countryName(code: string, lang: string) {
+  if (!code) return ''
+  try {
+    return new Intl.DisplayNames([lang === 'az' ? 'az' : 'en'], { type: 'region' }).of(code.toUpperCase()) ?? code
+  } catch {
+    return code
+  }
+}
+
+/** Install source as people say it: google_play → Google Play, instagram → Instagram. */
+export function sourceName(source: string) {
+  const known: Record<string, string> = { google_play: 'Google Play', direct: 'Direct', tiktok: 'TikTok', youtube: 'YouTube' }
+  return known[source] ?? source.replace(/[_-]/g, ' ').replace(/^./, (c) => c.toUpperCase())
+}

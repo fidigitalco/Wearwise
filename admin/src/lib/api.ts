@@ -57,6 +57,8 @@ export interface Stats {
   plans: number
   open_feedback: number
   affiliate_clicks: number
+  open_errors: number
+  seen_today: number
 }
 
 export interface ChartPoint { name: string; value: number }
@@ -79,6 +81,11 @@ export interface Analytics {
   categories: ChartPoint[]
   colors: ChartPoint[]
   feedback: ChartPoint[]
+  platforms: ChartPoint[]
+  versions: ChartPoint[]
+  device_countries: ChartPoint[]
+  ip_countries: ChartPoint[]
+  install_sources: ChartPoint[]
   avg_garments: number
   onboarded: number
   total: number
@@ -99,6 +106,14 @@ export interface UserRow {
   garments: number
   outfits: number
   wears: number
+  /** What the app reports about itself (X-Platform, X-App-Version, X-Country) and where its address is. */
+  platform: 'ios' | 'android' | 'web' | 'unknown'
+  app_version: string
+  device_country: string
+  ip_country: string
+  last_seen_at: string | null
+  /** Google Play install referrer's utm_source (Android), or '' when none came. */
+  install_source: string
 }
 
 export interface Page<T> { results: T[]; count: number; page: number; pages: number }
@@ -111,7 +126,11 @@ export interface UserDetail extends Omit<UserRow, 'garments' | 'outfits' | 'wear
   favorite_colors: string[]
   sizes: Record<string, string>
   location: [number, number] | null
+  install_medium: string
+  install_campaign: string
+  shop_country: string
   counts: {
+    crashes: number
     garments: number; samples: number; outfits: number; saved: number; wears: number
     plans: number; looks_asked: number; assistant: number; scans: number
   }
@@ -167,8 +186,37 @@ export interface UserQuery {
   plan?: string
   kind?: string
   provider?: string
+  platform?: string
+  country?: string
+  source?: string
   sort?: string
   page?: number
+}
+
+export interface ErrorRow {
+  id: number
+  kind: 'crash' | 'server'
+  message: string
+  /** The JS stack of a crash, or the Python traceback of a server error. */
+  detail: string
+  resolved: boolean
+  count: number
+  created_at: string
+  last_seen_at: string
+  user: { id: number; email: string } | null
+  platform?: string
+  app_version?: string
+  device?: string
+  fatal?: boolean
+  endpoint?: string
+  method?: string
+  level?: string
+}
+
+export interface ErrorsPage extends Page<ErrorRow> {
+  open: { crash: number; server: number }
+  crashes_by_version: ChartPoint[]
+  daily: { crash: TrendData; server: TrendData }
 }
 
 const qs = (params: Record<string, string | number | undefined>) => {
@@ -199,6 +247,11 @@ export const api = {
   updateFeedback: (id: number, resolved: boolean) =>
     req<FeedbackRow>(`/api/admin/feedback/${id}/`, { method: 'PATCH', body: JSON.stringify({ resolved }) }),
   deleteFeedback: (id: number) => req<void>(`/api/admin/feedback/${id}/`, { method: 'DELETE' }),
+  errors: (q: { kind: string; status?: string; page?: number }) =>
+    req<ErrorsPage>(`/api/admin/errors/${qs({ ...q })}`),
+  updateError: (kind: string, id: number, resolved: boolean) =>
+    req<ErrorRow>(`/api/admin/errors/${kind}/${id}/`, { method: 'PATCH', body: JSON.stringify({ resolved }) }),
+  deleteError: (kind: string, id: number) => req<void>(`/api/admin/errors/${kind}/${id}/`, { method: 'DELETE' }),
   products: (q: { q?: string; kind?: string; page?: number }) =>
     req<Page<ProductRow> & { real: number; demo: number }>(`/api/admin/products/${qs({ ...q })}`),
   productMeta: () => req<ProductMeta>('/api/admin/products/meta/'),

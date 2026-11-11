@@ -1,13 +1,14 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { api, Analytics } from '@/lib/api'
-import { useLabel, useT } from '@/lib/i18n'
+import { useLabel, useLang, type Key } from '@/lib/i18n'
+import { countryName, flag, sourceName } from '@/components/ui'
 import { BarList, Card, Donut, LoadError, Loading, PageHeader, TrendChart } from '@/components/charts'
 
 const RANGES = [7, 30, 90] as const
 
 export default function AnalyticsPage() {
-  const t = useT()
+  const { t, lang } = useLang()
   const label = useLabel()
   const [days, setDays] = useState<number>(30)
   const [data, setData] = useState<Analytics | null>(null)
@@ -27,6 +28,11 @@ export default function AnalyticsPage() {
   const state = (n: string) => (n === 'active' ? t('active') : n === 'inactive' ? t('inactive') : n)
   const plan = (n: string) => (n === 'premium' ? t('premium') : t('free'))
   const reaction = (n: string) => (n === 'liked' ? t('liked') : t('disliked'))
+  const special = (n: string) => (n === 'unknown' ? t('unknown') : n === 'other' ? t('other') : null)
+  const platform = (n: string) => special(n) ?? t(`platform_${n}` as Key)
+  const version = (n: string) => special(n) ?? `v${n}`
+  const country = (n: string) => special(n) ?? `${flag(n)} ${countryName(n, lang)}`
+  const source = (n: string) => special(n) ?? sourceName(n)
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -84,6 +90,23 @@ export default function AnalyticsPage() {
         <Card title={t('styles')}><Donut data={data.styles} label={words} /></Card>
         <Card title={t('occasions')}><Donut data={data.occasions} label={words} /></Card>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6 mb-6">
+        <Card title={t('platforms')}><Donut data={data.platforms} label={platform} /></Card>
+        <Card title={t('versions')}><BarList data={data.versions} label={version} /></Card>
+        <Card title={t('installSources')}>
+          {data.install_sources.length
+            ? <Donut data={data.install_sources} label={source} />
+            : <div className="py-10 text-center text-sm text-slate-400">{t('noData')}</div>}
+        </Card>
+        <Card title={t('deviceCountries')}>
+          <BarList data={data.device_countries} label={country} horizontal height={Math.max(160, data.device_countries.length * 30)} />
+        </Card>
+        <Card title={t('ipCountries')}>
+          <BarList data={data.ip_countries} label={country} horizontal height={Math.max(160, data.ip_countries.length * 30)} />
+        </Card>
+      </div>
+      <p className="text-xs text-slate-400 -mt-3 mb-6">{t('clientInfoNote')}</p>
 
       <Card title={t('colors')}>
         <BarList data={data.colors} label={words} horizontal height={Math.max(160, data.colors.length * 30)} />

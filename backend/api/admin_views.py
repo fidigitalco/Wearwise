@@ -18,8 +18,8 @@ from rest_framework.decorators import api_view, permission_classes, throttle_cla
 from rest_framework.response import Response
 
 from .models import (
-    AffiliateClick, AppFeedback, Feedback, Garment, Outfit, OutfitPlan, OutfitSet, Product, SocialAccount, User, VideoScan,
-    WearLog,
+    AffiliateClick, AppFeedback, CrashReport, Feedback, Garment, Outfit, OutfitPlan, OutfitSet, Product, ServerError,
+    SocialAccount, User, VideoScan, WearLog,
 )
 from .views import AuthThrottle
 
@@ -102,6 +102,8 @@ def admin_stats(request):
         'plans': OutfitPlan.objects.filter(date__gte=today).count(),
         'open_feedback': AppFeedback.objects.filter(resolved=False).count(),
         'affiliate_clicks': AffiliateClick.objects.count(),
+        'open_errors': CrashReport.objects.filter(resolved=False).count() + ServerError.objects.filter(resolved=False).count(),
+        'seen_today': real.filter(last_seen_at__date=today).count(),
     })
 
 
@@ -148,10 +150,37 @@ def admin_analytics(request):
         'stores': [{'name': r['store'], 'value': r['n']} for r in
                    AffiliateClick.objects.filter(created_at__gte=timezone.now() - timedelta(days=days))
                    .values('store').annotate(n=Count('id')).order_by('-n')],
+        'platforms': breakdown(members, 'platform'),
+        'versions': breakdown(members, 'app_version', top=8),
+        'device_countries': breakdown(members, 'device_country', top=10),
+        'ip_countries': breakdown(members, 'ip_country', top=10),
+        'install_sources': breakdown(members.filter(platform='android'), 'install_source', top=10),
         'avg_garments': round(real_garments.count() / len(ids), 1) if ids else 0,
         'onboarded': members.filter(onboarded=True).count(),
         'total': len(ids),
     })
+
+
+def breakdown(qs, field, top=None):
+    """[{name, value}] per value of `field`, most first; '' (never reported) is named 'unknown' and comes last."""
+    rows = list(qs.values(field).annotate(n=Count('pk')).order_by('-n').values_list(field, 'n'))
+    known = [(k, n) for k, n in rows if k]
+    unknown = sum(n for k, n in rows if not k)
+    if top and len(known) > top:
+        known = known[:top] + [('other', sum(n for _, n in known[top:]))]
+    return points(known + ([('unknown', unknown)] if unknown else []))
+
+
+def client_info(u):
+    """What the app reported about itself: platform, version, the phone's region, the network's country, last seen."""
+    return {
+        'platform': u.platform or 'unknown',
+        'app_version': u.app_version,
+        'device_country': u.device_country,
+        'ip_country': u.ip_country,
+        'last_seen_at': u.last_seen_at.isoformat() if u.last_seen_at else None,
+        'install_source': u.install_source,
+    }
 
 
 def user_row(u, providers):
@@ -168,6 +197,7 @@ def user_row(u, providers):
         'garments': u.n_garments,
         'outfits': u.n_outfits,
         'wears': u.n_wears,
+        **client_info(u),
     }
 
 
@@ -197,8 +227,23 @@ def admin_users(request):
             qs = qs.filter(Exists(SocialAccount.objects.filter(user=OuterRef('pk'), provider=provider)))
         elif provider == 'email':
             qs = qs.filter(is_guest=False).exclude(Exists(SocialAccount.objects.filter(user=OuterRef('pk'))))
-    sorts = {'-date_joined', 'date_joined', '-n_garments', '-n_wears', 'email'}
-    qs = qs.order_by(p.get('sort') if p.get('sort') in sorts else '-date_joined', '-pk')
+    if platform := p.get('platform'):
+        qs = qs.filter(platform='' if platform == 'unknown' else platform)
+    if country := p.get('country'):
+        qs = qs.filter(device_country='' if country == 'unknown' else country.upper()[:2])
+    if ip_country := p.get('ip_country'):
+        qs = qs.filter(ip_country='' if ip_country == 'unknown' else ip_country.upper()[:2])
+    if source := p.get('source'):
+        qs = qs.filter(install_source='' if source == 'unknown' else source)
+    if version := p.get('version'):
+        qs = qs.filter(app_version=version)
+    sorts = {'-date_joined', 'date_joined', '-n_garments', '-n_wears', 'email', '-last_seen_at'}
+    sort = p.get('sort') if p.get('sort') in sorts else '-date_joined'
+    if sort == '-last_seen_at':
+        from django.db.models import F
+        qs = qs.order_by(F('last_seen_at').desc(nulls_last=True), '-pk')
+    else:
+        qs = qs.order_by(sort, '-pk')
     count = qs.count()
     pages = max(1, -(-count // PAGE_SIZE))
     page = min(max(int(p.get('page', 1) or 1), 1), pages)
@@ -259,7 +304,12 @@ def admin_user(request, pk):
         'main_occasion': user.main_occasion,
         'favorite_colors': user.favorite_colors,
         'location': [user.latitude, user.longitude] if user.latitude is not None else None,
+        **client_info(user),
+        'install_medium': user.install_medium,
+        'install_campaign': user.install_campaign,
+        'shop_country': user.country,
         'counts': {
+            'crashes': CrashReport.objects.filter(user=user).count(),
             'garments': garments.filter(is_sample=False).count(),
             'samples': garments.filter(is_sample=True).count(),
             'outfits': outfits.count(),
@@ -558,3 +608,74 @@ def admin_product(request, pk):
     if fields:
         p.save()
     return Response(product_row(p))
+
+
+# ── Errors: app crashes and server errors ─────────────────────────────────
+
+def crash_row(c):
+    return {
+        'id': c.id, 'kind': 'crash', 'message': c.message, 'detail': c.stack, 'platform': c.platform,
+        'app_version': c.app_version, 'device': c.device, 'fatal': c.fatal, 'resolved': c.resolved,
+        'count': 1, 'created_at': c.created_at.isoformat(), 'last_seen_at': c.created_at.isoformat(),
+        'user': {'id': c.user_id, 'email': '' if c.user.is_guest else c.user.email} if c.user_id else None,
+    }
+
+
+def server_row(e):
+    return {
+        'id': e.id, 'kind': 'server', 'message': e.message, 'detail': e.traceback, 'endpoint': e.endpoint,
+        'method': e.method, 'level': e.level, 'resolved': e.resolved, 'count': e.count,
+        'created_at': e.created_at.isoformat(), 'last_seen_at': e.last_seen_at.isoformat(),
+        'user': {'id': e.user_id, 'email': '' if e.user.is_guest else e.user.email} if e.user_id else None,
+    }
+
+
+ERROR_KINDS = {'crash': (CrashReport, crash_row, '-created_at'), 'server': (ServerError, server_row, '-last_seen_at')}
+
+
+@api_view(['GET'])
+@staff
+def admin_errors(request):
+    """?kind=crash|server, ?status=open|resolved|'', ?page → {results, count, page, pages, open: {crash, server}, by_version}."""
+    p = request.query_params
+    model, row, order = ERROR_KINDS.get(p.get('kind'), ERROR_KINDS['crash'])
+    qs = model.objects.select_related('user')
+    if p.get('status', 'open') == 'open':
+        qs = qs.filter(resolved=False)
+    elif p.get('status') == 'resolved':
+        qs = qs.filter(resolved=True)
+    qs = qs.order_by(order, '-pk')
+    count = qs.count()
+    pages = max(1, -(-count // PAGE_SIZE))
+    try:
+        page = min(max(1, int(p.get('page', 1))), pages)
+    except ValueError:
+        page = 1
+    week = timezone.now() - timedelta(days=7)
+    return Response({
+        'results': [row(x) for x in qs[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]],
+        'count': count, 'page': page, 'pages': pages,
+        'open': {'crash': CrashReport.objects.filter(resolved=False).count(),
+                 'server': ServerError.objects.filter(resolved=False).count()},
+        'crashes_by_version': points(CrashReport.objects.filter(created_at__gte=week).values('app_version')
+                                     .annotate(n=Count('pk')).order_by('-n').values_list('app_version', 'n')[:8]),
+        'daily': {'crash': daily(CrashReport.objects.all(), 'created_at', 14),
+                  'server': daily(ServerError.objects.all(), 'last_seen_at', 14)},
+    })
+
+
+@api_view(['PATCH', 'DELETE'])
+@staff
+def admin_error(request, kind, pk):
+    """PATCH {resolved}; DELETE removes the row."""
+    if kind not in ERROR_KINDS:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    model, row, _ = ERROR_KINDS[kind]
+    obj = get_object_or_404(model, pk=pk)
+    if request.method == 'DELETE':
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    if isinstance(request.data.get('resolved'), bool):
+        obj.resolved = request.data['resolved']
+        obj.save(update_fields=['resolved'])
+    return Response(row(obj))

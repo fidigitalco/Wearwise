@@ -35,7 +35,23 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Platform, app version, countries and last-seen from the app's headers (admin panel only).
+    'api.middleware.ClientContextMiddleware',
 ]
+
+# 500s and logged errors go to the admin panel's Errors page too (api/logging.py).
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+        'database': {'class': 'api.logging.DatabaseErrorHandler', 'level': 'ERROR'},
+    },
+    'loggers': {
+        'django.request': {'handlers': ['console', 'database'], 'level': 'ERROR', 'propagate': False},
+        'api': {'handlers': ['console', 'database'], 'level': 'WARNING', 'propagate': False},
+    },
+}
 
 ROOT_URLCONF = 'wearwise.urls'
 
@@ -107,6 +123,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 100,
     'DEFAULT_THROTTLE_RATES': {
         'auth': '20/min',
+        'crash': '30/hour',
     },
 }
 

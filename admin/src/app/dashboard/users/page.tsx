@@ -11,7 +11,7 @@ import { UserTable } from '@/components/UserTable'
 const PER_PAGE = 25
 const KINDS: [string, Key][] = [['', 'all'], ['member', 'kindMember'], ['guest', 'kindGuest'], ['blocked', 'kindBlocked']]
 const SORTS: [string, Key][] = [
-  ['-date_joined', 'sortNewest'], ['date_joined', 'sortOldest'], ['-n_garments', 'sortCloset'], ['-n_wears', 'sortWears'], ['email', 'sortEmail'],
+  ['-date_joined', 'sortNewest'], ['-last_seen_at', 'sortLastSeen'], ['date_joined', 'sortOldest'], ['-n_garments', 'sortCloset'], ['-n_wears', 'sortWears'], ['email', 'sortEmail'],
 ]
 
 export default function UsersPage() {
@@ -64,6 +64,8 @@ export default function UsersPage() {
           options={[['', `${t('colPlan')}: ${t('all')}`], ['free', t('free')], ['premium', t('premium')]]} />
         <Select value={query.provider ?? ''} onChange={(v) => set({ provider: v })} className={select}
           options={[['', `${t('colMethod')}: ${t('all')}`], ...(['email', 'apple', 'google'] as const).map((p) => [p, label('method', p)] as [string, string])]} />
+        <Select value={query.platform ?? ''} onChange={(v) => set({ platform: v })} className={select}
+          options={[['', `${t('colPlatform')}: ${t('all')}`], ...(['android', 'ios', 'unknown'] as const).map((p) => [p, t(`platform_${p}`)] as [string, string])]} />
         <Select value={query.sort ?? '-date_joined'} onChange={(v) => set({ sort: v })} className={select}
           options={SORTS.map(([v, k]) => [v, t(k)] as [string, string])} />
       </div>
