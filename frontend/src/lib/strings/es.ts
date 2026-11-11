@@ -574,10 +574,12 @@ export const es: Strings = {
   },
   tour: {
     slides: [
-      { title: 'Tu armario, en tu teléfono', body: 'Haz una foto, graba un vídeo o elige de tu galería. La IA reconoce el tipo, el color y la temporada por ti.' },
-      { title: 'Un look listo cada día', body: 'Tres looks con tu propia ropa según el clima, la ocasión y tu gusto. Cambia cualquier prenda con un toque.' },
-      { title: 'Habla con tu estilista IA', body: 'Escribe, comparte una foto o pregunta en voz alta: “¿Qué me pongo con esta chaqueta?”' },
-      { title: 'Completa tu armario', body: 'Descubre qué te falta, con enlaces para encontrarlo en tiendas.' },
+      { title: "Conocemos tu gusto", body: "Unas preguntas: género, edad, tallas. Luego di sí o no a prendas y elige con fotos los estilos que te encantan." },
+      { title: "El look de hoy", body: "Cada día un look listo según el tiempo y tu gusto. Tócalo para verlo en grande y abre cualquier prenda en su tienda." },
+      { title: "Tu armario en el móvil", body: "Fotografía tu ropa o elígela de la galería. La IA reconoce el tipo y el color y crea conjuntos con lo que tienes." },
+      { title: "Guarda y comparte", body: "Guarda con el corazón y entérate cuando baje el precio. Comparte la foto o el enlace de un look que te guste para que aprendamos tu gusto." },
+      { title: "Planifica tus fechas", body: "Elige un día en el calendario: prepara un look de tu armario, tus conjuntos guardados o la tienda." },
+      { title: "Habla con el estilista IA", body: "Escribe, envía una foto o pregunta por voz: «¿Qué combina con esta americana?»" },
     ],
     next: 'Siguiente',
     done: 'Entendido',

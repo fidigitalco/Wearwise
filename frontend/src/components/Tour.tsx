@@ -5,10 +5,12 @@ import { useI18n } from '../lib/i18n';
 import { gutter, radius, space, type, useTheme } from '../theme';
 
 const IMAGES = [
+  require('../../assets/images/style-old_money.jpg'),
   require('../../assets/images/welcome.jpg'),
-  require('../../assets/images/style-smart_casual.jpg'),
   require('../../assets/images/style-minimal.jpg'),
-  require('../../assets/images/style-classic.jpg'),
+  require('../../assets/images/style-parisian_chic.jpg'),
+  require('../../assets/images/style-smart_casual.jpg'),
+  require('../../assets/images/style-quiet_luxury.jpg'),
 ];
 
 /**

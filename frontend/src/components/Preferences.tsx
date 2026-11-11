@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { Check } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
 import { STYLE_COLOR, STYLE_PHOTOS } from '../lib/styles';
@@ -24,8 +24,6 @@ export function PreferenceSelector({ value, onChange }: { value: string[]; onCha
   const { t: s } = useI18n();
   const label = useLabel();
   const meta = useMeta();
-  const { width } = useWindowDimensions();
-  const w = (width - space.lg * 2 - space.sm) / 2;
   return (
     <View style={styles.grid}>
       {meta.style_directions.map((st) => {
@@ -37,7 +35,7 @@ export function PreferenceSelector({ value, onChange }: { value: string[]; onCha
             accessibilityRole="checkbox"
             accessibilityState={{ checked: on }}
             accessibilityLabel={label('styles', st)}
-            style={[styles.card, { width: w, borderColor: on ? t.primary : t.border, backgroundColor: t.card }]}
+            style={[styles.card, { borderColor: on ? t.primary : t.border, backgroundColor: t.card }]}
           >
             <View>
               {STYLE_PHOTOS[st] ? (
@@ -68,8 +66,9 @@ export function PreferenceSelector({ value, onChange }: { value: string[]; onCha
 
 const styles = StyleSheet.create({
   palette: { flexDirection: 'row', overflow: 'hidden' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  card: { borderRadius: 16, borderWidth: 2, overflow: 'hidden' },
+  // Always two per row, whatever padding the screen around it uses.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: space.sm },
+  card: { width: '48.5%', borderRadius: 16, borderWidth: 2, overflow: 'hidden' },
   // A short strip, not a tall photo: 28 styles in two columns must not make the page endless.
   photo: { width: '100%', aspectRatio: 2.6 },
   name: { paddingHorizontal: space.sm, paddingVertical: 8 },

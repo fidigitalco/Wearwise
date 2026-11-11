@@ -573,10 +573,12 @@ export const tr: Strings = {
   },
   tour: {
     slides: [
-      { title: 'Gardırobun telefonunda', body: 'Fotoğraf çek, video çek ya da galeriden seç. AI türü, rengi ve mevsimi senin için tanır.' },
-      { title: 'Her gün hazır bir kombin', body: 'Havaya, ortama ve zevkine göre kendi kıyafetlerinden üç kombin. Herhangi bir parçayı tek dokunuşla değiştir.' },
-      { title: 'AI stilistinle konuş', body: 'Yaz, fotoğraf paylaş ya da sesli sor: “Bu montla ne giyilir?”' },
-      { title: 'Gardırobunu tamamla', body: 'Neyin eksik olduğunu gör, mağazalarda bulmak için bağlantıları kullan.' },
+      { title: "Zevkini tanıyalım", body: "Birkaç soru: cinsiyet, yaş, bedenler. Sonra kıyafetlere evet ya da hayır de, sevdiğin stilleri fotoğraflardan seç." },
+      { title: "Günün kombini", body: "Her gün havaya ve zevkine göre hazır bir kombin. Dokun, büyüterek bak, beğendiğin parçayı mağazada aç." },
+      { title: "Gardırobun telefonunda", body: "Kıyafetinin fotoğrafını çek ya da galeriden seç. AI türünü ve rengini tanır, kendi kıyafetlerinden kombin kurar." },
+      { title: "Kaydet ve paylaş", body: "Kalple kaydet, indirim olunca bildirim al. Beğendiğin kombinin fotoğrafını ya da linkini paylaş ki zevkini daha iyi öğrenelim." },
+      { title: "Tarihlerini planla", body: "Takvimden günü seç: gardırobundan, kayıtlı kombinlerinden ya da mağazadan kombin hazırla." },
+      { title: "AI stilistle konuş", body: "Yaz, fotoğraf gönder ya da sesle sor: “Bu ceketle ne giyeyim?”" },
     ],
     next: 'İleri',
     done: 'Anladım',

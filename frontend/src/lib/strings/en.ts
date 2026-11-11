@@ -572,10 +572,12 @@ export const en = {
   },
   tour: {
     slides: [
-      { title: 'Your wardrobe, on your phone', body: 'Snap a photo, film a video or pick from your gallery. AI recognises the type, colour and season for you.' },
-      { title: 'An outfit ready every day', body: 'Three looks from your own clothes for the weather, the occasion and your taste. Swap any piece with one tap.' },
-      { title: 'Talk to your AI stylist', body: 'Type, share a photo or ask out loud: “What goes with this jacket?”' },
-      { title: 'Complete your wardrobe', body: 'See what is missing, with links to find it in stores.' },
+      { title: "Getting to know your taste", body: "A few questions: gender, age, sizes. Then say yes or no to clothes and pick the styles you love from photos." },
+      { title: "Today's look", body: "A ready look every day for the weather and your taste. Tap to see it large and open any piece in its store." },
+      { title: "Your closet on your phone", body: "Snap your clothes or pick from your gallery. AI reads the type and colour and builds outfits from what you own." },
+      { title: "Save and share", body: "Save with the heart and hear when prices drop. Share a photo or link of a look you love so we learn your taste." },
+      { title: "Plan your dates", body: "Pick a day on the calendar: put together a look from your closet, your saved outfits or the store." },
+      { title: "Talk to the AI stylist", body: "Type, send a photo or ask by voice: “What goes with this blazer?”" },
     ],
     next: 'Next',
     done: 'Got it',

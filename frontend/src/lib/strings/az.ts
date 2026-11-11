@@ -573,10 +573,12 @@ export const az: Strings = {
   },
   tour: {
     slides: [
-      { title: 'Qarderobun telefonunda', body: 'Paltarlarının şəklini çək, video çək və ya qalereyadan seç. AI növünü, rəngini və mövsümünü özü tanıyacaq.' },
-      { title: 'Hər gün hazır kombin', body: 'Havaya, gedəcəyin yerə və zövqünə görə öz paltarlarından 3 kombin. İstənilən paltarı bir toxunuşla dəyiş.' },
-      { title: 'AI stilistlə danış', body: 'Yaz, şəkil paylaş və ya səslə soruş: “Bu gödəkçə ilə nə geyinim?”' },
-      { title: 'Qarderobunu tamamla', body: 'Nəyin çatışmadığını gör və mağazalarda tapmaq üçün linklər al.' },
+      { title: "Zövqünü tanıyaq", body: "Bir neçə sual: cins, yaş, ölçülər. Sonra geyimlərə bəli və ya xeyr de, sevdiyin üslubları şəkillərdən seç." },
+      { title: "Bu günün obrazı", body: "Hər gün hava və zövqünə görə hazır obraz. Toxun, böyüdüb bax, bəyəndiyin parçanı mağazada aç." },
+      { title: "Qarderobun telefonunda", body: "Paltarının şəklini çək və ya qalereyadan seç. AI növünü və rəngini tanıyır, öz paltarlarından kombin qurur." },
+      { title: "Saxla və paylaş", body: "Ürəklə saxla, endirim olanda bildiriş al. Bəyəndiyin obrazın şəklini və ya linkini paylaş ki, zövqünü daha yaxşı öyrənək." },
+      { title: "Tarixləri planla", body: "Təqvimdən günü seç: qarderobundan, saxladığın kombinlərdən və ya mağazadan obraz hazırla." },
+      { title: "AI stilistlə danış", body: "Yaz, şəkil göndər və ya səslə soruş: “Bu pencəklə nə geyinim?”" },
     ],
     next: 'Növbəti',
     done: 'Aydındır',

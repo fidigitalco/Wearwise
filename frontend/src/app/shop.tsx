@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useToast } from '../components/Overlays';
 import { ColorPicker } from '../components/ColorPicker';
-import { GarmentSketch } from '../components/GarmentSketch';
-import { AffiliateSheet, ShoppingCard, type ShopTarget } from '../components/Shopping';
+import { AffiliateSheet, GarmentPhoto, ShoppingCard, type ShopTarget } from '../components/Shopping';
 import { Button, Card, Chip, ChipRow, LoadingSkeleton, SectionHeader } from '../components/ui';
 import { useI18n, useLabel } from '../lib/i18n';
 import { useMeta } from '../lib/meta';
@@ -88,7 +87,7 @@ export default function ShopScreen() {
           <Card style={{ gap: space.sm }}>
             <View style={styles.verdictHead}>
               <View style={[styles.sketch, { backgroundColor: t.sand }]}>
-                <GarmentSketch subcategory={sub} category={category} rgb={meta.colors[color]} size={48} />
+                <GarmentPhoto subcategory={sub} category={category} color={color} rgb={meta.colors[color]} size={48} />
               </View>
               <Text style={[type.caption, { color: t.textMuted, flex: 1 }]}>{result.title}</Text>
             </View>
@@ -111,5 +110,5 @@ export default function ShopScreen() {
 const styles = StyleSheet.create({
   wrap: { padding: gutter, gap: space.xxl, paddingBottom: space.xxl * 2 },
   verdictHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  sketch: { width: 60, height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  sketch: { width: 72, height: 72, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
 });
