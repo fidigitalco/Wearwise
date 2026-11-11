@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useI18n } from '../lib/i18n';
 import { subPhoto } from '../lib/subPhotos';
-import { shopping } from '../services/api';
+import { catalog, shopping } from '../services/api';
 import { radius, space, type, useTheme } from '../theme';
-import type { ShoppingSuggestion } from '../types';
+import type { ShoppingSuggestion, SuggestedProduct } from '../types';
 import { GarmentSketch } from './GarmentSketch';
 import { BottomSheet } from './Overlays';
+import { money } from './Products';
 import { Button } from './ui';
 
 type Links = ShoppingSuggestion['links'];
@@ -22,12 +23,17 @@ export function GarmentPhoto({ subcategory, category, color, rgb, size }: {
     ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
     : <GarmentSketch subcategory={subcategory} category={category} rgb={rgb} size={size} />;
 }
-export type ShopTarget = { title: string; subcategory: string; color: string; links: Links; source: 'gap' | 'check' | 'assistant' };
+export type ShopTarget = {
+  title: string; subcategory: string; color: string; links: Links; products?: SuggestedProduct[];
+  source: 'gap' | 'check' | 'assistant';
+};
 
 /**
- * The step between "Find it" and the store (prototype spec §2.4): the stores to
- * search, under an "Affiliate link" label as App Store and FTC rules ask. The
- * tap is logged before the link opens; a failed log never blocks it.
+ * The step between "Find it" and the store (prototype spec §2.4), under an
+ * "Affiliate link" label as App Store and FTC rules ask. When the catalogue has
+ * real pieces of this type and colour, those one or two open their own product
+ * page; only without them does it offer a search in each store. The tap is
+ * logged before the link opens; a failed log never blocks it.
  */
 export function AffiliateSheet({ target, onClose }: { target: ShopTarget | null; onClose: () => void }) {
   const t = useTheme();
@@ -37,6 +43,12 @@ export function AffiliateSheet({ target, onClose }: { target: ShopTarget | null;
     Linking.openURL(url).catch(() => {});
     onClose();
   };
+  // The product's own page; the server logs the click and adds the affiliate sub-id.
+  const openProduct = (p: SuggestedProduct) => {
+    onClose();
+    catalog.act(p.id, 'shop').then((r) => r.url && Linking.openURL(r.url)).catch(() => {});
+  };
+  const products = target?.products ?? [];
   return (
     <BottomSheet visible={!!target} onClose={onClose} title={target?.title ?? s.shop.sheetTitle} closeLabel={s.common.close}>
       <View style={{ gap: space.md }}>
@@ -44,7 +56,23 @@ export function AffiliateSheet({ target, onClose }: { target: ShopTarget | null;
           <Text style={[type.caption, { color: t.textSub, fontWeight: '600' }]}>{s.shop.affiliate}</Text>
         </View>
         <Text style={[type.caption, { color: t.textMuted }]}>{s.shop.affiliateBody}</Text>
-        {target?.links.map((l) => (
+        {products.map((p) => (
+          <Pressable key={p.id} onPress={() => openProduct(p)} accessibilityRole="link"
+            accessibilityLabel={`${p.name}, ${money(p.price, p.currency)}, ${s.shop.openAt(p.store)}`}
+            style={({ pressed }) => [styles.productRow, { borderColor: t.border, backgroundColor: pressed ? t.cardAlt : t.card }]}>
+            <View style={[styles.productThumb, { backgroundColor: t.sand }]}>
+              {p.image_url ? <Image source={{ uri: p.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[type.bodyStrong, { color: t.text }]} numberOfLines={2}>{p.name}</Text>
+              <Text style={[type.caption, { color: t.textMuted }]} numberOfLines={1}>
+                {[p.brand, p.store].filter(Boolean).join(' · ')} · {money(p.price, p.currency)}
+              </Text>
+            </View>
+            <ExternalLink size={16} color={t.textSecondary} />
+          </Pressable>
+        ))}
+        {products.length ? null : target?.links.map((l) => (
           <Pressable key={l.store} onPress={() => open(l.store, l.url)} accessibilityRole="link" accessibilityLabel={s.shop.searchIn(l.store)}
             style={({ pressed }) => [styles.storeRow, { borderColor: t.border, backgroundColor: pressed ? t.cardAlt : t.card }]}>
             <Text style={[type.bodyStrong, { color: t.text, flex: 1 }]}>{s.shop.searchIn(l.store)}</Text>
@@ -102,5 +130,7 @@ const styles = StyleSheet.create({
   well: { width: 88, height: 88, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   unlocks: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  productRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.sm, paddingRight: space.lg, borderRadius: radius.md, borderWidth: 1 },
+  productThumb: { width: 64, height: 64, borderRadius: radius.sm, overflow: 'hidden' },
   storeRow: { flexDirection: 'row', alignItems: 'center', minHeight: 50, paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1 },
 });

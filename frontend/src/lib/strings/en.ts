@@ -66,6 +66,7 @@ export const en = {
     title: 'Complete your wardrobe',
     hint: 'Picked from what your closet is missing. Links open a search in the store.',
     searchIn: (store: string) => `Search for it at ${store}`,
+    openAt: (store: string) => `Open at ${store}`,
     screen: 'Shop',
     open: 'Shop for your closet',
     openHint: 'What is missing, and whether a piece will work',

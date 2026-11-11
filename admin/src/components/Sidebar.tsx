@@ -5,13 +5,14 @@ import { useState, useEffect } from 'react'
 import { useLang } from '@/lib/i18n'
 import { useTheme } from '@/lib/theme'
 import {
-  LayoutGrid, BarChart3, Users, Shirt, Crown, MessageSquare, Menu, X, Sun, Moon, ChevronDown, LogOut,
+  LayoutGrid, BarChart3, Users, Shirt, Crown, MessageSquare, Menu, X, Sun, Moon, ChevronDown, LogOut, ShoppingBag,
 } from 'lucide-react'
 
 const TOP_NAV = [
   { href: '/dashboard',           key: 'navDashboard', icon: LayoutGrid, exact: true },
   { href: '/dashboard/analytics', key: 'navAnalytics', icon: BarChart3,  exact: false },
   { href: '/dashboard/users',     key: 'navUsers',     icon: Users,      exact: false },
+  { href: '/dashboard/products',  key: 'navProducts',  icon: ShoppingBag, exact: false },
 ] as const
 
 const BOTTOM_NAV = [

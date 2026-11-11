@@ -8,6 +8,8 @@ function token() {
 export interface ApiError extends Error {
   code?: string
   status?: number
+  /** Per-field problems from a form the server refused: {url: 'search' | 'invalid', name: 'required', …}. */
+  fields?: Record<string, string>
 }
 
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
@@ -21,9 +23,10 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
     },
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string; detail?: string; code?: string }
+    const body = await res.json().catch(() => ({})) as { error?: string; detail?: string; code?: string; fields?: Record<string, string> }
     const err = new Error(body.error ?? body.detail ?? `HTTP ${res.status}`) as ApiError
     if (body.code) err.code = body.code
+    if (body.fields) err.fields = body.fields
     err.status = res.status
     // A token that stopped working (signed out elsewhere, staff taken away): back to sign-in.
     if ((res.status === 401 || res.status === 403) && t && typeof window !== 'undefined' && !path.endsWith('/login/')) {
@@ -132,6 +135,33 @@ export interface PremiumData {
   users: UserRow[]
 }
 
+export interface ProductRow {
+  id: string
+  name: string
+  store: string
+  brand: string
+  price: number
+  currency: string
+  category: string
+  subcategory: string
+  color: string
+  gender: 'women' | 'men' | 'unisex'
+  image_url: string
+  url: string
+  active: boolean
+  is_demo: boolean
+  created_at: string
+}
+
+export interface ProductMeta {
+  categories: { id: string; subs: { id: string; az: string; en: string }[] }[]
+  colors: { id: string; az: string; en: string; rgb: [number, number, number] }[]
+  genders: string[]
+  currencies: string[]
+}
+
+export type ProductForm = Pick<ProductRow, 'url' | 'name' | 'brand' | 'store' | 'currency' | 'subcategory' | 'color' | 'gender' | 'image_url'> & { price: string }
+
 export interface UserQuery {
   q?: string
   plan?: string
@@ -169,4 +199,16 @@ export const api = {
   updateFeedback: (id: number, resolved: boolean) =>
     req<FeedbackRow>(`/api/admin/feedback/${id}/`, { method: 'PATCH', body: JSON.stringify({ resolved }) }),
   deleteFeedback: (id: number) => req<void>(`/api/admin/feedback/${id}/`, { method: 'DELETE' }),
+  products: (q: { q?: string; kind?: string; page?: number }) =>
+    req<Page<ProductRow> & { real: number; demo: number }>(`/api/admin/products/${qs({ ...q })}`),
+  productMeta: () => req<ProductMeta>('/api/admin/products/meta/'),
+  guessProduct: (url: string) =>
+    req<{ store: string; subcategory: string | null; color: string | null; search: boolean }>('/api/admin/products/guess/', {
+      method: 'POST', body: JSON.stringify({ url }),
+    }),
+  addProduct: (form: ProductForm) =>
+    req<ProductRow>('/api/admin/products/', { method: 'POST', body: JSON.stringify(form) }),
+  updateProduct: (id: string, patch: Partial<ProductForm> & { active?: boolean }) =>
+    req<ProductRow>(`/api/admin/products/${id}/`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  deleteProduct: (id: string) => req<void>(`/api/admin/products/${id}/`, { method: 'DELETE' }),
 }

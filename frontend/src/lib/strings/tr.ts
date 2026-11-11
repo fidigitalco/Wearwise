@@ -68,6 +68,7 @@ export const tr: Strings = {
     title: 'Gardırobunu tamamla',
     hint: 'Gardırobunda eksik olanlara göre seçildi. Bağlantılar mağazada arama açar.',
     searchIn: (store: string) => `${store} mağazasında ara`,
+    openAt: (store: string) => `${store} mağazasında aç`,
     screen: 'Alışveriş',
     open: 'Gardırobun için alışveriş',
     openHint: 'Neyin eksik olduğu ve bir parçanın uyup uymayacağı',

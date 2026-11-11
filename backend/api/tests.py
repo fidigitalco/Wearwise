@@ -1181,6 +1181,49 @@ class AdminPanelTests(APITestCase):
         self.assertFalse(User.objects.filter(pk=self.member_id).exists())
 
 
+    def test_real_products_with_their_own_link(self):
+        from django.core.management import call_command
+        from .models import Product
+        call_command('load_catalog', stdout=open('/dev/null', 'w'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.member_token}')
+        self.assertEqual(self.client.get('/api/admin/products/').status_code, 403)
+        self.login()
+        url = 'https://www.trendyol.com/nike/court-vision-beyaz-sneaker-p-123456'
+        guess = self.client.post('/api/admin/products/guess/', {'url': url}, format='json').data
+        self.assertEqual((guess['store'], guess['color'], guess['search']), ('Trendyol', 'white', False))
+        form = {'url': 'https://www.trendyol.com/sr?q=beyaz+sneaker', 'name': 'Court Vision', 'price': '2499.90',
+                'currency': 'TRY', 'subcategory': 'sneakers', 'color': 'white', 'gender': 'unisex'}
+        r = self.client.post('/api/admin/products/', form, format='json')
+        self.assertEqual((r.status_code, r.data['fields']), (400, {'url': 'search'}))  # a search page lists many pieces
+        r = self.client.post('/api/admin/products/', {**form, 'url': url}, format='json')
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual((r.data['store'], r.data['category'], r.data['is_demo']), ('Trendyol', 'shoes', False))
+        pid = r.data['id']
+        self.assertEqual(self.client.get('/api/admin/products/', {'kind': 'real'}).data['count'], 1)
+
+        # The member's "complete your wardrobe" pick for white sneakers now names that one piece.
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.member_token}')
+        pick = next(i for i in self.client.get('/api/shopping/').data['suggestions'] if i['subcategory'] == 'sneakers')
+        self.assertEqual([p['id'] for p in pick['products']], [pid])
+        shop = self.client.post(f'/api/products/{pid}/action/', {'action': 'shop'}, format='json').data
+        self.assertTrue(shop['url'].startswith(url + '?utm_source=wearwise'))
+        boots = self.client.post('/api/shopping/check/', {'subcategory': 'boots', 'color': 'black'}, format='json').data
+        self.assertEqual(boots['products'], [])  # none added: the app falls back to the store searches
+        self.assertTrue(boots['links'])
+
+        # A deploy reloads the demo rows and leaves the real piece alone; demo rows are switched off, not deleted.
+        call_command('load_catalog', stdout=open('/dev/null', 'w'))
+        self.assertEqual(Product.objects.get(pk=pid).url, url)
+        self.login()
+        demo = Product.objects.filter(is_demo=True).first()
+        self.assertEqual(self.client.delete(f'/api/admin/products/{demo.pk}/').status_code, 400)
+        r = self.client.patch(f'/api/admin/products/{demo.pk}/', {'active': False, 'url': url}, format='json')
+        self.assertEqual((r.data['active'], r.data['url'] == url), (False, False))
+        r = self.client.patch(f'/api/admin/products/{pid}/', {'price': '1999'}, format='json')
+        self.assertEqual(r.data['price'], 1999.0)
+        self.assertEqual(self.client.delete(f'/api/admin/products/{pid}/').status_code, 204)
+
+
 class LocaleTests(APITestCase):
     def test_every_language_has_every_sentence_with_its_placeholders(self):
         import json

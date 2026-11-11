@@ -18,7 +18,8 @@ from rest_framework.decorators import api_view, permission_classes, throttle_cla
 from rest_framework.response import Response
 
 from .models import (
-    AffiliateClick, AppFeedback, Feedback, Garment, Outfit, OutfitPlan, OutfitSet, SocialAccount, User, VideoScan, WearLog,
+    AffiliateClick, AppFeedback, Feedback, Garment, Outfit, OutfitPlan, OutfitSet, Product, SocialAccount, User, VideoScan,
+    WearLog,
 )
 from .views import AuthThrottle
 
@@ -335,3 +336,225 @@ def admin_feedback_item(request, pk):
         f.resolved = bool(request.data['resolved'])
         f.save(update_fields=['resolved'])
     return Response(feedback_row(f))
+
+
+# ── Products: real pieces with the link to their own page ─────────────────
+#
+# The app shows these as the one or two concrete pieces under a "complete your
+# wardrobe" pick and in Discovery. Demo rows (load_catalog) only link to a store
+# search; they can be switched off here, not edited, because every deploy
+# reloads them.
+
+STORE_HOSTS = {
+    'trendyol.com': 'Trendyol', 'zara.com': 'Zara', 'hm.com': 'H&M', 'mango.com': 'Mango', 'asos.com': 'ASOS',
+    'amazon.': 'Amazon', 'cos.com': 'COS', 'massimodutti.com': 'Massimo Dutti', 'uniqlo.com': 'Uniqlo',
+    'nike.com': 'Nike', 'aliexpress.': 'AliExpress', 'bershka.com': 'Bershka', 'pullandbear.com': 'Pull&Bear',
+    'stradivarius.com': 'Stradivarius', 'lcwaikiki.com': 'LC Waikiki', 'defacto.com': 'DeFacto', 'koton.com': 'Koton',
+    'boyner.com': 'Boyner', 'hepsiburada.com': 'Hepsiburada', 'adidas.': 'Adidas', 'ozon.': 'Ozon',
+    'wildberries.': 'Wildberries', 'umico.az': 'Umico',
+}
+CURRENCIES = ['AZN', 'TRY', 'USD', 'EUR', 'GBP', 'RUB']
+GENDERS = ['women', 'men', 'unisex']
+SEARCH_KEYS = {'q', 'k', 'searchterm', 'term', 'query', 'search', 'text', 'keyword'}
+
+
+def store_of(url):
+    from urllib.parse import urlparse
+    host = (urlparse(url).hostname or '').lower().removeprefix('www.').removeprefix('m.')
+    for key, name in STORE_HOSTS.items():
+        if key in host:
+            return name
+    return host.split('.')[0].capitalize() if host else ''
+
+
+def is_search_url(url):
+    """True for a store's search page (…/sr?q=, /search?q=, /s?k=), which lists many pieces instead of one."""
+    from urllib.parse import parse_qs, urlparse
+    u = urlparse(url)
+    path = u.path.lower().rstrip('/')
+    keys = {k.lower() for k in parse_qs(u.query)}
+    return bool(keys & SEARCH_KEYS) or path in ('/sr', '/s', '/search') or '/search' in path or '/wholesale' in path
+
+
+def product_row(p):
+    return {
+        'id': p.id, 'name': p.name, 'store': p.store, 'brand': p.brand, 'price': float(p.price), 'currency': p.currency,
+        'category': p.category, 'subcategory': p.subcategory, 'color': p.color, 'gender': p.gender,
+        'image_url': p.image_url, 'url': p.url, 'active': p.active, 'is_demo': p.is_demo,
+        'created_at': p.created_at.isoformat(),
+    }
+
+
+def clean_product(data, partial=False):
+    """(fields, errors) for a product from the admin form; only the fields sent when partial."""
+    from decimal import Decimal, InvalidOperation
+    from django.core.validators import URLValidator
+    from django.core.exceptions import ValidationError as DjangoValidationError
+    from . import taxonomy as tx
+    from .shopping import TYPE_DEFAULTS
+    out, err = {}, {}
+    url_ok = URLValidator(schemes=['http', 'https'])
+
+    def given(key):
+        return key in data or not partial
+
+    if given('url'):
+        url = (data.get('url') or '').strip()
+        try:
+            url_ok(url)
+            if is_search_url(url):
+                err['url'] = 'search'
+            else:
+                out['url'] = url
+        except DjangoValidationError:
+            err['url'] = 'invalid'
+    if given('name'):
+        name = (data.get('name') or '').strip()[:160]
+        if name:
+            out['name'] = name
+        else:
+            err['name'] = 'required'
+    if given('price'):
+        try:
+            price = Decimal(str(data.get('price')))
+            if price < 0 or price > Decimal('999999'):
+                raise InvalidOperation
+            out['price'] = price.quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError, TypeError):
+            err['price'] = 'invalid'
+    if given('currency'):
+        cur = (data.get('currency') or 'AZN').upper()
+        if cur in CURRENCIES:
+            out['currency'] = cur
+        else:
+            err['currency'] = 'invalid'
+    if given('subcategory'):
+        sub = data.get('subcategory') or ''
+        if sub in tx.ALL_SUBCATEGORIES:
+            out['subcategory'] = sub
+            out['category'] = next(c for c, subs in tx.CATEGORIES.items() if sub in subs)
+            if not partial:
+                out['formality'], out['warmth'] = TYPE_DEFAULTS.get(sub, (2, 1))
+                cat = out['category']
+                out['sizes'] = [str(n) for n in range(36, 46)] if cat == 'shoes' else (
+                    [] if cat in ('bag', 'accessory') else ['XS', 'S', 'M', 'L', 'XL'])
+        else:
+            err['subcategory'] = 'invalid'
+    if given('color'):
+        if data.get('color') in tx.COLORS:
+            out['color'] = data['color']
+        else:
+            err['color'] = 'invalid'
+    if given('gender'):
+        if (data.get('gender') or 'women') in GENDERS:
+            out['gender'] = data.get('gender') or 'women'
+        else:
+            err['gender'] = 'invalid'
+    if given('image_url'):
+        img = (data.get('image_url') or '').strip()
+        if img:
+            try:
+                url_ok(img)
+                out['image_url'] = img
+            except DjangoValidationError:
+                err['image_url'] = 'invalid'
+        else:
+            out['image_url'] = ''
+    if given('brand'):
+        out['brand'] = (data.get('brand') or '').strip()[:60]
+    if 'store' in data or 'url' in out:
+        store = (data.get('store') or '').strip()[:40] or (store_of(out['url']) if 'url' in out else '')
+        if store:
+            out['store'] = store
+        elif not partial:
+            err['store'] = 'required'
+    if 'active' in data:
+        if isinstance(data['active'], bool):
+            out['active'] = data['active']
+        else:
+            err['active'] = 'invalid'
+    return out, err
+
+
+@api_view(['GET'])
+@staff
+def admin_product_meta(request):
+    """The form's choices with their Azerbaijani and English names: types by category, colours, genders, currencies."""
+    from . import taxonomy as tx
+    from .engine.describe import color_name, kind_name
+    return Response({
+        'categories': [{'id': c, 'subs': [{'id': s, 'az': kind_name(s, 'az'), 'en': kind_name(s, 'en')} for s in subs]}
+                       for c, subs in tx.CATEGORIES.items()],
+        'colors': [{'id': c, 'az': color_name(c, 'az'), 'en': color_name(c, 'en'), 'rgb': list(rgb)}
+                   for c, rgb in tx.COLORS.items()],
+        'genders': GENDERS,
+        'currencies': CURRENCIES,
+    })
+
+
+@api_view(['POST'])
+@staff
+def admin_product_guess(request):
+    """{url} → {store, subcategory, color, search}: what can be read from the link itself, to prefill the form."""
+    from .catalog import read_link
+    url = (request.data.get('url') or '').strip()
+    sub, color = read_link(url) if url else (None, None)
+    return Response({'store': store_of(url) if url else '', 'subcategory': sub, 'color': color,
+                     'search': bool(url) and is_search_url(url)})
+
+
+@api_view(['GET', 'POST'])
+@staff
+def admin_products(request):
+    """GET ?q, ?kind=real|demo, ?page → {results, count, page, pages, real, demo}; POST adds a real piece."""
+    if request.method == 'POST':
+        fields, err = clean_product(request.data)
+        if err:
+            return Response({'error': 'invalid', 'fields': err}, status=status.HTTP_400_BAD_REQUEST)
+        p = Product.objects.create(is_demo=False, **fields)
+        return Response(product_row(p), status=status.HTTP_201_CREATED)
+    p = request.query_params
+    qs = Product.objects.all()
+    if p.get('kind') == 'real':
+        qs = qs.filter(is_demo=False)
+    elif p.get('kind') == 'demo':
+        qs = qs.filter(is_demo=True)
+    q = (p.get('q') or '').strip()
+    if q:
+        qs = qs.filter(Q(name__icontains=q) | Q(store__icontains=q) | Q(brand__icontains=q) | Q(url__icontains=q))
+    qs = qs.order_by('is_demo', '-created_at')
+    count = qs.count()
+    pages = max(1, -(-count // PAGE_SIZE))
+    try:
+        page = min(max(1, int(p.get('page', 1))), pages)
+    except ValueError:
+        page = 1
+    rows = qs[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
+    return Response({
+        'results': [product_row(x) for x in rows], 'count': count, 'page': page, 'pages': pages,
+        'real': Product.objects.filter(is_demo=False).count(), 'demo': Product.objects.filter(is_demo=True).count(),
+    })
+
+
+@api_view(['PATCH', 'DELETE'])
+@staff
+def admin_product(request, pk):
+    """PATCH any form field (a demo row only takes `active`); DELETE removes a real piece."""
+    p = get_object_or_404(Product, pk=pk)
+    if request.method == 'DELETE':
+        if p.is_demo:
+            return Response({'error': 'Demo products are switched off, not deleted.', 'code': 'demo'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        p.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    data = request.data
+    if p.is_demo:
+        data = {k: v for k, v in data.items() if k == 'active'}
+    fields, err = clean_product(data, partial=True)
+    if err:
+        return Response({'error': 'invalid', 'fields': err}, status=status.HTTP_400_BAD_REQUEST)
+    for k, v in fields.items():
+        setattr(p, k, v)
+    if fields:
+        p.save()
+    return Response(product_row(p))

@@ -9,11 +9,12 @@ blazer, then a colour that pairs best with what they wear most, then
 accessories. Each pick takes the colour that unlocks the most new outfits and
 says how many.
 
-Links are store searches, not specific products: real product links need a
-retailer or affiliate feed (Skimlinks, Admitad, a Trendyol agreement; see
-WearWise_AI_resources_and_affiliates.xlsx), which can replace `links_for`
-without touching the rules. Every link carries an anonymous sub-id so a
-network report can say which suggestion sold.
+Each pick carries `products`: up to two real pieces (added in the admin panel,
+each with the link to its own product page) of that type and colour. Only when
+there is none does the app fall back to `links`, searches in the stores. An
+affiliate feed can fill the same Product table later without touching the
+rules. Every link carries an anonymous sub-id so a network report can say which
+suggestion sold.
 """
 import hashlib
 from collections import Counter
@@ -130,6 +131,23 @@ def links_for(sub, color, user=None):
     return out
 
 
+def products_for(sub, color, user=None, n=2):
+    """
+    Up to `n` real catalogue pieces of this type in this colour, for the user's
+    wardrobe: the pieces an admin added with a link to the product's own page.
+    Demo rows are left out, their links are only store searches.
+    """
+    from .catalog import _wanted_gender
+    from .models import Product
+    qs = Product.objects.filter(active=True, is_demo=False, subcategory=sub, color=color)
+    if user is not None:
+        qs = qs.filter(gender__in=_wanted_gender(user))
+    return [{
+        'id': p.id, 'name': p.name, 'store': p.store, 'brand': p.brand, 'price': float(p.price),
+        'currency': p.currency, 'image_url': p.image_url,
+    } for p in qs.order_by('sponsored', 'price', '-created_at')[:n]]
+
+
 def _season(today):
     return {12: 'winter', 1: 'winter', 2: 'winter', 3: 'spring', 4: 'spring', 5: 'spring',
             6: 'summer', 7: 'summer', 8: 'summer'}.get(today.month, 'autumn')
@@ -205,11 +223,12 @@ def check_fit(user, sub, color, lang='en'):
         'better': better,
         'title': _cap(say(lang, '{color} {kind}', '{color} {kind}', color=color_name(color, lang), kind=kind_name(sub, lang))),
         'links': links_for(sub, color, user),
+        'products': products_for(sub, color, user),
     }
 
 
 def suggestions(user, lang='en', limit=4):
-    """[{id, title, reason, category, subcategory, color, rgb, unlocks, links: [{store, url}]}]."""
+    """[{id, title, reason, category, subcategory, color, rgb, unlocks, links: [{store, url}], products: [...]}]."""
     garments = list(Garment.objects.filter(user=user, status='available'))
     table = pairs()
     cats = Counter(g.category for g in garments)
@@ -275,5 +294,6 @@ def suggestions(user, lang='en', limit=4):
             'rgb': list(tx.COLORS[color]),
             'unlocks': n,
             'links': links_for(sub, color, user),
+            'products': products_for(sub, color, user),
         })
     return out

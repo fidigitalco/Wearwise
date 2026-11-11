@@ -68,6 +68,7 @@ export const az: Strings = {
     title: 'Qarderobunu tamamla',
     hint: 'Qarderobunda çatışmayanlara əsasən seçilib. Linklər mağazada axtarış açır.',
     searchIn: (store: string) => `${store} mağazasında axtar`,
+    openAt: (store: string) => `${store} mağazasında aç`,
     screen: 'Alış-veriş',
     open: 'Qarderobun üçün alış-veriş',
     openHint: 'Nə çatışmır və alacağın paltar qarderobuna uyğundurmu',

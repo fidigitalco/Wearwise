@@ -96,7 +96,7 @@ export default function ShopScreen() {
             {result.better ? <Text style={[type.caption, { color: t.textMuted }]}>{s.shop.better(result.better.title, result.better.unlocks)}</Text> : null}
             {result.verdict !== 'skip' ? (
               <Button title={s.shop.find} variant="secondary" size="sm"
-                onPress={() => setTarget({ title: result.title, subcategory: sub, color, links: result.links, source: 'check' })} />
+                onPress={() => setTarget({ title: result.title, subcategory: sub, color, links: result.links, products: result.products, source: 'check' })} />
             ) : null}
           </Card>
         ) : null}

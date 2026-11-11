@@ -68,6 +68,7 @@ export const es: Strings = {
     title: 'Completa tu armario',
     hint: 'Elegido según lo que le falta a tu armario. Los enlaces abren una búsqueda en la tienda.',
     searchIn: (store: string) => `Búscalo en ${store}`,
+    openAt: (store: string) => `Abrir en ${store}`,
     screen: 'Tienda',
     open: 'Compra para tu armario',
     openHint: 'Qué te falta y si una prenda te va a funcionar',

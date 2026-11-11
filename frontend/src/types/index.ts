@@ -244,6 +244,19 @@ export interface ShoppingSuggestion {
   /** New good outfits the closet would gain with this piece. */
   unlocks: number;
   links: { store: string; url: string }[];
+  /** Up to two real pieces of this type and colour, each opening its own product page; empty → use `links`. */
+  products?: SuggestedProduct[];
+}
+
+/** A real catalogue piece offered for a shopping pick. */
+export interface SuggestedProduct {
+  id: string;
+  name: string;
+  store: string;
+  brand: string;
+  price: number;
+  currency: string;
+  image_url: string;
 }
 
 /** "Will this fit my wardrobe?" for a piece the user is thinking of buying. */
@@ -254,6 +267,7 @@ export interface FitCheck {
   title: string;
   better: { color: string; unlocks: number; title: string } | null;
   links: { store: string; url: string }[];
+  products?: SuggestedProduct[];
 }
 
 /** One calendar day: what was worn, and the forecast when the day is within two weeks. */
