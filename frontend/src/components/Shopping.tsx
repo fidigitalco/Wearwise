@@ -46,7 +46,7 @@ export function AffiliateSheet({ target, onClose }: { target: ShopTarget | null;
   // The product's own page; the server logs the click and adds the affiliate sub-id.
   const openProduct = (p: SuggestedProduct) => {
     onClose();
-    catalog.act(p.id, 'shop').then((r) => r.url && Linking.openURL(r.url)).catch(() => {});
+    catalog.act(p.id, 'shop').then((r) => { if (r.url) Linking.openURL(r.url); }).catch(() => {});
   };
   const products = target?.products ?? [];
   return (
