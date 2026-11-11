@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
-import { ExternalLink, Heart } from 'lucide-react-native';
+import { ExternalLink, Heart, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Linking, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '../lib/i18n';
 import { catalog, errorMessage } from '../services/api';
 import { elevation, radius, space, type, useTheme } from '../theme';
@@ -168,13 +169,88 @@ export function ProductCard({ product, footer, onSavedChange }: { product: Produ
 }
 
 /** An outfit as a flat lay: the pieces laid out on a tile, the total and a button to shop them. */
+/**
+ * The look full screen: one piece per page, large, swipe across them, then
+ * open a piece in its store or shop the whole look.
+ */
+export function LookViewer({ look, title, onClose, onShop }: { look: Look | null; title: string; onClose: () => void; onShop: () => void }) {
+  const t = useTheme();
+  const { t: s } = useI18n();
+  const toast = useToast();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const [page, setPage] = useState(0);
+  const items = look?.items ?? [];
+  const currency = items[0]?.currency ?? 'USD';
+  const open = (p: Product) =>
+    catalog.act(p.id, 'shop')
+      .then((r) => {
+        if (r.url) Linking.openURL(r.url);
+      })
+      .catch((e) => toast(errorMessage(e), 'error'));
+  return (
+    <Modal visible={!!look} animationType="slide" onRequestClose={onClose} onShow={() => setPage(0)}>
+      <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: insets.top, paddingBottom: insets.bottom + space.md }}>
+        <View style={styles.viewerTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={[type.title, { color: t.text, fontFamily: type.display.fontFamily, fontWeight: '500' }]} numberOfLines={1}>{title}</Text>
+            <Text style={[type.caption, { color: t.textMuted }]}>{`${page + 1} / ${items.length}`}</Text>
+          </View>
+          <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={s.common.close}
+            style={[styles.heart, { backgroundColor: t.card }, elevation(t)]}>
+            <X size={20} color={t.text} />
+          </Pressable>
+        </View>
+        <FlatList
+          data={items}
+          keyExtractor={(p) => String(p.id)}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}
+          style={{ flex: 1 }}
+          renderItem={({ item: p }) => (
+            <View style={{ width, paddingHorizontal: space.lg, gap: space.md, justifyContent: 'center' }}>
+              <View style={[styles.well, { width: '100%', aspectRatio: 0.85, backgroundColor: t.tile }]}>
+                {p.image_url ? (
+                  <Image source={{ uri: p.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+                ) : (
+                  <GarmentSketch subcategory={p.subcategory} category={p.category} rgb={p.rgb} size={width * 0.6} />
+                )}
+                <View style={styles.heartPos}><HeartButton product={p} size={18} /></View>
+              </View>
+              <View style={{ gap: 2 }}>
+                <Text style={[type.bodyStrong, { color: t.text }]} numberOfLines={2}>{p.name}</Text>
+                <Text style={[type.caption, { color: t.textMuted }]}>{p.store} · {money(p.price, p.currency)}</Text>
+              </View>
+              <Button title={s.product.open(p.store)} variant="secondary" size="sm" icon={<ExternalLink size={16} color={t.text} />} onPress={() => open(p)} />
+            </View>
+          )}
+        />
+        <View style={styles.dots}>
+          {items.map((p, i) => (
+            <View key={p.id} style={[styles.dot, { backgroundColor: i === page ? t.primary : t.border }]} />
+          ))}
+        </View>
+        <View style={[styles.cardInfo, { paddingHorizontal: space.lg }]}>
+          <Text style={[type.bodyStrong, { color: t.text, flex: 1 }]}>{money(look?.total ?? 0, currency)}</Text>
+          <Button title={s.feed.shopLook} onPress={() => { onClose(); onShop(); }} />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function LookCard({ look, title, kicker, onShop }: { look: Look; title: string; kicker?: string; onShop: () => void }) {
   const t = useTheme();
   const { t: s } = useI18n();
+  const [viewing, setViewing] = useState(false);
   const currency = look.items[0]?.currency ?? 'USD';
   return (
     <View style={[styles.card, { backgroundColor: t.card }, elevation(t, 2)]}>
-      <View style={[styles.flatLay, { backgroundColor: t.tile }]}>
+      <LookViewer look={viewing ? look : null} title={title} onClose={() => setViewing(false)} onShop={onShop} />
+      <Pressable onPress={() => setViewing(true)} accessibilityRole="button" accessibilityLabel={title}
+        style={({ pressed }) => [styles.flatLay, { backgroundColor: t.tile, opacity: pressed ? 0.9 : 1 }]}>
         {kicker ? (
           <View style={[styles.kicker, { backgroundColor: t.frosted }]}>
             <Text style={[type.overline, { color: t.accent, fontSize: 10 }]}>{kicker}</Text>
@@ -192,7 +268,7 @@ export function LookCard({ look, title, kicker, onShop }: { look: Look; title: s
             </View>
           );
         })}
-      </View>
+      </Pressable>
       <View style={styles.cardInfo}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={[type.title, { color: t.text, fontFamily: type.display.fontFamily, fontWeight: '500' }]}>{title}</Text>
@@ -222,4 +298,7 @@ const styles = StyleSheet.create({
   flatItem: { alignItems: 'center', justifyContent: 'center' },
   flatPhoto: { borderRadius: 14 },
   thumb: { width: 44, height: 44, borderRadius: 10 },
+  viewerTop: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: space.md },
+  dot: { width: 7, height: 7, borderRadius: 4 },
 });
