@@ -176,6 +176,9 @@ def me(request):
             for f in (g.image, g.cutout):
                 if f:
                     f.delete(save=False)
+        for i in Inspiration.objects.filter(user=request.user):
+            if i.image:
+                i.image.delete(save=False)
         request.user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     if request.method == 'PATCH':

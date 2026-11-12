@@ -1590,3 +1590,30 @@ class TypeSwipeTests(APITestCase):
         self.assertNotIn('sneakers', kinds[:5])
         boot = next(p for p in picks if p['subcategory'] == 'boots')
         self.assertIn('yes', boot['why'].lower())
+
+
+class LegalPagesTests(APITestCase):
+    def test_privacy_and_delete_pages_are_public(self):
+        for url, text in (('/privacy/', 'Privacy policy'), ('/delete-account/', 'Delete your WearWise AI account')):
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 200)
+            self.assertContains(r, text)
+
+    def test_support_email_is_shown_when_set(self):
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {'SUPPORT_EMAIL': 'help@example.com'}):
+            self.assertContains(self.client.get('/delete-account/'), 'mailto:help@example.com')
+
+    def test_deleting_account_removes_inspiration_photos(self):
+        from django.core.files.base import ContentFile
+        from .models import Inspiration
+        r = self.client.post('/api/auth/register/', {'email': 'del@example.com', 'password': 'wardrobe-123', 'display_name': 'Del'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        user = User.objects.get(email='del@example.com')
+        insp = Inspiration(user=user)
+        insp.image.save('i.png', ContentFile(png((200, 50, 50)).read()), save=True)
+        storage, name = insp.image.storage, insp.image.name
+        self.assertTrue(storage.exists(name))
+        self.assertEqual(self.client.delete('/api/auth/me/').status_code, 204)
+        self.assertFalse(storage.exists(name))

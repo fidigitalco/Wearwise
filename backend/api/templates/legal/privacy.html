@@ -1,0 +1,63 @@
+{% extends "legal/base.html" %}
+{% block title %}Privacy policy{% endblock %}
+{% block content %}
+<h1>Privacy policy</h1>
+<div class="meta">WearWise AI · Last updated {{ updated }}</div>
+
+<p>WearWise AI is a closet and styling app: you add the clothes you own and it suggests outfits for the weather and the day ahead. This policy explains what the app collects, why, who helps us process it, and how you can delete it.</p>
+
+<h2>What we collect</h2>
+<ul>
+  <li><strong>Account:</strong> your email address, an optional display name and a password (stored only as a secure hash). If you sign in with Google or Apple, we receive your email, your name if you share it, and an account identifier from that provider. You can also try the app as a guest without an email.</li>
+  <li><strong>Photos and videos you add:</strong> photos of your clothes, inspiration photos and links you save, and short closet videos. Closet videos are deleted once they are processed. Photos you send for a "does this suit me" check or in the stylist chat are analysed and not kept.</li>
+  <li><strong>Profile and preferences (optional):</strong> gender, birth year, height, weight, body shape, sizes, country, budget, and the styles, colours and fits you like.</li>
+  <li><strong>Approximate location (optional):</strong> your position rounded to about 1 km, used only to get the local weather forecast. If you do not allow location, the app uses a default city.</li>
+  <li><strong>Voice (optional):</strong> when you ask the stylist a question with your voice, the recording is turned into text and is not stored.</li>
+  <li><strong>How you use the app:</strong> outfits suggested to you, likes, swaps, what you wore, plans, saved and viewed products, and feedback you send us.</li>
+  <li><strong>Technical data:</strong> app version, platform and OS version, the country set on your device, the country your connection comes from (worked out on our server; your IP address itself is not stored), where you installed the app from, and crash and error reports.</li>
+</ul>
+<p>We do not collect your contacts, advertising ID or payment details, and we do not use third-party analytics or advertising SDKs.</p>
+
+<h2>Why we use it</h2>
+<ul>
+  <li>To run your account and keep your wardrobe in sync.</li>
+  <li>To recognise your clothes and suggest outfits that fit your weather, plans, body and taste.</li>
+  <li>To answer your stylist questions.</li>
+  <li>To fix bugs and understand, in aggregate, how the app is used.</li>
+</ul>
+<p>We do not sell your data.</p>
+
+<h2>Who helps us process it</h2>
+<p>Your data is stored on our own server. We send only what each task needs to these service providers, which process it on our behalf:</p>
+<ul>
+  <li><strong>Anthropic (Claude):</strong> photos of clothes and video frames, to recognise garments, and your stylist questions.</li>
+  <li><strong>Groq or OpenAI:</strong> voice recordings, to turn them into text.</li>
+  <li><strong>Open-Meteo:</strong> your rounded location, to get the weather.</li>
+  <li><strong>Google and Apple:</strong> to verify a Google or Apple sign-in.</li>
+  <li><strong>Expo:</strong> to deliver app updates.</li>
+</ul>
+<p>Shopping suggestions link to outside stores such as Trendyol, Amazon or ASOS. What happens on those sites is covered by their own privacy policies.</p>
+
+<h2>Security</h2>
+<p>All traffic between the app and our server is encrypted with HTTPS. Access to the server is limited to the people who run WearWise.</p>
+
+<h2>How long we keep it</h2>
+<p>We keep your data while you have an account. When you delete your account, your profile, wardrobe, photos and activity are deleted. Crash reports and feedback messages may be kept without any link to you, so we can keep fixing problems.</p>
+
+<h2>Your choices and rights</h2>
+<ul>
+  <li>Location, microphone, camera and photo access are optional and can be turned off in your phone's settings.</li>
+  <li>You can edit your profile in the app at any time.</li>
+  <li>You can delete your account and its data at any time: see <a href="/delete-account/">how to delete your account</a>.</li>
+  <li>You can ask us for a copy of your data or to correct it{% if email %} by writing to <a href="mailto:{{ email }}">{{ email }}</a>{% endif %}.</li>
+</ul>
+
+<h2>Children</h2>
+<p>WearWise AI is not directed at children under 13, and we do not knowingly collect data from them.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, we will update the date at the top and, for important changes, tell you in the app.</p>
+
+<h2>Contact</h2>
+<p>Questions about your privacy{% if email %}: <a href="mailto:{{ email }}">{{ email }}</a>{% else %}: use Profile → Feedback in the app{% endif %}.</p>
+{% endblock %}
