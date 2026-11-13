@@ -321,8 +321,23 @@ export const reportCrash = (body: { message: string; stack?: string; fatal?: boo
 export const sendInstallSource = (body: { utm_source: string; utm_medium?: string; utm_campaign?: string }) =>
   http.post('/me/install/', body).then(() => undefined);
 
-export const sendAppFeedback = (body: { kind: 'idea' | 'problem' | 'other'; message: string; platform: string; app_version: string }) =>
-  http.post('/app-feedback/', body).then(() => undefined);
+export const sendAppFeedback = (
+  body: { kind: 'idea' | 'problem' | 'other'; message: string; platform: string; app_version: string },
+  shots: LocalImage[] = [],
+) => {
+  if (!shots.length) return http.post('/app-feedback/', body).then(() => undefined);
+  // Multipart only when there is something to attach (the server keeps up to 3 images).
+  const form = new FormData();
+  for (const [k, v] of Object.entries(body)) form.append(k, String(v));
+  shots.forEach((img, i) => {
+    const type = img.mimeType || 'image/jpeg';
+    const ext = type.split('/')[1] || 'jpg';
+    form.append('screenshots', { uri: img.uri, name: img.fileName || `screenshot-${i + 1}.${ext}`, type } as any);
+  });
+  return http
+    .post('/app-feedback/', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 })
+    .then(() => undefined);
+};
 
 // ── Shopping catalogue (MVP v2) ─────────────────────────────────────────────
 

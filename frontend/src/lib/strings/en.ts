@@ -835,6 +835,11 @@ export const en = {
     placeholder: 'Write here…',
     send: 'Send',
     sent: 'Thanks! Your feedback was sent.',
+    shots: 'Screenshots (optional)',
+    shotsHint: 'Add the screen you mean — up to 3.',
+    addShot: 'Add screenshot',
+    removeShot: 'Remove screenshot',
+    shotsDenied: 'Allow photo access to add a screenshot.',
   },
   tx: {
     categories: {

@@ -411,6 +411,24 @@ class AppFeedback(models.Model):
         ordering = ['-created_at']
 
 
+def _feedback_shot_path(instance, filename):
+    """An unguessable name: /media/ is served without a login, and a screenshot
+    of somebody's screen is private, so the name is the only lock on it."""
+    ext = (filename.rsplit('.', 1)[-1] if '.' in filename else 'jpg').lower()[:5]
+    return f'feedback/{uuid.uuid4().hex}.{ext}'
+
+
+class AppFeedbackShot(models.Model):
+    """A screenshot sent with feedback, so "this looks wrong" arrives with the screen."""
+
+    feedback = models.ForeignKey(AppFeedback, on_delete=models.CASCADE, related_name='shots')
+    image = models.FileField(upload_to=_feedback_shot_path)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+
 class CrashReport(models.Model):
     """A JavaScript error the app could not recover from, sent by its global error handler (POST /api/crash/)."""
 

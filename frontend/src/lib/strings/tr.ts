@@ -836,6 +836,11 @@ export const tr: Strings = {
     placeholder: 'Buraya yaz…',
     send: 'Gönder',
     sent: 'Teşekkürler! Geri bildirimin gönderildi.',
+    shots: 'Ekran görüntüleri (isteğe bağlı)',
+    shotsHint: 'Kastettiğin ekranı ekle — en fazla 3.',
+    addShot: 'Görüntü ekle',
+    removeShot: 'Görüntüyü kaldır',
+    shotsDenied: 'Görüntü eklemek için fotoğraflara erişim izni ver.',
   },
   tx: {
     categories: {

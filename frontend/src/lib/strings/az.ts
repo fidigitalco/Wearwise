@@ -836,6 +836,11 @@ export const az: Strings = {
     placeholder: 'Buraya yaz…',
     send: 'Göndər',
     sent: 'Təşəkkürlər! Rəyin göndərildi.',
+    shots: 'Ekran şəkilləri (istəyə bağlı)',
+    shotsHint: 'Nəyi nəzərdə tutduğunu göstər — 3-ə qədər.',
+    addShot: 'Şəkil əlavə et',
+    removeShot: 'Şəkli sil',
+    shotsDenied: 'Şəkil əlavə etmək üçün qalereyaya icazə ver.',
   },
   tx: {
     categories: {

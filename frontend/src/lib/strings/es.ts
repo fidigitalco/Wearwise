@@ -837,6 +837,11 @@ export const es: Strings = {
     placeholder: 'Escribe aquí…',
     send: 'Enviar',
     sent: '¡Gracias! Enviamos tus comentarios.',
+    shots: 'Capturas (opcional)',
+    shotsHint: 'Añade la pantalla a la que te refieres, hasta 3.',
+    addShot: 'Añadir captura',
+    removeShot: 'Quitar captura',
+    shotsDenied: 'Permite el acceso a las fotos para añadir una captura.',
   },
   tx: {
     categories: {

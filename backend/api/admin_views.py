@@ -380,11 +380,16 @@ def admin_premium(request):
     })
 
 
-def feedback_row(f):
+def feedback_row(f, request=None):
     u = f.user
+    shots = [x.image.url for x in f.shots.all()]
+    if request is not None:
+        shots = [request.build_absolute_uri(x) for x in shots]
     return {
         'id': f.id, 'kind': f.kind, 'message': f.message, 'platform': f.platform, 'app_version': f.app_version,
         'resolved': f.resolved, 'created_at': f.created_at,
+        # The screens the user attached, as links the panel can show.
+        'screenshots': shots,
         # Who wrote it, so an admin can reply: the user sent this to us themselves.
         'user': {'id': u.id, 'email': u.email, 'name': u.display_name, 'is_guest': u.is_guest} if u else None,
     }
@@ -395,7 +400,7 @@ def feedback_row(f):
 def admin_feedback(request):
     """?status=open|resolved, ?kind, ?page → {results, count, page, pages, open}."""
     p = request.query_params
-    qs = AppFeedback.objects.select_related('user')
+    qs = AppFeedback.objects.select_related('user').prefetch_related('shots')
     if p.get('status') == 'open':
         qs = qs.filter(resolved=False)
     elif p.get('status') == 'resolved':
@@ -406,7 +411,7 @@ def admin_feedback(request):
     pages = max(1, -(-count // PAGE_SIZE))
     page = min(max(int(p.get('page', 1) or 1), 1), pages)
     return Response({
-        'results': [feedback_row(f) for f in qs[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]],
+        'results': [feedback_row(f, request) for f in qs[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]],
         'count': count, 'page': page, 'pages': pages,
         'open': AppFeedback.objects.filter(resolved=False).count(),
     })
@@ -422,7 +427,7 @@ def admin_feedback_item(request, pk):
     if 'resolved' in request.data:
         f.resolved = bool(request.data['resolved'])
         f.save(update_fields=['resolved'])
-    return Response(feedback_row(f))
+    return Response(feedback_row(f, request))
 
 
 # ── Products: real pieces with the link to their own page ─────────────────

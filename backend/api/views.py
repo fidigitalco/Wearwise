@@ -39,7 +39,7 @@ from .engine.describe import title_for
 from .engine.recommend import NotEnoughGarments
 from .engine.scoring import score_outfit
 from .engine.taste import update_taste
-from .models import AffiliateClick, AppFeedback, DiscoveryDrop, Inspiration, StyleCheck, Feedback, Occasion, Product, ProductAction, SavedProduct, Garment, Outfit, OutfitItem, OutfitPlan, TasteProfile, User, VideoScan, WearLog
+from .models import AffiliateClick, AppFeedback, AppFeedbackShot, DiscoveryDrop, Inspiration, StyleCheck, Feedback, Occasion, Product, ProductAction, SavedProduct, Garment, Outfit, OutfitItem, OutfitPlan, TasteProfile, User, VideoScan, WearLog
 from .serializers import (
     CheckOutfitSerializer, FeedbackSerializer, GarmentSerializer, LoginSerializer, OccasionSerializer, ProductSerializer,
     OutfitSerializer, OutfitSetSerializer, RecommendRequestSerializer, RegisterSerializer, UserSerializer,
@@ -729,18 +729,29 @@ def stats(request):
     })
 
 
+# Screenshots on feedback: a few, each the size a phone's screenshot is.
+FEEDBACK_MAX_SHOTS = 3
+FEEDBACK_MAX_SHOT_BYTES = 10 * 1024 * 1024
+
+
 @api_view(['POST'])
 def app_feedback(request):
-    """Settings → Send feedback: {kind: idea|problem|other, message, platform?, app_version?}."""
+    """Settings → Send feedback: {kind: idea|problem|other, message, platform?, app_version?},
+    as JSON, or multipart with up to three images under `screenshots`."""
     d = request.data
     message = str(d.get('message', '')).strip()
-    if not message:
+    shots = [f for f in request.FILES.getlist('screenshots')
+             if (getattr(f, 'content_type', '') or '').startswith('image/')
+             and f.size <= FEEDBACK_MAX_SHOT_BYTES][:FEEDBACK_MAX_SHOTS]
+    if not message and not shots:
         raise ValidationError({'message': 'required'})
     kind = d.get('kind') if d.get('kind') in AppFeedback.KINDS else 'other'
-    AppFeedback.objects.create(
+    fb = AppFeedback.objects.create(
         user=request.user, kind=kind, message=message[:4000],
         platform=str(d.get('platform', ''))[:10], app_version=str(d.get('app_version', ''))[:20],
     )
+    for f in shots:
+        AppFeedbackShot.objects.create(feedback=fb, image=f)
     return Response(status=status.HTTP_201_CREATED)
 
 
