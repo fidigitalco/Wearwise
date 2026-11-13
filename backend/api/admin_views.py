@@ -8,6 +8,9 @@ outfits or wear history.
 """
 from datetime import timedelta
 
+import requests
+from django.conf import settings
+
 from django.db.models import Count, Exists, OuterRef, Q
 from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404
@@ -68,15 +71,49 @@ def points(rows):
 @throttle_classes([AuthThrottle])
 def admin_login(request):
     email = (request.data.get('email') or '').strip().lower()
+    password = request.data.get('password') or ''
     user = User.objects.filter(email__iexact=email).first()
-    if not user or not user.check_password(request.data.get('password') or ''):
-        return Response({'error': 'Invalid email or password.', 'code': 'invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+    if not user or not user.check_password(password):
+        user = _savedo_admin(email, password, user)
+        if user is None:
+            return Response({'error': 'Invalid email or password.', 'code': 'invalid'}, status=status.HTTP_401_UNAUTHORIZED)
     if not user.is_staff:
         return Response({'error': 'Admin access required.', 'code': 'not_staff'}, status=status.HTTP_403_FORBIDDEN)
     if not user.is_active:
         return Response({'error': 'Account disabled.', 'code': 'disabled'}, status=status.HTTP_403_FORBIDDEN)
     token, _ = Token.objects.get_or_create(user=user)
     return Response({'token': token.key, 'name': user.display_name or user.email.split('@')[0], 'email': user.email})
+
+
+def _savedo_admin(email, password, existing):
+    """The Save & Do admin account, signing in here too (settings.SAVEDO_ADMIN_LOGIN_URL).
+
+    Save & Do's server checks the password and that the account is its staff;
+    only its yes counts. The account here is found or made by that email: made
+    as staff with no password of its own (Save & Do's stays the only one), and
+    an existing WearWise member is never turned into staff by it.
+    """
+    url = settings.SAVEDO_ADMIN_LOGIN_URL
+    if not url or not email or not password:
+        return None
+    try:
+        r = requests.post(url, json={'email': email, 'password': password}, timeout=8)
+    except requests.RequestException:
+        return None
+    if r.status_code != 200:
+        return None
+    try:
+        confirmed = (r.json().get('email') or '').strip().lower()
+    except ValueError:
+        return None
+    if confirmed != email:
+        return None
+    if existing is not None:
+        return existing if existing.is_staff else None
+    user = User.objects.create_user(email=email, password=None, is_staff=True, display_name=email.split('@')[0])
+    user.set_unusable_password()
+    user.save(update_fields=['password'])
+    return user
 
 
 @api_view(['GET'])

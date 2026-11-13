@@ -93,6 +93,13 @@ TESTING = 'test' in sys.argv
 # enough, so pieces show the photo as taken. WEARWISE_CUTOUTS=1 turns it back on.
 CUTOUTS = os.environ.get('WEARWISE_CUTOUTS', '0') == '1'
 
+# The merged admin panel (admin.save-do.com) signs in once, with the Save & Do
+# admin account. When set, a staff login this server does not recognise is
+# checked against Save & Do's admin login (api/admin_views.admin_login), e.g.
+# https://api.save-do.com/api/admin/login/ — or http://127.0.0.1:8000/api/admin/login/
+# on the shared server. Unset: WearWise's own admin accounts only.
+SAVEDO_ADMIN_LOGIN_URL = os.environ.get('SAVEDO_ADMIN_LOGIN_URL', '')
+
 # Real hashing is deliberately slow; tests only need it to round-trip.
 if TESTING:
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
