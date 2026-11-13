@@ -113,6 +113,8 @@ export interface User {
   plan?: 'free' | 'premium';
   /** Looking around without an account; signing up keeps everything. */
   is_guest?: boolean;
+  /** False for a Google/Apple-only account: it can set a password but has none to change. */
+  has_password?: boolean;
   latitude: number | null;
   longitude: number | null;
   /** About you: what a stylist asks. All optional; never shown to admins. */

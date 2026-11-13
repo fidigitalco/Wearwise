@@ -3,6 +3,7 @@ from datetime import date
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
+from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from .colors import extract_colors
@@ -100,7 +101,7 @@ class EngineTests(APITestCase):
 
 class ApiFlowTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'Me@Example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'Me@Example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.assertEqual(r.status_code, 201, r.data)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
@@ -113,7 +114,7 @@ class ApiFlowTests(APITestCase):
 
     def test_login_is_case_insensitive(self):
         self.client.credentials()
-        r = self.client.post('/api/auth/login/', {'email': 'me@example.com', 'password': 'wardrobe-123'}, format='json')
+        r = self.client.post('/api/auth/login/', {'email': 'me@example.com', 'password': 'Wardrobe-123'}, format='json')
         self.assertEqual(r.status_code, 200)
 
     def test_requires_auth(self):
@@ -157,7 +158,7 @@ class ApiFlowTests(APITestCase):
     def test_other_users_garments_are_hidden(self):
         g = self.add('top', (30, 40, 80))
         self.client.credentials()
-        r = self.client.post('/api/auth/register/', {'email': 'b@example.com', 'password': 'wardrobe-456', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'b@example.com', 'password': 'Wardrobe-456', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         self.assertEqual(self.client.get(f"/api/garments/{g['id']}/").status_code, 404)
         r = self.client.post('/api/check-outfit/', {'garment_ids': [g['id']], 'occasion': 'work'}, format='json')
@@ -182,7 +183,7 @@ AI_RESULT = {
 
 class AiTaggingTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'ai@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'ai@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def upload(self, **fields):
@@ -295,7 +296,7 @@ class LanguageAndStyleTests(APITestCase):
         self.assertEqual(style_bonus(smart, None), 0)
 
     def test_api_answers_in_the_requested_language(self):
-        r = self.client.post('/api/auth/register/', {'email': 'lang@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'lang@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}", HTTP_ACCEPT_LANGUAGE='az')
         for cat, color in [('top', 'navy'), ('bottom', 'beige'), ('shoes', 'brown')]:
             self.client.post('/api/garments/', {'category': cat, 'colors': [{'name': color, 'share': 1}], 'formality': 3}, format='json')
@@ -308,7 +309,7 @@ class LanguageAndStyleTests(APITestCase):
 
 class SwapAndOnboardingTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'swap@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'swap@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.assertFalse(r.data['user']['onboarded'])
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
@@ -364,7 +365,7 @@ class SwapAndOnboardingTests(APITestCase):
 
 class VideoScanTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'video@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'video@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}", HTTP_ACCEPT_LANGUAGE='az')
 
     def video(self):
@@ -427,7 +428,7 @@ class VideoScanTests(APITestCase):
 
 class PreferencesTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'prefs@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'prefs@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def test_defaults(self):
@@ -481,7 +482,7 @@ class PreferencesTests(APITestCase):
 
 class GarmentFavoriteAndSampleTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'sample@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'sample@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def test_favorite_flag_and_filter(self):
@@ -583,7 +584,7 @@ class TitleAndReasonTests(APITestCase):
             self.assertFalse(any('preference' in r or 'üslub' in r for r in out), out)  # no style bonus for sporty
 
     def test_api_outfits_carry_title_and_reasons(self):
-        r = self.client.post('/api/auth/register/', {'email': 't2@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 't2@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         self.client.post('/api/garments/sample/')
         r = self.client.post('/api/recommendations/', {'occasion': 'casual', 'temp_c': 16, 'precip_prob': 0}, format='json')
@@ -601,7 +602,7 @@ class TitleAndReasonTests(APITestCase):
 
 class VarietyTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'variety@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'variety@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def add(self, category, color):
@@ -659,7 +660,7 @@ class VarietyTests(APITestCase):
 
 class StatsTests(APITestCase):
     def test_extended_keys(self):
-        r = self.client.post('/api/auth/register/', {'email': 'stats@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'stats@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         self.client.patch('/api/auth/me/', {'preferred_styles': ['bohemian']}, format='json')
         self.client.post('/api/garments/sample/')
@@ -683,7 +684,7 @@ class StatsTests(APITestCase):
 
 class AssistantTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'chat@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'chat@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.token = r.data['token']
         self.lang('en')
 
@@ -892,7 +893,7 @@ class AssistantTests(APITestCase):
 
 class StyleFilterTests(APITestCase):
     def test_style_override_is_used_and_stored(self):
-        r = self.client.post('/api/auth/register/', {'email': 'stylef@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'stylef@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         for cat, color in [('top', 'navy'), ('bottom', 'beige'), ('shoes', 'brown')]:
             self.client.post('/api/garments/', {'category': cat, 'colors': [{'name': color, 'share': 1}]}, format='json')
@@ -950,7 +951,7 @@ class SocialLoginTests(APITestCase):
 
 class ShoppingTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'shop@example.com', 'password': 'wardrobe-123', 'display_name': 'Test'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'shop@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}", HTTP_ACCEPT_LANGUAGE='az')
         self.user = User.objects.get(email='shop@example.com')
 
@@ -1034,10 +1035,10 @@ class AppleWebFlowTests(APITestCase):
         self.assertEqual(self.client.post('/api/auth/apple/callback/', {'state': 'forged', 'id_token': 't'}).status_code, 400)
 
     def test_register_requires_a_name(self):
-        r = self.client.post('/api/auth/register/', {'email': 'n@example.com', 'password': 'wardrobe-123', 'display_name': '  '}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'n@example.com', 'password': 'Wardrobe-123', 'display_name': '  '}, format='json')
         self.assertEqual(r.status_code, 400)
         self.assertIn('display_name', r.data)
-        r = self.client.post('/api/auth/register/', {'email': 'n@example.com', 'password': 'wardrobe-123', 'display_name': 'Nər'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'n@example.com', 'password': 'Wardrobe-123', 'display_name': 'Nər'}, format='json')
         self.assertEqual((r.status_code, r.data['user']['plan']), (201, 'free'))
 
 
@@ -1052,16 +1053,16 @@ class GuestTests(APITestCase):
         self.assertEqual(len(closet), 16)
         self.assertEqual(self.client.post('/api/recommendations/', {'occasion': 'casual'}, format='json').status_code, 201)
 
-        bad = self.client.post('/api/auth/claim/', {'email': 'g@example.com', 'password': 'wardrobe-123'}, format='json')
+        bad = self.client.post('/api/auth/claim/', {'email': 'g@example.com', 'password': 'Wardrobe-123'}, format='json')
         self.assertIn('display_name', bad.data)
-        ok = self.client.post('/api/auth/claim/', {'email': 'G@example.com', 'password': 'wardrobe-123', 'display_name': 'Leyla'}, format='json')
+        ok = self.client.post('/api/auth/claim/', {'email': 'G@example.com', 'password': 'Wardrobe-123', 'display_name': 'Leyla'}, format='json')
         self.assertEqual(ok.status_code, 200, ok.data)
         self.assertFalse(ok.data['user']['is_guest'])
         self.assertEqual(ok.data['user']['email'], 'g@example.com')
         self.assertEqual(len(self.client.get('/api/garments/').data['results']), 16)
         self.assertEqual(self.client.post('/api/auth/claim/', {}, format='json').status_code, 400)  # already claimed
         self.client.credentials()
-        login = self.client.post('/api/auth/login/', {'email': 'g@example.com', 'password': 'wardrobe-123'}, format='json')
+        login = self.client.post('/api/auth/login/', {'email': 'g@example.com', 'password': 'Wardrobe-123'}, format='json')
         self.assertEqual(login.status_code, 200)
 
     def test_social_sign_in_from_a_guest_claims_it(self):
@@ -1078,7 +1079,7 @@ class GuestTests(APITestCase):
 
 class CalendarTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'cal@example.com', 'password': 'wardrobe-123', 'display_name': 'Cal'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'cal@example.com', 'password': 'Wardrobe-123', 'display_name': 'Cal'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         self.client.post('/api/garments/sample/')
 
@@ -1136,7 +1137,7 @@ class CalendarTests(APITestCase):
 class AdminPanelTests(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_user(email='boss@example.com', password='admin-pass-1', is_staff=True)
-        r = self.client.post('/api/auth/register/', {'email': 'member@example.com', 'password': 'wardrobe-123', 'display_name': 'Mem'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'member@example.com', 'password': 'Wardrobe-123', 'display_name': 'Mem'}, format='json')
         self.member_token = r.data['token']
         self.member_id = r.data['user']['id']
 
@@ -1146,7 +1147,7 @@ class AdminPanelTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def test_only_staff_get_in(self):
-        r = self.client.post('/api/admin/login/', {'email': 'member@example.com', 'password': 'wardrobe-123'}, format='json')
+        r = self.client.post('/api/admin/login/', {'email': 'member@example.com', 'password': 'Wardrobe-123'}, format='json')
         self.assertEqual(r.status_code, 403)
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.member_token}')
         self.assertEqual(self.client.get('/api/admin/stats/').status_code, 403)
@@ -1229,7 +1230,7 @@ class ClientContextTests(APITestCase):
 
     def setUp(self):
         self.admin = User.objects.create_user(email='boss2@example.com', password='admin-pass-1', is_staff=True)
-        r = self.client.post('/api/auth/register/', {'email': 'phone@example.com', 'password': 'wardrobe-123', 'display_name': 'Phone'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'phone@example.com', 'password': 'Wardrobe-123', 'display_name': 'Phone'}, format='json')
         self.token = r.data['token']
         self.user = User.objects.get(email='phone@example.com')
 
@@ -1336,7 +1337,7 @@ class LocaleTests(APITestCase):
         self.assertEqual(lang_from_header('fr-FR,es;q=0.5'), 'es')
         self.assertEqual(lang_from_header('zh-CN'), 'en')  # not offered for now
         self.assertEqual(lang_from_header('de'), 'en')
-        r = self.client.post('/api/auth/register/', {'email': 'l@example.com', 'password': 'wardrobe-123', 'display_name': 'L'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'l@example.com', 'password': 'Wardrobe-123', 'display_name': 'L'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         self.client.post('/api/garments/sample/')
         for lang, probe in [('ru', 'Что мне надеть завтра?'), ('tr', 'Yarın ne giysem?'), ('es', '¿Qué me pongo mañana?')]:
@@ -1351,7 +1352,7 @@ class LocaleTests(APITestCase):
 
 class AboutYouTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'me2@example.com', 'password': 'wardrobe-123', 'display_name': 'Me'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'me2@example.com', 'password': 'Wardrobe-123', 'display_name': 'Me'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def test_profile_saves_and_validates(self):
@@ -1395,7 +1396,7 @@ class CatalogTests(APITestCase):
     def setUp(self):
         from django.core.management import call_command
         call_command('load_catalog', verbosity=0)
-        r = self.client.post('/api/auth/register/', {'email': 'shopper@example.com', 'password': 'wardrobe-123', 'display_name': 'S'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'shopper@example.com', 'password': 'Wardrobe-123', 'display_name': 'S'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         self.client.patch('/api/auth/me/', {
             'gender': 'female', 'age_range': '25-34', 'country': 'TR', 'preferred_styles': ['minimal', 'old_money'],
@@ -1528,7 +1529,7 @@ class OccasionOutfitTests(APITestCase):
     def setUp(self):
         from django.core.management import call_command
         call_command('load_catalog', verbosity=0)
-        r = self.client.post('/api/auth/register/', {'email': 'shopper@example.com', 'password': 'wardrobe-123', 'display_name': 'S'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'shopper@example.com', 'password': 'Wardrobe-123', 'display_name': 'S'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def test_date_can_wear_my_own_outfit(self):
@@ -1553,7 +1554,7 @@ class OccasionOutfitTests(APITestCase):
 
 class FitAndSizeTests(APITestCase):
     def setUp(self):
-        r = self.client.post('/api/auth/register/', {'email': 'fit@example.com', 'password': 'wardrobe-123', 'display_name': 'F'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'fit@example.com', 'password': 'Wardrobe-123', 'display_name': 'F'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def test_several_fits_tailoring_sizes_and_new_stores(self):
@@ -1576,7 +1577,7 @@ class TypeSwipeTests(APITestCase):
     def setUp(self):
         from django.core.management import call_command
         call_command('load_catalog', verbosity=0)
-        r = self.client.post('/api/auth/register/', {'email': 'swipe@example.com', 'password': 'wardrobe-123', 'display_name': 'S'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'swipe@example.com', 'password': 'Wardrobe-123', 'display_name': 'S'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
 
     def test_swipes_steer_discovery(self):
@@ -1608,7 +1609,7 @@ class LegalPagesTests(APITestCase):
     def test_deleting_account_removes_inspiration_photos(self):
         from django.core.files.base import ContentFile
         from .models import Inspiration
-        r = self.client.post('/api/auth/register/', {'email': 'del@example.com', 'password': 'wardrobe-123', 'display_name': 'Del'}, format='json')
+        r = self.client.post('/api/auth/register/', {'email': 'del@example.com', 'password': 'Wardrobe-123', 'display_name': 'Del'}, format='json')
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
         user = User.objects.get(email='del@example.com')
         insp = Inspiration(user=user)
@@ -1617,3 +1618,109 @@ class LegalPagesTests(APITestCase):
         self.assertTrue(storage.exists(name))
         self.assertEqual(self.client.delete('/api/auth/me/').status_code, 204)
         self.assertFalse(storage.exists(name))
+
+
+class PasswordSecurityTests(APITestCase):
+    def signup(self, email='pw@example.com', password='Wardrobe-123'):
+        return self.client.post('/api/auth/register/', {'email': email, 'password': password, 'display_name': 'Pat'}, format='json')
+
+    def test_weak_passwords_are_refused(self):
+        for weak in ('wardrobe-123', 'WARDROBE-123', 'Wardrobe-abc', 'Wardrobe123', 'Ab1!', '12345678', 'pw@Example1'):
+            r = self.signup(password=weak)
+            self.assertEqual(r.status_code, 400, weak)
+            self.assertIn('password', r.data, weak)
+        self.assertEqual(self.signup().status_code, 201)
+
+    def test_has_password_flag(self):
+        r = self.signup()
+        self.assertTrue(r.data['user']['has_password'])
+
+    def test_forgot_and_reset_password(self):
+        from unittest import mock
+        from .models import PasswordResetCode
+        self.signup()
+        old_token = Token.objects.get(user__email='pw@example.com').key
+        with mock.patch('api.emails.send_email', return_value=True) as send:
+            self.assertEqual(self.client.post('/api/auth/forgot-password/', {'email': 'PW@example.com'}, format='json').status_code, 200)
+            # Unknown addresses get the same answer and no mail.
+            self.assertEqual(self.client.post('/api/auth/forgot-password/', {'email': 'nobody@example.com'}, format='json').status_code, 200)
+        self.assertEqual(send.call_count, 1)
+        code = PasswordResetCode.objects.get(user__email='pw@example.com', used=False).code
+        self.assertIn(code, send.call_args.args[2])
+        wrong = '000000' if code != '000000' else '111111'
+        r = self.client.post('/api/auth/reset-password/', {'email': 'pw@example.com', 'code': wrong, 'password': 'Newpass-456'}, format='json')
+        self.assertEqual(r.data['code'], 'invalid_code')
+        r = self.client.post('/api/auth/reset-password/', {'email': 'pw@example.com', 'code': code, 'password': 'weakpass'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        r = self.client.post('/api/auth/reset-password/', {'email': 'pw@example.com', 'code': code, 'password': 'Newpass-456'}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertNotEqual(r.data['token'], old_token)
+        self.assertFalse(Token.objects.filter(key=old_token).exists())
+        # Single use.
+        r = self.client.post('/api/auth/reset-password/', {'email': 'pw@example.com', 'code': code, 'password': 'Other-pass-789'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.client.post('/api/auth/login/', {'email': 'pw@example.com', 'password': 'Newpass-456'}, format='json').status_code, 200)
+
+    def test_reset_code_is_burnt_after_five_wrong_guesses(self):
+        from unittest import mock
+        from .models import PasswordResetCode
+        self.signup()
+        with mock.patch('api.emails.send_email', return_value=True):
+            self.client.post('/api/auth/forgot-password/', {'email': 'pw@example.com'}, format='json')
+        code = PasswordResetCode.objects.get(used=False).code
+        wrong = '000000' if code != '000000' else '111111'
+        for _ in range(5):
+            self.client.post('/api/auth/reset-password/', {'email': 'pw@example.com', 'code': wrong, 'password': 'Newpass-456'}, format='json')
+        r = self.client.post('/api/auth/reset-password/', {'email': 'pw@example.com', 'code': code, 'password': 'Newpass-456'}, format='json')
+        self.assertEqual(r.status_code, 400)
+
+    def test_forgot_password_reports_mail_failure(self):
+        from unittest import mock
+        self.signup()
+        with mock.patch('api.emails.send_email', return_value=False):
+            r = self.client.post('/api/auth/forgot-password/', {'email': 'pw@example.com'}, format='json')
+        self.assertEqual(r.status_code, 502)
+        self.assertEqual(r.data['code'], 'mail_failed')
+
+    def test_change_password(self):
+        r = self.signup()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        bad = self.client.post('/api/auth/change-password/', {'current_password': 'nope', 'new_password': 'Newpass-456'}, format='json')
+        self.assertEqual(bad.data['code'], 'wrong_password')
+        weak = self.client.post('/api/auth/change-password/', {'current_password': 'Wardrobe-123', 'new_password': 'newpass'}, format='json')
+        self.assertEqual(weak.status_code, 400)
+        ok = self.client.post('/api/auth/change-password/', {'current_password': 'Wardrobe-123', 'new_password': 'Newpass-456'}, format='json')
+        self.assertEqual(ok.status_code, 200, ok.data)
+        self.assertNotEqual(ok.data['token'], r.data['token'])
+        self.assertEqual(self.client.get('/api/auth/me/').status_code, 401)  # the old token is gone
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {ok.data['token']}")
+        self.assertEqual(self.client.get('/api/auth/me/').status_code, 200)
+
+    def test_social_account_sets_first_password_without_current(self):
+        user = User.objects.create_user(email='social@example.com', password=None, display_name='Sam')
+        self.client.force_authenticate(user)
+        self.assertFalse(self.client.get('/api/auth/me/').data['has_password'])
+        r = self.client.post('/api/auth/change-password/', {'new_password': 'Newpass-456'}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('Newpass-456'))
+
+
+class FeedbackDeletionAndTermsTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'fb@example.com', 'password': 'Wardrobe-123', 'display_name': 'Fay'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+
+    def test_account_deletion_removes_feedback_screenshots(self):
+        from .models import AppFeedback, AppFeedbackShot
+        self.client.post('/api/app-feedback/', {'kind': 'problem', 'message': 'x', 'screenshots': [SimpleUploadedFile('a.png', png((1, 2, 3)).read(), 'image/png')]}, format='multipart')
+        shot = AppFeedbackShot.objects.get()
+        storage, name = shot.image.storage, shot.image.name
+        self.assertEqual(self.client.delete('/api/auth/me/').status_code, 204)
+        self.assertFalse(storage.exists(name))
+        self.assertFalse(AppFeedbackShot.objects.exists())
+        self.assertEqual(AppFeedback.objects.get().message, 'x')
+
+    def test_terms_page(self):
+        r = self.client.get('/terms/')
+        self.assertContains(r, 'Terms of use')

@@ -1,0 +1,42 @@
+{% extends "legal/base.html" %}
+{% block title %}Terms of use{% endblock %}
+{% block content %}
+<h1>Terms of use</h1>
+<div class="meta">WearWise AI · Last updated {{ updated }}</div>
+
+<p>These terms apply when you use the WearWise AI app and its services ("WearWise", "we"). By creating an account or using the app you agree to them. If you do not agree, please do not use WearWise.</p>
+
+<h2>Your account</h2>
+<ul>
+  <li>Keep your password private and use one you do not use anywhere else. You are responsible for what happens under your account.</li>
+  <li>The information you give us should be accurate, and you must be at least 13 years old (or the minimum age in your country) to use WearWise.</li>
+  <li>You can delete your account at any time from Profile in the app or as described on <a href="/delete-account/">this page</a>.</li>
+</ul>
+
+<h2>What you add</h2>
+<ul>
+  <li>The photos, videos and text you add stay yours. You give us permission to store and process them only to run WearWise for you, as described in the <a href="/privacy/">privacy policy</a>.</li>
+  <li>Only add photos you have the right to use. Do not add content that is illegal, offensive, or that shows other people without their permission.</li>
+</ul>
+
+<h2>Style suggestions</h2>
+<p>Outfits, fit checks and stylist answers are created automatically, partly by AI. They are suggestions for inspiration and can be wrong, for example about colours, sizes or the weather. Use your own judgement.</p>
+
+<h2>Shopping links</h2>
+<p>WearWise shows products and links to outside stores. We do not sell those products and are not responsible for the stores, their prices, delivery or returns. Some links may earn us a commission at no extra cost to you, and some products are marked as sponsored.</p>
+
+<h2>Premium</h2>
+<p>Some features may need a paid Premium plan. Prices and what is included are shown in the app before you buy. Payments, renewals and refunds are handled by the App Store or Google Play under their rules.</p>
+
+<h2>Fair use</h2>
+<p>Do not misuse WearWise: no attempts to break, overload or reverse engineer the service, no automated scraping, and no access to other people's accounts. We may suspend accounts that do.</p>
+
+<h2>Changes and availability</h2>
+<p>We keep improving WearWise and may change or remove features. We aim to keep the service available but cannot promise it will always work without interruption. If these terms change in an important way, we will tell you in the app.</p>
+
+<h2>Liability</h2>
+<p>WearWise is provided "as is". As far as the law allows, we are not liable for indirect losses, or for losses caused by relying on a suggestion or by an outside store. Nothing in these terms limits rights you have under consumer law where you live.</p>
+
+<h2>Contact</h2>
+<p>Questions about these terms{% if email %}: <a href="mailto:{{ email }}">{{ email }}</a>{% else %}: use Profile → Feedback in the app{% endif %}.</p>
+{% endblock %}

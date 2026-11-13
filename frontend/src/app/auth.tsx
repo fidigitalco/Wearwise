@@ -1,15 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { LanguagePicker } from '../components/LanguagePicker';
+import { PasswordRules } from '../components/PasswordRules';
 import { Button, Field, FormScroll, IconButton, PasswordField } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
+import { passwordChecks } from '../lib/password';
 import { signInWithApple, signInWithGoogle, SocialUnavailable } from '../lib/social';
-import { errorMessage } from '../services/api';
+import { errorMessage, legalUrl } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
 
 type Busy = 'email' | 'apple' | 'google' | null;
@@ -70,6 +73,7 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
   const up = mode === 'up';
+  const check = passwordChecks(password, { email, name });
 
   const submit = async () => {
     setError(null);
@@ -81,8 +85,8 @@ export default function AuthScreen() {
       setError(s.auth.enterBoth);
       return;
     }
-    if (up && password.length < 8) {
-      setError(s.auth.passwordShort);
+    if (up && check.failed.length) {
+      setError(s.pw.notStrong);
       return;
     }
     setBusy('email');
@@ -94,7 +98,7 @@ export default function AuthScreen() {
       if (!up && e?.response?.status === 400) setError(s.auth.wrongCredentials);
       else if (d?.display_name) setError(s.auth.nameRequired);
       else if (d?.email) setError(s.auth.emailTaken);
-      else if (d?.password) setError(s.auth.passwordWeak);
+      else if (d?.password) setError(s.pw.notStrong);
       else setError(errorMessage(e));
     } finally {
       setBusy(null);
@@ -162,15 +166,24 @@ export default function AuthScreen() {
               keyboardType="email-address"
               textContentType="emailAddress"
             />
-            <PasswordField
-              label={s.auth.password}
-              value={password}
-              onChangeText={setPassword}
-              placeholder={up ? s.auth.passwordHint : ''}
-              autoComplete={up ? 'new-password' : 'current-password'}
-              textContentType={up ? 'newPassword' : 'password'}
-              onSubmitEditing={submit}
-            />
+            <View style={{ gap: space.sm }}>
+              <PasswordField
+                label={s.auth.password}
+                value={password}
+                onChangeText={setPassword}
+                placeholder={up ? s.auth.passwordHint : ''}
+                autoComplete={up ? 'new-password' : 'current-password'}
+                textContentType={up ? 'newPassword' : 'password'}
+                onSubmitEditing={submit}
+              />
+              {up && password ? <PasswordRules check={check} /> : null}
+              {!up ? (
+                <Pressable accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-end' }}
+                  onPress={() => router.push({ pathname: '/forgot-password', params: { email: email.trim() } })}>
+                  <Text style={[type.label, { color: t.primary }]}>{s.auth.forgotLink}</Text>
+                </Pressable>
+              ) : null}
+            </View>
             {error ? <Text style={[type.label, { color: t.danger }]} accessibilityLiveRegion="polite">{error}</Text> : null}
             <Button title={up ? s.auth.createAccount : s.auth.signIn} onPress={submit} loading={busy === 'email'} disabled={!!busy && busy !== 'email'} />
           </View>
@@ -191,6 +204,14 @@ export default function AuthScreen() {
               </Text>
             </Pressable>
             <Text style={[type.caption, { color: t.textMuted, textAlign: 'center' }]}>{s.auth.terms}</Text>
+            <View style={styles.legal}>
+              <Pressable accessibilityRole="link" hitSlop={6} onPress={() => WebBrowser.openBrowserAsync(legalUrl('terms')).catch(() => {})}>
+                <Text style={[type.caption, { color: t.textSub, textDecorationLine: 'underline' }]}>{s.profile.termsOfUse}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="link" hitSlop={6} onPress={() => WebBrowser.openBrowserAsync(legalUrl('privacy')).catch(() => {})}>
+                <Text style={[type.caption, { color: t.textSub, textDecorationLine: 'underline' }]}>{s.profile.privacyPolicy}</Text>
+              </Pressable>
+            </View>
           </View>
       </FormScroll>
     </SafeAreaView>
@@ -204,4 +225,5 @@ const styles = StyleSheet.create({
   provider: { height: 54, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
   divider: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   line: { flex: 1, height: 1 },
+  legal: { flexDirection: 'row', gap: space.lg, justifyContent: 'center', flexWrap: 'wrap' },
 });

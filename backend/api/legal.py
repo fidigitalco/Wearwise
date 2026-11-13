@@ -1,6 +1,6 @@
 """
-Public pages the app stores require: the privacy policy and how to delete an
-account. Plain HTML at /privacy/ and /delete-account/, no login.
+Public pages the app stores require: the privacy policy, the terms of use and
+how to delete an account. Plain HTML at /privacy/, /terms/ and /delete-account/, no login.
 
 SUPPORT_EMAIL is the address people write to about their data.
 """
@@ -8,7 +8,7 @@ import os
 
 from django.shortcuts import render
 
-UPDATED = '12 November 2026'
+UPDATED = '13 November 2026'
 
 
 def _context():
@@ -21,3 +21,7 @@ def privacy(request):
 
 def delete_account(request):
     return render(request, 'legal/delete_account.html', _context())
+
+
+def terms(request):
+    return render(request, 'legal/terms.html', _context())

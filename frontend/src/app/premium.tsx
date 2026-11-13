@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Check, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -9,6 +10,7 @@ import { Button } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { formatPrice, PRICING, yearlySavings } from '../lib/pricing';
+import { legalUrl } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
 
 const HERO = [
@@ -120,8 +122,12 @@ export default function PremiumScreen() {
           <Pressable accessibilityRole="button" hitSlop={6} onPress={() => toast(s.premium.soon)}>
             <Text style={[type.caption, { color: t.textMuted, textDecorationLine: 'underline' }]}>{s.premium.restore}</Text>
           </Pressable>
-          <Text style={[type.caption, { color: t.textMuted, textDecorationLine: 'underline' }]}>{s.premium.terms}</Text>
-          <Text style={[type.caption, { color: t.textMuted, textDecorationLine: 'underline' }]}>{s.premium.privacy}</Text>
+          <Pressable accessibilityRole="link" hitSlop={6} onPress={() => WebBrowser.openBrowserAsync(legalUrl('terms')).catch(() => {})}>
+            <Text style={[type.caption, { color: t.textMuted, textDecorationLine: 'underline' }]}>{s.premium.terms}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="link" hitSlop={6} onPress={() => WebBrowser.openBrowserAsync(legalUrl('privacy')).catch(() => {})}>
+            <Text style={[type.caption, { color: t.textMuted, textDecorationLine: 'underline' }]}>{s.premium.privacy}</Text>
+          </Pressable>
         </View>
       </View>
       )}

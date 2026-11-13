@@ -67,7 +67,17 @@ export default function FeedbackPage() {
                     <span>· {formatDate(f.created_at, lang, true)}</span>
                     {(f.platform || f.app_version) && <span>· {[f.platform, f.app_version].filter(Boolean).join(' ')}</span>}
                   </div>
-                  <p className="text-sm text-slate-900 whitespace-pre-wrap break-words">{f.message}</p>
+                  {f.message && <p className="text-sm text-slate-900 whitespace-pre-wrap break-words">{f.message}</p>}
+                  {f.screenshots?.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {f.screenshots.map((src, i) => (
+                        <a key={src} href={src} target="_blank" rel="noreferrer" className="block">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={src} alt={`Screenshot ${i + 1}`} className="h-40 w-auto rounded-lg border border-slate-200 object-cover hover:opacity-90" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <button onClick={() => toggle(f)} className={`${action} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}>
                       {f.resolved ? <RotateCcw size={13} /> : <Check size={13} />} {f.resolved ? t('markOpen') : t('markResolved')}

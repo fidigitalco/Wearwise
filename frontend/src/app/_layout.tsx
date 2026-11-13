@@ -14,7 +14,7 @@ import { useTheme } from '../theme';
 
 installCrashReporter();
 
-const PUBLIC = new Set(['welcome', 'auth']);
+const PUBLIC = new Set(['welcome', 'auth', 'forgot-password']);
 
 function AuthGate() {
   const { user, ready } = useAuth();
@@ -35,8 +35,9 @@ function AuthGate() {
     if (!user && !isPublic) router.replace('/welcome');
     else if (user && !user.onboarded && first !== 'onboarding') router.replace('/onboarding');
     // Onboarding navigates on by itself when it finishes, so it is not redirected here.
-    // A guest may open the sign-up screen; everyone else signed in is sent home.
-    else if (user && isPublic && !(user.is_guest && first === 'auth')) router.replace('/');
+    // A guest may open the sign-up screen, and anyone signed in may reset a forgotten
+    // password (from Profile → Password); everyone else signed in is sent home.
+    else if (user && isPublic && !(user.is_guest && first === 'auth') && first !== 'forgot-password') router.replace('/');
   }, [user, ready, segments, router]);
 
   if (!ready) {
@@ -80,6 +81,8 @@ function AuthGate() {
       <Stack.Screen name="wishlist" options={{ title: s.wishlist.title }} />
       <Stack.Screen name="shop" options={{ title: s.shop.screen }} />
       <Stack.Screen name="feedback" options={{ title: s.feedback.title }} />
+      <Stack.Screen name="forgot-password" options={{ title: s.forgot.title }} />
+      <Stack.Screen name="password" options={{ title: user?.has_password === false ? s.password.titleSet : s.password.titleChange }} />
     </Stack>
   );
 }

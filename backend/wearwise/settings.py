@@ -83,9 +83,23 @@ DATABASES = {
 AUTH_USER_MODEL = 'api.User'
 
 AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+     'OPTIONS': {'user_attributes': ('email', 'display_name')}},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {'NAME': 'api.passwords.ComplexityValidator'},
 ]
+
+# ── Transactional email (api/emails.py): Resend when its key is set, else SendGrid ──
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+# Must be on a domain verified with the provider.
+EMAIL_FROM_ADDRESS = os.environ.get('EMAIL_FROM_ADDRESS', 'info@fabosoft.com')
+EMAIL_FROM_NAME = os.environ.get('EMAIL_FROM_NAME', 'WearWise AI')
+# Where in-app feedback is forwarded (it is also in the admin panel).
+FEEDBACK_EMAIL = os.environ.get('FEEDBACK_EMAIL', '') or os.environ.get('SUPPORT_EMAIL', '')
+PASSWORD_RESET_CODE_TTL_MINUTES = int(os.environ.get('PASSWORD_RESET_CODE_TTL_MINUTES', '15'))
 
 TESTING = 'test' in sys.argv
 

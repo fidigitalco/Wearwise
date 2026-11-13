@@ -394,6 +394,20 @@ class VideoScan(models.Model):
         ordering = ['-created_at']
 
 
+class PasswordResetCode(models.Model):
+    """A 6-digit code emailed for "forgot password". Short-lived, single-use, and
+    burnt after a few wrong guesses so it can't be brute-forced."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_codes')
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used = models.BooleanField(default=False)
+    attempts = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
 class AppFeedback(models.Model):
     """What a user wrote from Settings → Send feedback. Admins read these; nothing else uses them."""
 

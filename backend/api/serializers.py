@@ -1,4 +1,5 @@
 from django.contrib.auth import password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from . import taxonomy as tx
@@ -16,6 +17,12 @@ def _choice_list(values, allowed, field):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    # False for Google/Apple-only and guest accounts: the app then offers "set a password", not "change".
+    has_password = serializers.SerializerMethodField()
+
+    def get_has_password(self, user):
+        return user.has_usable_password()
+
     class Meta:
         model = User
         fields = [
@@ -23,7 +30,7 @@ class UserSerializer(serializers.ModelSerializer):
             'latitude', 'longitude', 'preferred_styles', 'favorite_colors', 'sizes', 'typical_occasions',
             'units', 'notifications_enabled', 'plan', 'is_guest', 'date_joined',
             'gender', 'birth_year', 'height_cm', 'weight_kg', 'body_shape', 'fit_preference', 'fit_preferences', 'budget', 'avoid_colors',
-            'age_range', 'country', 'budget_ranges', 'stores', 'type_prefs',
+            'age_range', 'country', 'budget_ranges', 'stores', 'type_prefs', 'has_password',
         ]
         read_only_fields = ['id', 'email', 'plan', 'is_guest', 'date_joined']
 
@@ -110,9 +117,14 @@ class RegisterSerializer(serializers.Serializer):
             raise serializers.ValidationError('An account with this email already exists.')
         return v
 
-    def validate_password(self, v):
-        password_validation.validate_password(v)
-        return v
+    def validate(self, data):
+        # Checked here rather than per field so the rule can compare against the email and name.
+        probe = User(email=data.get('email', ''), display_name=data.get('display_name', ''))
+        try:
+            password_validation.validate_password(data['password'], user=probe)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({'password': list(e.messages)})
+        return data
 
     def create(self, data):
         return User.objects.create_user(**data)

@@ -422,6 +422,8 @@ def admin_feedback(request):
 def admin_feedback_item(request, pk):
     f = get_object_or_404(AppFeedback.objects.select_related('user'), pk=pk)
     if request.method == 'DELETE':
+        for shot in f.shots.all():
+            shot.image.delete(save=False)
         f.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     if 'resolved' in request.data:

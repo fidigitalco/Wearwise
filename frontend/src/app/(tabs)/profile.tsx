@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { BellRing, Bookmark, ImagePlus, CircleUserRound, Heart, Layers, Shirt, Compass, Crown, Globe, Lock, LogOut, MessageSquare, ShoppingBag, Sparkles, Star, Thermometer, Trash } from 'lucide-react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { Bookmark, CircleUserRound, Compass, Crown, FileText, Globe, Heart, ImagePlus, KeyRound, Lock, LogOut, MessageSquare, ShieldCheck, ShoppingBag, Star, Thermometer, Trash } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +12,7 @@ import { useAuth } from '../../lib/auth';
 import { LANGUAGES, useI18n, useLabel } from '../../lib/i18n';
 import { rgbCss, useMeta } from '../../lib/meta';
 import { openStoreReview } from '../../lib/rate';
-import { errorMessage } from '../../services/api';
+import { errorMessage, legalUrl } from '../../services/api';
 import { gutter, space, type, useTheme } from '../../theme';
 import type { User } from '../../types';
 
@@ -37,6 +38,11 @@ export default function MyStyleScreen() {
     } catch (e) {
       toast(errorMessage(e), 'error');
     }
+  };
+
+  const openPage = (page: 'privacy' | 'terms' | 'delete-account') => {
+    setSheet(null);
+    WebBrowser.openBrowserAsync(legalUrl(page)).catch((e) => toast(errorMessage(e), 'error'));
   };
 
   const saveName = () => {
@@ -111,22 +117,15 @@ export default function MyStyleScreen() {
           </Pressable>
         </View>
 
+        {/* Only what has no other way in: the tabs already lead to the stylist, the closet and outfits. */}
         <Section>
           <Row first icon={<Crown size={20} color={t.primary} strokeWidth={1.6} />} title={s.premium.label}
             value={premium ? s.premium.premiumPlan : s.premium.freePlan} onPress={() => router.push('/premium')} />
           <Row icon={<Heart size={20} color={t.text} strokeWidth={1.6} />} title={s.wishlist.title} onPress={() => router.push('/wishlist')} />
-          <Row icon={<BellRing size={20} color={t.text} strokeWidth={1.6} />} title={s.me.priceAlerts} onPress={() => router.push('/wishlist')} />
-          <Row icon={<ImagePlus size={20} color={t.text} strokeWidth={1.6} />} title={s.inspo.title} onPress={() => router.push('/inspiration')} />
-          <Row icon={<Sparkles size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.stylist} onPress={() => router.push('/assistant')} />
-          <Row icon={<Compass size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.howItWorks} onPress={() => router.push('/tour')} />
-        </Section>
-
-        {/* Out of the MVP but kept: the closet and its outfits for those who already built one. */}
-        <Section>
-          <Row first icon={<Shirt size={20} color={t.text} strokeWidth={1.6} />} title={s.me.myCloset} onPress={() => router.push('/closet')} />
-          <Row icon={<Layers size={20} color={t.text} strokeWidth={1.6} />} title={s.me.myOutfits} onPress={() => router.push('/outfits')} />
           <Row icon={<Bookmark size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.saved} onPress={() => router.push('/saved')} />
+          <Row icon={<ImagePlus size={20} color={t.text} strokeWidth={1.6} />} title={s.inspo.title} onPress={() => router.push('/inspiration')} />
           <Row icon={<ShoppingBag size={20} color={t.text} strokeWidth={1.6} />} title={s.shop.screen} onPress={() => router.push('/shop')} />
+          <Row icon={<Compass size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.howItWorks} onPress={() => router.push('/tour')} />
         </Section>
 
         <Section title={s.profile.settings}>
@@ -135,7 +134,7 @@ export default function MyStyleScreen() {
             value={LANGUAGES.find((l) => l.code === lang)?.name} onPress={() => setSheet('language')} />
           <Row icon={<Thermometer size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.units}
             value={user?.units === 'imperial' ? s.prefs.imperial : s.prefs.metric} onPress={() => setSheet('units')} />
-          <Row icon={<Lock size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.privacy} onPress={() => setSheet('privacy')} />
+          <Row icon={<ShieldCheck size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.legal} onPress={() => setSheet('privacy')} />
         </Section>
 
         <Section title={s.profile.support}>
@@ -145,7 +144,11 @@ export default function MyStyleScreen() {
         </Section>
 
         <Section title={s.settings.account}>
-          <Row first icon={<LogOut size={20} color={t.text} strokeWidth={1.6} />} title={guest ? s.guest.leave : s.settings.signOut}
+          {guest ? null : (
+            <Row first icon={<KeyRound size={20} color={t.text} strokeWidth={1.6} />}
+              title={user?.has_password === false ? s.password.titleSet : s.password.titleChange} onPress={() => router.push('/password')} />
+          )}
+          <Row first={guest} icon={<LogOut size={20} color={t.text} strokeWidth={1.6} />} title={guest ? s.guest.leave : s.settings.signOut}
             onPress={guest ? () => setConfirmLeave(true) : signOut} />
           {guest ? null : (
             <Row icon={<Trash size={20} color={t.danger} strokeWidth={1.6} />} title={s.settings.deleteAccount} onPress={() => setConfirmDelete(true)} danger />
@@ -170,8 +173,13 @@ export default function MyStyleScreen() {
           ))}
         </Section>
       </BottomSheet>
-      <BottomSheet visible={sheet === 'privacy'} onClose={() => setSheet(null)} title={s.profile.privacy} closeLabel={s.common.close}>
+      <BottomSheet visible={sheet === 'privacy'} onClose={() => setSheet(null)} title={s.profile.legal} closeLabel={s.common.close}>
         <Text style={[type.body, { color: t.textSub }]}>{s.profile.privacyBody}</Text>
+        <Section>
+          <Row first icon={<Lock size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.privacyPolicy} onPress={() => openPage('privacy')} />
+          <Row icon={<FileText size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.termsOfUse} onPress={() => openPage('terms')} />
+          <Row icon={<Trash size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.deleteInfo} onPress={() => openPage('delete-account')} />
+        </Section>
       </BottomSheet>
 
       <ConfirmationDialog

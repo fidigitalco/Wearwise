@@ -1,3 +1,4 @@
+import hmac
 import logging
 import os
 import secrets
@@ -5,7 +6,8 @@ import threading
 from datetime import date, timedelta
 
 from django.conf import settings
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Count, Sum
@@ -22,7 +24,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
-from . import social, taxonomy as tx
+from . import emails, social, taxonomy as tx
 from .assistant import answer, read_plan
 from .locale import lang_from_header
 from .colors import extract_colors, remove_background
@@ -39,7 +41,7 @@ from .engine.describe import title_for
 from .engine.recommend import NotEnoughGarments
 from .engine.scoring import score_outfit
 from .engine.taste import update_taste
-from .models import AffiliateClick, AppFeedback, AppFeedbackShot, DiscoveryDrop, Inspiration, StyleCheck, Feedback, Occasion, Product, ProductAction, SavedProduct, Garment, Outfit, OutfitItem, OutfitPlan, TasteProfile, User, VideoScan, WearLog
+from .models import AffiliateClick, AppFeedback, AppFeedbackShot, PasswordResetCode, DiscoveryDrop, Inspiration, StyleCheck, Feedback, Occasion, Product, ProductAction, SavedProduct, Garment, Outfit, OutfitItem, OutfitPlan, TasteProfile, User, VideoScan, WearLog
 from .serializers import (
     CheckOutfitSerializer, FeedbackSerializer, GarmentSerializer, LoginSerializer, OccasionSerializer, ProductSerializer,
     OutfitSerializer, OutfitSetSerializer, RecommendRequestSerializer, RegisterSerializer, UserSerializer,
@@ -162,6 +164,106 @@ def claim(request):
     return Response(_auth_payload(user))
 
 
+MAX_RESET_ATTEMPTS = 5
+
+
+def _validated_password(password, user):
+    """None when the password passes every rule, else a Response with the reason."""
+    try:
+        password_validation.validate_password(password, user=user)
+    except DjangoValidationError as e:
+        return Response({'password': list(e.messages), 'detail': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+    return None
+
+
+def _set_password_and_rotate(user, password):
+    """Save the new password and replace the auth token, so a session on a lost or shared device stops working."""
+    user.set_password(password)
+    user.save(update_fields=['password'])
+    Token.objects.filter(user=user).delete()
+    return _auth_payload(user)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([AuthThrottle])
+def forgot_password(request):
+    """{"email"} → emails a 6-digit code. Same answer whether or not the account exists."""
+    email = str(request.data.get('email', '')).strip().lower()
+    if not email:
+        return Response({'detail': 'Enter your email.'}, status=status.HTTP_400_BAD_REQUEST)
+    user = User.objects.filter(email=email, is_guest=False).first()
+    if user:
+        # One live code at a time, or every request would add another code to guess.
+        PasswordResetCode.objects.filter(user=user, used=False).update(used=True)
+        code = f'{secrets.randbelow(1_000_000):06d}'
+        PasswordResetCode.objects.create(user=user, code=code)
+        ttl = settings.PASSWORD_RESET_CODE_TTL_MINUTES
+        sent = emails.send_email(
+            email, 'Your WearWise password reset code',
+            f'Hi {user.display_name or "there"},\n\n'
+            f'Your WearWise password reset code is: {code}\n\n'
+            f'It expires in {ttl} minutes. If you did not ask to reset your password, you can ignore this email.',
+        )
+        if not sent:
+            # Saying "code sent" when nothing went out would leave the person waiting for nothing.
+            return Response({'code': 'mail_failed', 'detail': 'The reset email could not be sent. Try again later.'},
+                            status=status.HTTP_502_BAD_GATEWAY)
+    return Response({'ok': True})
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([AuthThrottle])
+def reset_password(request):
+    """{"email", "code", "password"} → {"token", "user"}: signs the person straight in."""
+    email = str(request.data.get('email', '')).strip().lower()
+    code = str(request.data.get('code', '')).strip()
+    password = str(request.data.get('password', ''))
+    if not email or not code or not password:
+        return Response({'detail': 'Email, code and new password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+    invalid = Response({'code': 'invalid_code', 'detail': 'The code is wrong or has expired.'}, status=status.HTTP_400_BAD_REQUEST)
+    user = User.objects.filter(email=email, is_guest=False).first()
+    cutoff = timezone.now() - timedelta(minutes=settings.PASSWORD_RESET_CODE_TTL_MINUTES)
+    entry = PasswordResetCode.objects.filter(user=user, used=False, created_at__gte=cutoff).first() if user else None
+    if entry is None or entry.attempts >= MAX_RESET_ATTEMPTS:
+        return invalid
+    if not hmac.compare_digest(entry.code, code):
+        entry.attempts += 1
+        entry.used = entry.attempts >= MAX_RESET_ATTEMPTS
+        entry.save(update_fields=['attempts', 'used'])
+        return invalid
+    refused = _validated_password(password, user)
+    if refused:
+        return refused
+    entry.used = True
+    entry.save(update_fields=['used'])
+    return Response(_set_password_and_rotate(user, password))
+
+
+@api_view(['POST'])
+@throttle_classes([AuthThrottle])
+def change_password(request):
+    """
+    {"current_password"?, "new_password"} → {"token", "user"}.
+    The current password is required when the account has one; a Google/Apple-only
+    account sets its first password with just the new one.
+    """
+    user = request.user
+    if user.is_guest:
+        return Response({'detail': 'Create an account first.'}, status=status.HTTP_400_BAD_REQUEST)
+    new = str(request.data.get('new_password', ''))
+    if not new:
+        return Response({'detail': 'Enter a new password.'}, status=status.HTTP_400_BAD_REQUEST)
+    if user.has_usable_password() and not user.check_password(str(request.data.get('current_password', ''))):
+        return Response({'code': 'wrong_password', 'detail': 'Your current password is incorrect.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    refused = _validated_password(new, user)
+    if refused:
+        return refused
+    return Response(_set_password_and_rotate(user, new))
+
+
 @api_view(['POST'])
 def logout(request):
     Token.objects.filter(user=request.user).delete()
@@ -179,6 +281,10 @@ def me(request):
         for i in Inspiration.objects.filter(user=request.user):
             if i.image:
                 i.image.delete(save=False)
+        # Feedback text is kept without a name; screenshots of their screen are not.
+        for shot in AppFeedbackShot.objects.filter(feedback__user=request.user):
+            shot.image.delete(save=False)
+            shot.delete()
         request.user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     if request.method == 'PATCH':
@@ -735,6 +841,7 @@ FEEDBACK_MAX_SHOT_BYTES = 10 * 1024 * 1024
 
 
 @api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 def app_feedback(request):
     """Settings → Send feedback: {kind: idea|problem|other, message, platform?, app_version?},
     as JSON, or multipart with up to three images under `screenshots`."""
@@ -752,6 +859,16 @@ def app_feedback(request):
     )
     for f in shots:
         AppFeedbackShot.objects.create(feedback=fb, image=f)
+    if settings.FEEDBACK_EMAIL:
+        u = request.user
+        who = 'guest' if u.is_guest else (u.display_name or u.email)
+        emails.send_email(
+            settings.FEEDBACK_EMAIL, f'WearWise feedback ({kind}) from {who}',
+            f'From: {who} <{"-" if u.is_guest else u.email}>\n'
+            f'Kind: {kind}\nApp: {fb.platform} {fb.app_version}\n'
+            f'Screenshots: {len(shots) or "-"} (in the admin panel, Feedback)\n\n{message or "(no message)"}',
+            reply_to=None if u.is_guest else u.email,
+        )
     return Response(status=status.HTTP_201_CREATED)
 
 

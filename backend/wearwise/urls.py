@@ -7,6 +7,7 @@ from api import legal
 
 urlpatterns = [
     path('privacy/', legal.privacy),
+    path('terms/', legal.terms),
     path('delete-account/', legal.delete_account),
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),

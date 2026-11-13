@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
-import { auth, loadToken, setToken, setUnauthorizedHandler } from '../services/api';
+import { auth, loadToken, setToken, setUnauthorizedHandler, type AuthResponse } from '../services/api';
 import type { User } from '../types';
 
 type AuthState = {
@@ -15,6 +15,8 @@ type AuthState = {
   /** Re-read the account from the server, e.g. after Premium was granted elsewhere. */
   refreshUser: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  /** Take a fresh session from the server, e.g. after a password reset or change. */
+  applySession: (r: AuthResponse) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -98,6 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       deleteAccount: async () => {
         await auth.deleteAccount();
         await clear();
+      },
+      applySession: async (r) => {
+        await setToken(r.token);
+        setUser(r.user);
       },
     }),
     [user, ready, clear, refreshUser],

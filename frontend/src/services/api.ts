@@ -126,8 +126,13 @@ export function mediaUrl(path: string | null | undefined): string | undefined {
   return BASE_URL.replace(/\/api$/, '') + path;
 }
 
+/** A public page on our server: the privacy policy, the terms, account deletion. */
+export function legalUrl(page: 'privacy' | 'terms' | 'delete-account'): string {
+  return `${BASE_URL.replace(/\/api$/, '')}/${page}/`;
+}
+
 // ── Auth ────────────────────────────────────────────────────────────────────
-type AuthResponse = { token: string; user: User };
+export type AuthResponse = { token: string; user: User };
 
 export const auth = {
   register: (email: string, password: string, display_name?: string) =>
@@ -140,6 +145,14 @@ export const auth = {
   /** Apple's web sign-in page (Android), returning to the given app link. */
   appleStart: (returnUrl: string) =>
     http.get<{ url: string }>('/auth/apple/start/', { params: { return: returnUrl } }).then((r) => r.data.url),
+  /** Emails a 6-digit reset code; the same answer whether or not the account exists. */
+  forgotPassword: (email: string) => http.post('/auth/forgot-password/', { email }).then(() => undefined),
+  /** Swaps the emailed code and a new password for a fresh session. */
+  resetPassword: (email: string, code: string, password: string) =>
+    http.post<AuthResponse>('/auth/reset-password/', { email, code, password }).then((r) => r.data),
+  /** Change (or, for a Google/Apple-only account, set) the password; other sessions are signed out. */
+  changePassword: (new_password: string, current_password?: string) =>
+    http.post<AuthResponse>('/auth/change-password/', { new_password, current_password }).then((r) => r.data),
   /** A guest account with the sample wardrobe, for looking around before signing up. */
   guest: () => http.post<AuthResponse>('/auth/guest/').then((r) => r.data),
   /** Sign up from a guest account, keeping its closet. */

@@ -144,6 +144,8 @@ export interface FeedbackRow {
   app_version: string
   resolved: boolean
   created_at: string
+  /** Absolute URLs of screenshots attached in the app (up to 3). */
+  screenshots: string[]
   user: { id: number; email: string; name: string; is_guest: boolean } | null
 }
 
