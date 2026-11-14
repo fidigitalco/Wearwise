@@ -876,6 +876,11 @@ export const en = {
     save: 'Save password',
     saved: 'Password saved. Your other devices were signed out.',
     forgot: 'Forgot your current password?',
+    enterCurrent: 'Enter your current password.',
+    enterNew: 'Enter a new password.',
+    enterConfirm: 'Repeat the new password in the second field.',
+    tooSimilar: 'The password is too close to your name or email. Choose another one.',
+    tooCommon: 'This password is too common. Choose another one.',
   },
   feedback: {
     title: 'Send feedback',

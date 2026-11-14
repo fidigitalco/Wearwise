@@ -172,7 +172,10 @@ def _validated_password(password, user):
     try:
         password_validation.validate_password(password, user=user)
     except DjangoValidationError as e:
-        return Response({'password': list(e.messages), 'detail': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        # codes lets the app name the reason in its own language (e.g. password_too_similar).
+        codes = sorted({err.code for err in e.error_list if err.code})
+        return Response({'password': list(e.messages), 'codes': codes, 'detail': ' '.join(e.messages)},
+                        status=status.HTTP_400_BAD_REQUEST)
     return None
 
 

@@ -1689,6 +1689,8 @@ class PasswordSecurityTests(APITestCase):
         self.assertEqual(bad.data['code'], 'wrong_password')
         weak = self.client.post('/api/auth/change-password/', {'current_password': 'Wardrobe-123', 'new_password': 'newpass'}, format='json')
         self.assertEqual(weak.status_code, 400)
+        common = self.client.post('/api/auth/change-password/', {'current_password': 'Wardrobe-123', 'new_password': 'password'}, format='json')
+        self.assertIn('password_too_common', common.data['codes'])
         ok = self.client.post('/api/auth/change-password/', {'current_password': 'Wardrobe-123', 'new_password': 'Newpass-456'}, format='json')
         self.assertEqual(ok.status_code, 200, ok.data)
         self.assertNotEqual(ok.data['token'], r.data['token'])

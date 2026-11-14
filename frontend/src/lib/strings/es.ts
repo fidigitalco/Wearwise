@@ -878,6 +878,11 @@ export const es: Strings = {
     save: 'Guardar contraseña',
     saved: 'Contraseña guardada. Se cerró la sesión en tus otros dispositivos.',
     forgot: '¿Olvidaste tu contraseña actual?',
+    enterCurrent: 'Escribe tu contraseña actual.',
+    enterNew: 'Escribe una contraseña nueva.',
+    enterConfirm: 'Repite la contraseña nueva en el segundo campo.',
+    tooSimilar: 'La contraseña se parece demasiado a tu nombre o correo. Elige otra.',
+    tooCommon: 'Esta contraseña es demasiado común. Elige otra.',
   },
   feedback: {
     title: 'Enviar comentarios',

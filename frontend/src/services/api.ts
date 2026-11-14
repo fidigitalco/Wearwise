@@ -81,7 +81,10 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (r) => r,
   (err: AxiosError) => {
-    if (err.response?.status === 401 && token) onUnauthorized?.();
+    // Only a 401 for the session we hold now signs out. A password change replaces the
+    // token, and a request still in flight with the old one must not wipe the new session.
+    const sent = String(err.config?.headers?.Authorization ?? '');
+    if (err.response?.status === 401 && token && sent === `Token ${token}`) onUnauthorized?.();
     return Promise.reject(err);
   },
 );

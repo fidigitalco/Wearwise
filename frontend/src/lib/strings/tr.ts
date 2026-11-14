@@ -877,6 +877,11 @@ export const tr: Strings = {
     save: 'Şifreyi kaydet',
     saved: 'Şifre kaydedildi. Diğer cihazlarda oturum kapatıldı.',
     forgot: 'Mevcut şifreni mi unuttun?',
+    enterCurrent: 'Mevcut şifreni yaz.',
+    enterNew: 'Yeni şifreni yaz.',
+    enterConfirm: 'Yeni şifreni ikinci alanda tekrarla.',
+    tooSimilar: 'Şifre adına veya e-postana çok benziyor. Başka bir şifre seç.',
+    tooCommon: 'Bu şifre çok yaygın. Başka bir şifre seç.',
   },
   feedback: {
     title: 'Geri bildirim gönder',

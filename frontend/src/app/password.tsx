@@ -30,8 +30,13 @@ export default function PasswordScreen() {
   const mismatch = !!confirm && confirm !== next;
 
   const save = async () => {
+    if (busy) return;
     setError(null);
+    // The button always answers a tap: say what is missing instead of staying greyed out.
+    if (hasPassword && !current) return setError(s.password.enterCurrent);
+    if (!next) return setError(s.password.enterNew);
     if (check.failed.length) return setError(s.pw.notStrong);
+    if (!confirm) return setError(s.password.enterConfirm);
     if (next !== confirm) return setError(s.password.mismatch);
     setBusy(true);
     try {
@@ -40,7 +45,14 @@ export default function PasswordScreen() {
       router.back();
     } catch (e: any) {
       const d = e?.response?.data;
-      setError(d?.code === 'wrong_password' ? s.password.wrongCurrent : d?.password ? s.pw.notStrong : errorMessage(e));
+      const codes: string[] = Array.isArray(d?.codes) ? d.codes : [];
+      setError(
+        d?.code === 'wrong_password' ? s.password.wrongCurrent
+          : codes.includes('password_too_similar') ? s.password.tooSimilar
+          : codes.includes('password_too_common') ? s.password.tooCommon
+          : d?.password ? s.pw.notStrong
+          : errorMessage(e),
+      );
       setBusy(false);
     }
   };
@@ -68,8 +80,7 @@ export default function PasswordScreen() {
         {mismatch ? <Text style={[type.caption, { color: t.danger }]}>{s.password.mismatch}</Text> : null}
       </View>
       {error ? <Text style={[type.label, { color: t.danger }]} accessibilityLiveRegion="polite">{error}</Text> : null}
-      <Button title={s.password.save} onPress={save} loading={busy}
-        disabled={(hasPassword && !current) || !next || !confirm} />
+      <Button title={s.password.save} onPress={save} loading={busy} />
     </FormScroll>
   );
 }

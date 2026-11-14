@@ -877,6 +877,11 @@ export const az: Strings = {
     save: 'Şifrəni saxla',
     saved: 'Şifrə saxlanıldı. Digər cihazlarda hesabdan çıxış edildi.',
     forgot: 'Hazırkı şifrəni unutmusan?',
+    enterCurrent: 'Hazırkı şifrəni yaz.',
+    enterNew: 'Yeni şifrəni yaz.',
+    enterConfirm: 'Yeni şifrəni ikinci xanada təkrarla.',
+    tooSimilar: 'Şifrə adına və ya e-poçtuna çox bənzəyir. Başqa şifrə seç.',
+    tooCommon: 'Bu şifrə çox geniş yayılıb. Başqa şifrə seç.',
   },
   feedback: {
     title: 'Rəy göndər',
