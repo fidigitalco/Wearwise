@@ -628,3 +628,28 @@ class Inspiration(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class FinderSearch(models.Model):
+    """
+    One "Find it for me" request: what the person asked for and the real products
+    found for it on the web (api/finder.py). Runs in the background; the app polls it.
+    Failed searches do not count towards the weekly / daily allowance.
+    """
+
+    STATUSES = ['running', 'done', 'failed']
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='finder_searches')
+    query = models.CharField(max_length=300)
+    country = models.CharField(max_length=2, blank=True)  # where the picks must deliver (ISO 3166-1)
+    stores = models.JSONField(default=list, blank=True)
+    lang = models.CharField(max_length=5, default='en')
+    status = models.CharField(max_length=8, default='running', choices=tx.choices(STATUSES))
+    results = models.JSONField(default=list, blank=True)
+    note = models.CharField(max_length=500, blank=True)
+    error = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']

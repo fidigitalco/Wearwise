@@ -52,6 +52,8 @@ urlpatterns = [
     path('weather/', views.weather),
     path('stats/', views.stats),
     path('app-feedback/', views.app_feedback),
+    path('finder/', views.finder),
+    path('finder/<int:pk>/', views.finder_search),
     path('crash/', views.crash_report),
     path('me/install/', views.install_source),
     path('home/', views.home),

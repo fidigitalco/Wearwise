@@ -1724,3 +1724,125 @@ class FeedbackDeletionAndTermsTests(APITestCase):
     def test_terms_page(self):
         r = self.client.get('/terms/')
         self.assertContains(r, 'Terms of use')
+
+
+class DiscoveryWeatherTests(APITestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'wx@example.com', 'password': 'Wardrobe-123', 'display_name': 'Wes'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.user = User.objects.get(email='wx@example.com')
+        self.user.latitude, self.user.longitude, self.user.onboarded = 40.4, 49.9, True
+        self.user.save()
+
+    def drop_at(self, temp):
+        from unittest import mock
+        from .catalog import discovery
+        with mock.patch('api.weather.forecast', return_value={'temp_c': temp}):
+            return discovery(self.user)[0]
+
+    def test_cold_day_leaves_out_summer_pieces(self):
+        from .catalog import weather_ok
+        picks = self.drop_at(2)
+        self.assertTrue(picks)
+        self.assertTrue(all(weather_ok(p, 2) for p in picks), [(p.name, p.warmth) for p in picks])
+
+    def test_hot_day_leaves_out_coats(self):
+        from .catalog import weather_ok
+        picks = self.drop_at(30)
+        self.assertTrue(all(weather_ok(p, 30) for p in picks), [(p.name, p.warmth) for p in picks])
+
+    def test_season_is_used_without_a_location(self):
+        from datetime import date
+        from .catalog import discovery_temp
+        self.user.latitude = self.user.longitude = None
+        self.assertLess(discovery_temp(self.user, date(2026, 1, 15)), 8)
+        self.assertGreater(discovery_temp(self.user, date(2026, 7, 15)), 20)
+
+
+class FinderTests(APITestCase):
+    def setUp(self):
+        r = self.client.post('/api/auth/register/', {'email': 'find@example.com', 'password': 'Wardrobe-123', 'display_name': 'Fin'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.user = User.objects.get(email='find@example.com')
+
+    def test_country_comes_from_profile_then_phone_then_connection(self):
+        from .finder import country_for
+        self.user.ip_country = 'de'
+        self.assertEqual(country_for(self.user), 'DE')
+        self.user.device_country = 'TR'
+        self.assertEqual(country_for(self.user), 'TR')
+        self.user.country = 'AZ'
+        self.assertEqual(country_for(self.user), 'AZ')
+        self.user.country = 'other'
+        self.assertEqual(country_for(self.user), 'TR')
+
+    def test_free_gets_one_a_week_and_failures_do_not_count(self):
+        from .models import FinderSearch
+        self.user.country = 'GB'
+        self.user.save()
+        r = self.client.post('/api/finder/', {'query': 'black jacket'}, format='json')
+        self.assertEqual(r.status_code, 202, r.data)
+        self.assertEqual(r.data['search']['country'], 'GB')
+        self.assertEqual(r.data['allowance']['remaining'], 0)
+        # One already running: no second one.
+        self.assertEqual(self.client.post('/api/finder/', {'query': 'red scarf'}, format='json').data['code'], 'busy')
+        FinderSearch.objects.update(status='done')
+        r = self.client.post('/api/finder/', {'query': 'red scarf'}, format='json')
+        self.assertEqual(r.status_code, 402)
+        self.assertEqual(r.data['code'], 'limit')
+        FinderSearch.objects.update(status='failed')
+        self.assertEqual(self.client.post('/api/finder/', {'query': 'red scarf'}, format='json').status_code, 202)
+
+    def test_premium_gets_more_and_own_stores(self):
+        from .finder import PREMIUM_PER_DAY, stores_for
+        self.user.plan, self.user.stores = 'premium', ['Zara', 'Mango']
+        self.user.save()
+        self.assertEqual(stores_for(self.user), ['Zara', 'Mango'])
+        info = self.client.get('/api/finder/').data['allowance']
+        self.assertEqual((info['limit'], info['period']), (PREMIUM_PER_DAY, 'day'))
+        self.user.plan = 'free'
+        self.assertNotEqual(stores_for(self.user), ['Zara', 'Mango'])
+
+    def test_run_keeps_only_real_product_pages_that_deliver(self):
+        from unittest import mock
+        from . import finder
+        from .models import FinderSearch
+        s = FinderSearch.objects.create(user=self.user, query='jacket', country='AZ', stores=['Zara'])
+        pick = {'name': 'Jacket', 'store': 'Zara', 'image_url': 'https://img.example/x.jpg', 'price': 99, 'currency': 'azn',
+                'rating': 4.6, 'reviews': 120, 'reason': 'Suits you', 'delivers': True}
+        out = {'note': 'Hi', 'picks': [
+            {**pick, 'url': 'https://www.zara.com/az/en/jacket-p123.html'},
+            {**pick, 'url': 'https://www.zara.com/az/en/jacket-p123.html'},       # duplicate
+            {**pick, 'url': 'https://www.trendyol.com/sr?q=jacket'},              # a search page
+            {**pick, 'url': 'https://shop.example/coat-1', 'delivers': False},    # does not deliver
+            {**pick, 'url': 'not a url'},
+        ]}
+        with mock.patch.object(finder, '_ask_claude', return_value=out):
+            finder.run(s.pk)
+        s.refresh_from_db()
+        self.assertEqual(s.status, 'done')
+        self.assertEqual([p['url'] for p in s.results], ['https://www.zara.com/az/en/jacket-p123.html'])
+        self.assertEqual(s.results[0]['currency'], 'AZN')
+        r = self.client.get(f'/api/finder/{s.pk}/')
+        self.assertEqual(r.data['status'], 'done')
+
+    def test_run_failure_is_stored(self):
+        from unittest import mock
+        from . import finder
+        from .models import FinderSearch
+        s = FinderSearch.objects.create(user=self.user, query='jacket')
+        with mock.patch.object(finder, '_ask_claude', side_effect=RuntimeError('boom')):
+            finder.run(s.pk)
+        s.refresh_from_db()
+        self.assertEqual((s.status, s.error), ('failed', 'boom'))
+
+    def test_prompt_carries_the_profile_and_country(self):
+        from .finder import _prompt
+        from .models import FinderSearch
+        self.user.gender, self.user.sizes, self.user.favorite_colors, self.user.budget_ranges = 'female', {'top': 'M'}, ['black'], ['30-60']
+        s = FinderSearch(user=self.user, query='a warm sweater', country='AZ', stores=['Trendyol'])
+        text = _prompt(s, self.user)
+        for part in ('a warm sweater', 'Azerbaijan', 'Trendyol', 'top M', 'black', '30-60 USD', 'women'):
+            self.assertIn(part, text)

@@ -356,6 +356,27 @@ export const sendAppFeedback = (
 
 export type ProductAction = 'like' | 'not_me' | 'save' | 'shop';
 
+// ── Find it for me ─────────────────────────────────────────────────────────
+export type FinderPick = {
+  name: string; store: string; url: string; image_url: string; price: number | null; currency: string;
+  rating: number | null; reviews: number | null; reason: string;
+};
+export type FinderSearch = {
+  id: number; query: string; country: string; stores: string[]; status: 'running' | 'done' | 'failed';
+  results: FinderPick[]; note: string; error: string; created_at: string;
+};
+export type FinderAllowance = {
+  plan: 'free' | 'premium'; period: 'week' | 'day'; limit: number; used: number; remaining: number; resets_at: string | null;
+};
+export const finder = {
+  overview: () =>
+    http.get<{ allowance: FinderAllowance; country: string; stores: string[]; recent: FinderSearch[] }>('/finder/').then((r) => r.data),
+  /** Starts a search; it runs on the server for 30-90 seconds, so poll `get` until it is done. */
+  start: (query: string) =>
+    http.post<{ search: FinderSearch; allowance: FinderAllowance }>('/finder/', { query }).then((r) => r.data),
+  get: (id: number) => http.get<FinderSearch>(`/finder/${id}/`).then((r) => r.data),
+};
+
 export const catalog = {
   home: (lat?: number, lon?: number) =>
     http.get<HomeFeed>('/home/', { params: lat !== undefined ? { lat, lon } : undefined }).then((r) => r.data),

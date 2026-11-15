@@ -82,6 +82,7 @@ function AuthGate() {
       <Stack.Screen name="shop" options={{ title: s.shop.screen }} />
       <Stack.Screen name="feedback" options={{ title: s.feedback.title }} />
       <Stack.Screen name="forgot-password" options={{ title: s.forgot.title }} />
+      <Stack.Screen name="find" options={{ title: s.finder.title }} />
       <Stack.Screen name="password" options={{ title: user?.has_password === false ? s.password.titleSet : s.password.titleChange }} />
     </Stack>
   );

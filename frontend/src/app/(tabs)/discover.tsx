@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { ChevronRight, Heart, ImagePlus, ShoppingBag, ThumbsUp, X } from 'lucide-react-native';
+import { ChevronRight, Heart, ImagePlus, Search, ShoppingBag, ThumbsUp, X } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -74,6 +74,17 @@ export default function DiscoverScreen() {
             <View style={[styles.meterFill, { width: `${learned}%`, backgroundColor: t.primary }]} />
           </View>
         </View>
+
+        {/* The personal shopper: say what you want, get real picks that deliver to you. */}
+        <Pressable onPress={() => router.push('/find')} accessibilityRole="button"
+          style={({ pressed }) => [styles.share, { backgroundColor: t.primary, opacity: pressed ? 0.9 : 1 }]}>
+          <Search size={22} color={t.onPrimary} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[type.bodyStrong, { color: t.onPrimary }]}>{s.finder.cardTitle}</Text>
+            <Text style={[type.caption, { color: t.onPrimary, opacity: 0.85 }]}>{s.finder.cardSub}</Text>
+          </View>
+          <ChevronRight size={18} color={t.onPrimary} />
+        </Pressable>
 
         {/* Sharing what they like teaches the profile as much as a few swipes. */}
         <Pressable onPress={() => router.push('/inspiration')} accessibilityRole="button"

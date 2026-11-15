@@ -289,8 +289,42 @@ def next_drop(day=None):
     return day
 
 
+# Typical day temperature (°C) by month when there is no forecast, for the northern hemisphere.
+_SEASON_TEMP = {1: 3, 2: 4, 3: 9, 4: 14, 5: 19, 6: 24, 7: 27, 8: 27, 9: 22, 10: 16, 11: 9, 12: 4}
+# How far outside a piece's comfortable range it may still be shown (layering, a warm afternoon).
+_WEATHER_MARGIN = 3
+
+
+def discovery_temp(user, day=None):
+    """The temperature Discovery dresses for: the user's forecast for today, else the month's typical one."""
+    day = day or timezone.localdate()
+    if user.latitude is not None and user.longitude is not None:
+        from .weather import forecast
+        try:
+            wx = forecast(float(user.latitude), float(user.longitude), day)
+        except Exception:  # weather is a nicety; Discovery must not fail on it
+            wx = None
+        if wx and wx.get('temp_c') is not None:
+            return float(wx['temp_c'])
+    month = day.month
+    if user.latitude is not None and float(user.latitude) < 0:  # southern hemisphere: seasons flip
+        month = (month + 5) % 12 + 1
+    return float(_SEASON_TEMP[month])
+
+
+def weather_ok(p, temp_c):
+    """False for a piece clearly too warm or too light for the day (a T-shirt at 3 °C, a parka at 28 °C)."""
+    from .engine.scoring import WARMTH_SLOTS
+    from .serializers import WEATHER_FIT
+    if p.category not in WARMTH_SLOTS:
+        return True  # shoes, bags and accessories are not judged by warmth here
+    lo, hi = WEATHER_FIT[max(0, min(5, int(p.warmth)))]
+    return lo - _WEATHER_MARGIN <= temp_c <= hi + _WEATHER_MARGIN
+
+
 def discovery(user):
-    """The products in today's drop, best first: 10 on the first drop, then 3 a drop (MVP §1–2)."""
+    """The products in today's drop, best first: 10 on the first drop, then 3 a drop (MVP §1–2).
+    Pieces that do not suit today's weather are left out."""
     from .models import DiscoveryDrop, Product, ProductAction
     key, _ = drop_key()
     drop = DiscoveryDrop.objects.filter(user=user, key=key).first()
@@ -301,6 +335,10 @@ def discovery(user):
             seen.update(d.product_ids)
         taste = learned_taste(user)
         pool = [p for p in candidates(user) if p.id not in seen]
+        temp_c = discovery_temp(user)
+        suited = [p for p in pool if weather_ok(p, temp_c)]
+        # Only when the weather leaves too little to show does Discovery fall back to everything.
+        pool = suited if len(suited) >= (FIRST_DROP if first else DROP_SIZE) else pool
         pool.sort(key=lambda p: -score_product(p, user, taste))
         picks, kinds = [], Counter()
         for p in pool:  # no more than two of one type in a drop

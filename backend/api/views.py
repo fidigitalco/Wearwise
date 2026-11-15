@@ -1182,3 +1182,58 @@ def inspiration_detail(request, pk):
         i.image.delete(save=False)
     i.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ── Find it for me (api/finder.py) ────────────────────────────────────────
+
+def _finder_row(s):
+    return {
+        'id': s.id, 'query': s.query, 'country': s.country, 'stores': s.stores, 'status': s.status,
+        'results': s.results, 'note': s.note, 'error': s.error, 'created_at': s.created_at,
+    }
+
+
+@api_view(['GET', 'POST'])
+def finder(request):
+    """
+    GET → {allowance, country, stores, recent}: what is left and the last searches.
+    POST {query} → 202 {search, allowance}; the search runs in the background, poll finder/<id>/.
+    402 {code: 'limit', allowance} when the week's (free) or day's (Premium) searches are used up.
+    """
+    from . import finder as f
+    from .models import FinderSearch
+    user = request.user
+    mine = FinderSearch.objects.filter(user=user)
+    f.expire_stale(mine)
+    if request.method == 'GET':
+        return Response({
+            'allowance': f.allowance(user), 'country': f.country_for(user), 'stores': f.stores_for(user),
+            'recent': [_finder_row(s) for s in mine[:10]],
+        })
+    query = ' '.join(str(request.data.get('query', '')).split())
+    if len(query) < 3:
+        return Response({'code': 'query_short', 'detail': 'Tell us what you are looking for.'}, status=status.HTTP_400_BAD_REQUEST)
+    if mine.filter(status='running').exists():
+        return Response({'code': 'busy', 'detail': 'A search is already running.'}, status=status.HTTP_409_CONFLICT)
+    left = f.allowance(user)
+    if left['remaining'] <= 0:
+        return Response({'code': 'limit', 'detail': 'No searches left for now.', 'allowance': left},
+                        status=status.HTTP_402_PAYMENT_REQUIRED)
+    search = FinderSearch.objects.create(
+        user=user, query=query[:300], country=f.country_for(user), stores=f.stores_for(user), lang=request_lang(request),
+    )
+    f.start(search)
+    return Response({'search': _finder_row(search), 'allowance': f.allowance(user)}, status=status.HTTP_202_ACCEPTED)
+
+
+@api_view(['GET'])
+def finder_search(request, pk):
+    """One search, to poll until its status is done or failed."""
+    from . import finder as f
+    from .models import FinderSearch
+    mine = FinderSearch.objects.filter(user=request.user)
+    f.expire_stale(mine)
+    s = mine.filter(pk=pk).first()
+    if not s:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    return Response(_finder_row(s))
