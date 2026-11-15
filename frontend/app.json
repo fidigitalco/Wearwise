@@ -10,7 +10,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.wearwise",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "package": "app.wearwise",
