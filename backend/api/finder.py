@@ -159,6 +159,10 @@ def _profile(user):
         lines.append('Favourite colours: ' + ', '.join(user.favorite_colors))
     if user.avoid_colors:
         lines.append('Avoids: ' + ', '.join(user.avoid_colors))
+    if user.never_list:
+        lines.append('Never show: ' + ', '.join(t.replace(':', ' ').replace('_', ' ') for t in user.never_list))
+    lines.append(f'Quality bar: rating at least {user.min_rating}, at least {user.min_reviews} reviews where shown'
+                 + ('; no sponsored or promoted listings' if user.hide_sponsored else ''))
     taste = learned_taste(user)
     liked = [k.split(':', 1)[1] for k, v in sorted(taste.items(), key=lambda kv: -kv[1]) if v > 0][:8]
     if liked:

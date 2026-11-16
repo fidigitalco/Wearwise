@@ -115,6 +115,11 @@ export interface User {
   is_guest?: boolean;
   /** False for a Google/Apple-only account: it can set a password but has none to change. */
   has_password?: boolean;
+  /** "kind:value" entries never to show: color:red, sub:crop_top, material:polyester, style:y2k. */
+  never_list?: string[];
+  min_rating?: number;
+  min_reviews?: number;
+  hide_sponsored?: boolean;
   latitude: number | null;
   longitude: number | null;
   /** About you: what a stylist asks. All optional; never shown to admins. */
@@ -164,6 +169,11 @@ export interface Product {
   saved: boolean;
   /** 55–98: how well it fits the profile, shown as "92% match". */
   match?: number | null;
+  review_count?: number | null;
+  /** Our rating after review checks; shown next to the store's when there is one. */
+  verified_rating?: number | null;
+  free_returns?: boolean | null;
+  sizes?: string[];
 }
 
 export interface Look {

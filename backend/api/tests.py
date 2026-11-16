@@ -1846,3 +1846,99 @@ class FinderTests(APITestCase):
         text = _prompt(s, self.user)
         for part in ('a warm sweater', 'Azerbaijan', 'Trendyol', 'top M', 'black', '30-60 USD', 'women'):
             self.assertIn(part, text)
+
+
+class SmartSearchTests(APITestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'ss@example.com', 'password': 'Wardrobe-123', 'display_name': 'Sam'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.user = User.objects.get(email='ss@example.com')
+
+    def test_parse_intent_in_several_languages(self):
+        from decimal import Decimal
+        from .pipeline import parse_intent
+        i = parse_intent('white sneakers under $90')
+        self.assertEqual((i['subcategories'], i['colors'], i['max_price']), (['sneakers'], ['white'], Decimal(90)))
+        i = parse_intent('qara palto 150 AZN-dən ucuz')
+        self.assertEqual((i['subcategories'], i['colors'], i['max_price']), (['coat'], ['black'], Decimal(150)))
+        i = parse_intent('черные ботинки до 120')
+        self.assertEqual((i['subcategories'], i['colors'], i['max_price']), (['boots'], ['black'], Decimal(120)))
+        i = parse_intent('siyah kaban 2000 TL altı')
+        self.assertEqual((i['subcategories'], i['colors'], i['max_price']), (['coat'], ['black'], Decimal(2000)))
+        # Short words are whole words only.
+        self.assertEqual(parse_intent("show me more, I don't mind")['colors'], [])
+        self.assertEqual(parse_intent("show me more, I don't mind")['subcategories'], [])
+
+    def test_funnel_counts_and_reasons(self):
+        from .models import Product
+        tee = Product.objects.filter(subcategory='t_shirt').first()
+        Product.objects.filter(pk=tee.pk).update(sponsored=True)
+        r = self.client.post('/api/shop-search/', {'query': 't-shirt'}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        keys = [st['key'] for st in r.data['stages']]
+        self.assertEqual(keys, ['sponsored', 'quality', 'suspicious', 'style', 'size_budget', 'duplicates'])
+        self.assertEqual(r.data['stages'][0]['removed'], 1)
+        self.assertIn(('sponsored', tee.id), [(x['reason'], x['product']['id']) for x in r.data['removed']])
+        self.assertNotIn(tee.id, [p['id'] for p in r.data['results']])
+        # Left counts go down step by step and end at what was returned (or more, past the limit).
+        lefts = [st['left'] for st in r.data['stages']]
+        self.assertEqual(lefts, sorted(lefts, reverse=True))
+        self.assertTrue(all(p['subcategory'] == 't_shirt' for p in r.data['results']))
+
+    def test_never_list_and_quality_bar(self):
+        from .models import Product
+        self.user.never_list = ['color:black']
+        self.user.min_rating = 4.9
+        self.user.save()
+        r = self.client.post('/api/shop-search/', {'query': 'jacket'}, format='json')
+        self.assertTrue(all(p['color'] != 'black' for p in r.data['results']))
+        self.assertTrue(all((p['rating'] or 5) >= 4.9 for p in r.data['results']))
+        reasons = {x['reason'] for x in r.data['removed']}
+        self.assertTrue(reasons & {'low_rating', 'never:color:black'})
+        # Discovery leaves never-list pieces out too.
+        from .catalog import candidates
+        self.assertTrue(all(p.color != 'black' for p in candidates(self.user)))
+        self.assertTrue(Product.objects.filter(color='black').exists())
+
+    def test_duplicates_keep_the_cheapest(self):
+        from decimal import Decimal
+        from .models import Product
+        from .pipeline import merge_profile, parse_intent, run
+        p = Product.objects.filter(subcategory='jeans').first()
+        twin = Product.objects.create(name=p.name, brand=p.brand, store='Other', price=p.price - Decimal(5), currency=p.currency,
+                                      category=p.category, subcategory=p.subcategory, color=p.color, gender=p.gender, url='https://x.example/1', rating=p.rating)
+        out = run(Product.objects.filter(subcategory='jeans'), self.user, merge_profile(parse_intent('jeans'), self.user))
+        dropped = [x['product'].id for x in out['removed'] if x['reason'] == 'duplicate']
+        self.assertIn(p.id, dropped)
+        self.assertNotIn(twin.id, dropped)
+
+    def test_commission_never_affects_ranking(self):
+        import inspect
+        from decimal import Decimal
+        from . import catalog, pipeline
+        from .models import Product
+        # 1. The ranking code does not read the commission at all.
+        for fn in (pipeline.rank_score, pipeline.quality_score, pipeline.price_fit, catalog.score_product, pipeline.run):
+            self.assertNotIn('affiliate_rate', inspect.getsource(fn), fn.__name__)
+        # 2. Changing every commission leaves the order unchanged.
+        intent = pipeline.merge_profile(pipeline.parse_intent('jacket'), self.user)
+        before = [p.id for p in pipeline.run(Product.objects.all(), self.user, intent)['results']]
+        for i, p in enumerate(Product.objects.all()):
+            p.affiliate_rate = Decimal(i % 30)
+            p.save(update_fields=['affiliate_rate'])
+        after = [p.id for p in pipeline.run(Product.objects.all(), self.user, intent)['results']]
+        self.assertEqual(before, after)
+
+    def test_style_profile_and_editing(self):
+        self.user.preferred_styles = ['minimal']
+        self.user.save()
+        r = self.client.get('/api/style/')
+        self.assertEqual(r.data['axes'][0]['style'], 'minimal')
+        self.assertEqual(r.data['quality'], {'min_rating': 4.2, 'min_reviews': 200, 'hide_sponsored': True})
+        ok = self.client.patch('/api/auth/me/', {'never_list': ['color:red', 'sub:crop_top', 'color:red'], 'min_rating': 4.5}, format='json')
+        self.assertEqual(ok.status_code, 200, ok.data)
+        self.assertEqual(ok.data['never_list'], ['color:red', 'sub:crop_top'])
+        bad = self.client.patch('/api/auth/me/', {'never_list': ['red']}, format='json')
+        self.assertEqual(bad.status_code, 400)

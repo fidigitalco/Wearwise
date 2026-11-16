@@ -75,6 +75,17 @@ export default function DiscoverScreen() {
           </View>
         </View>
 
+        {/* Smart search over the catalogue, with the filter funnel shown. */}
+        <Pressable onPress={() => router.push('/shop-search')} accessibilityRole="button"
+          style={({ pressed }) => [styles.share, { backgroundColor: t.card, borderWidth: 1, borderColor: t.border, opacity: pressed ? 0.85 : 1 }]}>
+          <ShoppingBag size={22} color={t.primary} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[type.bodyStrong, { color: t.text }]}>{s.smart.cardTitle}</Text>
+            <Text style={[type.caption, { color: t.textSub }]}>{s.smart.cardSub}</Text>
+          </View>
+          <ChevronRight size={18} color={t.text} />
+        </Pressable>
+
         {/* The personal shopper: say what you want, get real picks that deliver to you. */}
         <Pressable onPress={() => router.push('/find')} accessibilityRole="button"
           style={({ pressed }) => [styles.share, { backgroundColor: t.primary, opacity: pressed ? 0.9 : 1 }]}>

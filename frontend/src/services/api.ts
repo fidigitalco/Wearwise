@@ -356,6 +356,23 @@ export const sendAppFeedback = (
 
 export type ProductAction = 'like' | 'not_me' | 'save' | 'shop';
 
+// ── Smart search and My style ──────────────────────────────────────────────
+export type SearchChip = { key: string; label: string; source: 'you' | 'profile' | 'never' };
+export type SearchStage = { key: string; removed: number; left: number };
+export type SmartSearchResult = {
+  query: string; intent: { chips: SearchChip[] }; total: number; matching: number; stages: SearchStage[];
+  results: Product[]; removed: { reason: string; product: Product }[];
+};
+export type StyleProfile = {
+  axes: { style: string; score: number }[]; palette: string[]; liked: string[]; never_list: string[];
+  sizes: Record<string, string>; budget_ranges: string[]; stores: string[]; all_stores: string[];
+  quality: { min_rating: number; min_reviews: number; hide_sponsored: boolean };
+};
+export const smartShop = {
+  search: (query: string) => http.post<SmartSearchResult>('/shop-search/', { query }).then((r) => r.data),
+  style: () => http.get<StyleProfile>('/style/').then((r) => r.data),
+};
+
 // ── Find it for me ─────────────────────────────────────────────────────────
 export type FinderPick = {
   name: string; store: string; url: string; image_url: string; price: number | null; currency: string;

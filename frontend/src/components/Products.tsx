@@ -85,7 +85,7 @@ export function ShopSheet({ products, onClose }: { products: Product[] | null; o
         <View style={[styles.tag, { backgroundColor: t.cardAlt }]}>
           <Text style={[type.caption, { color: t.textSub, fontWeight: '600' }]}>{s.shop.affiliate}</Text>
         </View>
-        <Text style={[type.caption, { color: t.textMuted }]}>{s.shop.affiliateBody}{demo ? ` ${s.product.demoNote}` : ''}</Text>
+        <Text style={[type.caption, { color: t.textMuted }]}>{s.product.commission}{demo ? ` ${s.product.demoNote}` : ''}</Text>
         {products?.map((p) => (
           <Pressable key={p.id} onPress={() => open(p)} accessibilityRole="link" accessibilityLabel={s.product.open(p.store)}
             style={({ pressed }) => [styles.storeRow, { borderColor: t.border, backgroundColor: pressed ? t.cardAlt : t.card }]}>

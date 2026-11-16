@@ -1237,3 +1237,60 @@ def finder_search(request, pk):
     if not s:
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
     return Response(_finder_row(s))
+
+
+# ── Smart search and the style profile (api/pipeline.py) ─────────────────
+
+@api_view(['POST'])
+def shop_search(request):
+    """
+    {query} → {intent: {chips}, total, matching, stages, results, removed}.
+    `stages` is the filter funnel (sponsored → quality → suspicious → style → size/budget → duplicates)
+    with how many each removed; `removed` lists every removed product with its reason.
+    """
+    from . import pipeline
+    from .catalog import _wanted_gender
+    query = ' '.join(str(request.data.get('query', '')).split())[:200]
+    if len(query) < 2:
+        return Response({'code': 'query_short', 'detail': 'Tell us what you are looking for.'}, status=status.HTTP_400_BAD_REQUEST)
+    user = request.user
+    intent = pipeline.merge_profile(pipeline.parse_intent(query), user)
+    # The funnel starts from everything for their gender: the sponsored and never-list
+    # stages count what they remove, so this does not pre-filter like Discovery does.
+    pool = Product.objects.filter(active=True, gender__in=_wanted_gender(user))
+    out = pipeline.run(pool, user, intent)
+    ctx = _product_ctx(request)
+    return Response({
+        'query': query,
+        'intent': {'chips': intent['chips']},
+        'total': out['total'], 'matching': out['matching'], 'stages': out['stages'],
+        'results': ProductSerializer(out['results'], many=True, context=ctx).data,
+        'removed': [{'reason': r['reason'], 'product': ProductSerializer(r['product'], context=ctx).data}
+                    for r in out['removed'][:60]],
+    })
+
+
+@api_view(['GET'])
+def style_profile(request):
+    """My style (build prompt §2.2): style axes in %, palette, liked attributes, never-list, sizes, budget,
+    stores and the quality bar. Edits go through PATCH auth/me/."""
+    from .catalog import learned_taste
+    user = request.user
+    taste = learned_taste(user)
+    preferred = set(user.preferred_styles or ([user.style_direction] if user.style_direction else []))
+    axes = {}
+    for st in tx.STYLE_DIRECTIONS:
+        score = (55 if st in preferred else 0) + 8 * taste.get(f's:{st}', 0)
+        if score > 0:
+            axes[st] = max(1, min(98, round(score)))
+    palette = list(user.favorite_colors or [])
+    palette += [k[2:] for k, v in sorted(taste.items(), key=lambda kv: -kv[1]) if k.startswith('c:') and v > 0 and k[2:] not in palette]
+    liked = [k[2:] for k, v in sorted(taste.items(), key=lambda kv: -kv[1]) if k.startswith('t:') and v > 0]
+    liked += [k for k, v in (user.type_prefs or {}).items() if v > 0 and k not in liked]
+    return Response({
+        'axes': [{'style': k, 'score': v} for k, v in sorted(axes.items(), key=lambda kv: -kv[1])][:8],
+        'palette': palette[:10], 'liked': liked[:12], 'never_list': user.never_list,
+        'sizes': user.sizes or {}, 'budget_ranges': user.budget_ranges or [],
+        'stores': user.stores or [], 'all_stores': tx.STORES,
+        'quality': {'min_rating': user.min_rating, 'min_reviews': user.min_reviews, 'hide_sponsored': user.hide_sponsored},
+    })

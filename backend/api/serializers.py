@@ -31,8 +31,32 @@ class UserSerializer(serializers.ModelSerializer):
             'units', 'notifications_enabled', 'plan', 'is_guest', 'date_joined',
             'gender', 'birth_year', 'height_cm', 'weight_kg', 'body_shape', 'fit_preference', 'fit_preferences', 'budget', 'avoid_colors',
             'age_range', 'country', 'budget_ranges', 'stores', 'type_prefs', 'has_password',
+            'never_list', 'min_rating', 'min_reviews', 'hide_sponsored',
         ]
         read_only_fields = ['id', 'email', 'plan', 'is_guest', 'date_joined']
+
+    NEVER_KINDS = ('color', 'sub', 'material', 'style', 'store', 'brand')
+
+    def validate_never_list(self, v):
+        if not isinstance(v, list):
+            raise serializers.ValidationError('A list of "kind:value" entries.')
+        out = []
+        for t in v:
+            kind, sep, value = str(t).strip().partition(':')
+            if not sep or kind not in self.NEVER_KINDS or not value.strip():
+                raise serializers.ValidationError(f'"{t}" should be one of {", ".join(self.NEVER_KINDS)} followed by ":value".')
+            token = f'{kind}:{value.strip()[:40]}'
+            if token not in out:
+                out.append(token)
+        return out[:60]
+
+    def validate_min_rating(self, v):
+        if not 0 <= v <= 5:
+            raise serializers.ValidationError('Between 0 and 5.')
+        return round(v, 1)
+
+    def validate_min_reviews(self, v):
+        return min(v, 100000)
 
     def validate_preferred_styles(self, v):
         return _choice_list(v, tx.STYLE_DIRECTIONS, 'style')
@@ -296,7 +320,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'store', 'brand', 'price', 'previous_price', 'currency', 'category', 'subcategory', 'color',
             'rgb', 'material', 'styles', 'image_url', 'rating', 'small_brand', 'sponsored', 'is_demo', 'why', 'saved',
-            'match',
+            'match', 'review_count', 'verified_rating', 'free_returns', 'sizes',
         ]
 
     def get_rgb(self, p):

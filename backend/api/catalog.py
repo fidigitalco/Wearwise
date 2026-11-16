@@ -241,8 +241,14 @@ def _wanted_gender(user):
 
 
 def candidates(user):
+    """Products this person may be shown at all: their gender, nothing on their never-list,
+    and no paid placements when they hide them (the default)."""
     from .models import Product
-    return list(Product.objects.filter(active=True, gender__in=_wanted_gender(user)))
+    from .pipeline import never_hit
+    qs = Product.objects.filter(active=True, gender__in=_wanted_gender(user))
+    if user.hide_sponsored:
+        qs = qs.filter(sponsored=False)
+    return [p for p in qs if not never_hit(p, user.never_list)]
 
 
 def why(p, user, lang='en'):

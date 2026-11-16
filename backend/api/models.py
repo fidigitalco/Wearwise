@@ -102,6 +102,12 @@ class User(AbstractUser):
     country = models.CharField(max_length=6, blank=True, choices=tx.choices(tx.COUNTRIES))
     budget_ranges = models.JSONField(default=list, blank=True)
     stores = models.JSONField(default=list, blank=True)
+    # Shopping profile (build prompt §2.2): what never to show ("color:red", "sub:crop_top",
+    # "material:polyester", "style:y2k") and the quality bar products must clear.
+    never_list = models.JSONField(default=list, blank=True)
+    min_rating = models.FloatField(default=4.2)
+    min_reviews = models.PositiveIntegerField(default=200)
+    hide_sponsored = models.BooleanField(default=True)
     # The yes / no swipe over garment types in onboarding: {"polo": 1, "hoodie": -1}.
     type_prefs = models.JSONField(default=dict, blank=True)
     typical_occasions = models.JSONField(default=list, blank=True)
@@ -528,6 +534,14 @@ class Product(models.Model):
     image_url = models.URLField(blank=True)
     url = models.URLField(max_length=500)
     rating = models.FloatField(null=True, blank=True)
+    review_count = models.PositiveIntegerField(null=True, blank=True)
+    # Our own rating after review checks (api/reviews.py); None until reviews have been analysed.
+    verified_rating = models.FloatField(null=True, blank=True)
+    suspicious_reviews = models.BooleanField(default=False)
+    free_returns = models.BooleanField(null=True, blank=True)
+    # What the store pays us. Kept for accounting only: it must never reach ranking
+    # (api/pipeline.py; the suite checks that ranking does not read it).
+    affiliate_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     small_brand = models.BooleanField(default=False)
     # Paid placement; always labelled in the app (wearwise-mvp.md, risk 3). None in the demo catalogue.
     sponsored = models.BooleanField(default=False)
