@@ -546,6 +546,9 @@ class Product(models.Model):
     # Paid placement; always labelled in the app (wearwise-mvp.md, risk 3). None in the demo catalogue.
     sponsored = models.BooleanField(default=False)
     is_demo = models.BooleanField(default=False)
+    # Where an imported product came from (api/stores/) and its id there, for re-syncs.
+    source = models.ForeignKey('StoreSource', on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    external_id = models.CharField(max_length=80, blank=True, db_index=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -750,3 +753,43 @@ class PhotoMatch(models.Model):
     subcategory = models.CharField(max_length=24, blank=True)
     color = models.CharField(max_length=16, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class StoreSource(models.Model):
+    """
+    One way products come in from a store or affiliate network (api/stores/). Filled in from the
+    admin panel when the owner gets access: an API key, a product feed URL or just an affiliate
+    link template. `kind` picks the connector:
+      aliexpress  AliExpress Affiliate API (app key + secret + tracking id)
+      awin        Awin product feeds (publisher API key + feed ids), for ASOS, Zalando, H&M …
+      feed        any product feed file (Google Shopping XML, CSV or TSV) at a URL, e.g. one a
+                  store like Trendyol or a network like CJ / Rakuten / Impact sends
+      links       no catalogue, only an affiliate link (Trendyol, Hepsiburada): products are added
+                  by hand in the admin panel and their links are wrapped with it
+    """
+
+    KINDS = ['aliexpress', 'awin', 'feed', 'links']
+
+    name = models.CharField(max_length=60, unique=True)       # shown in the admin panel
+    store = models.CharField(max_length=40, blank=True)        # the store name products get ("Trendyol"); feeds may set their own
+    kind = models.CharField(max_length=12, choices=tx.choices(KINDS))
+    config = models.JSONField(default=dict, blank=True)        # keys, feed URLs, keywords; never sent back whole to the panel
+    # How a product link becomes an affiliate link: "{url}" is the product URL (encoded with
+    # "{url_encoded}"), e.g. "https://ty.gl/abc?url={url_encoded}" or "{url}?aff_id=123".
+    link_template = models.CharField(max_length=500, blank=True)
+    gender = models.CharField(max_length=8, blank=True)        # default for feeds that do not say
+    active = models.BooleanField(default=True)
+    last_sync_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.CharField(max_length=300, blank=True)
+    product_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def wrap(self, url):
+        """The affiliate version of a product URL; the URL itself when there is no template."""
+        from urllib.parse import quote
+        if not self.link_template:
+            return url
+        return self.link_template.replace('{url_encoded}', quote(url, safe='')).replace('{url}', url)

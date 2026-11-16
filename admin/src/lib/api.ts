@@ -228,6 +228,23 @@ const qs = (params: Record<string, string | number | undefined>) => {
   return s ? `?${s}` : ''
 }
 
+/** A store connection (backend api/stores/): where real products come from. Secrets come back masked. */
+export interface StoreConn {
+  id: number
+  name: string
+  store: string
+  kind: 'aliexpress' | 'awin' | 'feed' | 'links'
+  config: Record<string, string | string[]>
+  fields: string[]
+  secret_fields: string[]
+  link_template: string
+  gender: string
+  active: boolean
+  last_sync_at: string | null
+  last_status: string
+  product_count: number
+}
+
 // ── Calls ──────────────────────────────────────────────────────────────────
 
 export const api = {
@@ -236,6 +253,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
+  stores: () => req<{ results: StoreConn[]; kinds: Record<string, Record<string, boolean>> }>('/api/admin/stores/'),
+  addStore: (body: Partial<StoreConn>) => req<StoreConn>('/api/admin/stores/', { method: 'POST', body: JSON.stringify(body) }),
+  updateStore: (id: number, body: Partial<StoreConn>) => req<StoreConn>(`/api/admin/stores/${id}/`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteStore: (id: number) => req<void>(`/api/admin/stores/${id}/`, { method: 'DELETE' }),
+  testStore: (id: number) => req<{ ok: boolean; count: number; sample: Record<string, string>[]; error: string }>(`/api/admin/stores/${id}/test/`, { method: 'POST' }),
+  syncStore: (id: number) => req<StoreConn>(`/api/admin/stores/${id}/sync/`, { method: 'POST' }),
   stats: () => req<Stats>('/api/admin/stats/'),
   analytics: (days = 30) => req<Analytics>(`/api/admin/analytics/${qs({ days })}`),
   users: (q: UserQuery) => req<Page<UserRow>>(`/api/admin/users/${qs({ ...q })}`),

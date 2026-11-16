@@ -951,6 +951,22 @@ def discover(request):
     })
 
 
+def affiliate_url(product, sub):
+    """
+    The link Shop opens. A store connection's link template wins (Trendyol, Hepsiburada and other
+    link-only programmes, also for products added by hand under that store); AliExpress links are
+    already affiliate links; everything else gets our tracking parameters.
+    """
+    from .models import StoreSource
+    source = product.source or StoreSource.objects.filter(kind='links', store__iexact=product.store, active=True).first()
+    if source and source.link_template:
+        return source.wrap(product.url)
+    if source and source.kind == 'aliexpress':
+        return product.url
+    sep = '&' if '?' in product.url else '?'
+    return f'{product.url}{sep}utm_source=wearwise&utm_medium=affiliate&sub_id={sub}'
+
+
 @api_view(['POST'])
 def product_action(request, pk):
     """{action: like|not_me|save|shop}. Save adds to the wishlist; Shop logs the click and returns the link."""
@@ -970,8 +986,7 @@ def product_action(request, pk):
     if action == 'shop':
         AffiliateClick.objects.create(user=request.user, store=product.store, subcategory=product.subcategory,
                                       color=product.color, source='gap')
-        sep = '&' if '?' in product.url else '?'
-        out['url'] = f'{product.url}{sep}utm_source=wearwise&utm_medium=affiliate&sub_id={sub_id(request.user, product.subcategory, product.color)}'
+        out['url'] = affiliate_url(product, sub_id(request.user, product.subcategory, product.color))
     return Response(out)
 
 

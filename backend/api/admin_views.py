@@ -723,3 +723,134 @@ def admin_error(request, kind, pk):
         obj.resolved = request.data['resolved']
         obj.save(update_fields=['resolved'])
     return Response(row(obj))
+
+
+# ── Store connections: where real products come from (api/stores/) ────────
+
+# Which config fields each kind takes, and which of them are secrets (masked in replies).
+STORE_FIELDS = {
+    'aliexpress': {'app_key': False, 'app_secret': True, 'tracking_id': False, 'keywords': False, 'ship_to': False, 'currency': False},
+    'awin': {'api_key': True, 'feed_ids': False, 'language': False},
+    'feed': {'url': True, 'format': False},
+    'links': {},
+}
+
+
+def _mask(v):
+    v = str(v or '')
+    return '' if not v else ('•' * 6 + v[-4:] if len(v) > 6 else '••••••')
+
+
+def store_row(src):
+    secrets = STORE_FIELDS.get(src.kind, {})
+    config = {k: (_mask(v) if secrets.get(k) else v) for k, v in (src.config or {}).items()}
+    return {
+        'id': src.id, 'name': src.name, 'store': src.store, 'kind': src.kind, 'config': config,
+        'fields': list(STORE_FIELDS.get(src.kind, {}).keys()), 'secret_fields': [k for k, v in secrets.items() if v],
+        'link_template': src.link_template, 'gender': src.gender, 'active': src.active,
+        'last_sync_at': src.last_sync_at, 'last_status': src.last_status, 'product_count': src.product_count,
+    }
+
+
+def _apply_store(src, data):
+    from .models import StoreSource
+    errors = {}
+    if 'name' in data:
+        src.name = str(data['name']).strip()[:60]
+        if not src.name:
+            errors['name'] = 'required'
+    if 'kind' in data:
+        if data['kind'] not in StoreSource.KINDS:
+            errors['kind'] = 'invalid'
+        else:
+            src.kind = data['kind']
+    for f in ('store', 'gender'):
+        if f in data:
+            setattr(src, f, str(data[f] or '').strip()[:40 if f == 'store' else 8])
+    if 'link_template' in data:
+        tpl = str(data['link_template'] or '').strip()[:500]
+        if tpl and '{url' not in tpl:
+            errors['link_template'] = 'missing_url'
+        src.link_template = tpl
+    if 'active' in data:
+        src.active = bool(data['active'])
+    if isinstance(data.get('config'), dict):
+        allowed = STORE_FIELDS.get(src.kind, {})
+        config = dict(src.config or {})
+        for k, v in data['config'].items():
+            if k not in allowed:
+                continue
+            v = v if isinstance(v, list) else str(v).strip()
+            if allowed[k] and isinstance(v, str) and v.startswith('••'):
+                continue  # the masked value came back unchanged: keep the stored secret
+            config[k] = v
+        src.config = config
+    return errors
+
+
+@api_view(['GET', 'POST'])
+@staff
+def admin_stores(request):
+    """GET → {results, kinds}; POST {name, kind, store?, config?, link_template?, gender?} adds a connection."""
+    from .models import StoreSource
+    if request.method == 'GET':
+        return Response({'results': [store_row(s) for s in StoreSource.objects.all()], 'kinds': STORE_FIELDS})
+    src = StoreSource(kind=request.data.get('kind', ''))
+    errors = _apply_store(src, request.data)
+    if not errors and StoreSource.objects.filter(name__iexact=src.name).exists():
+        errors['name'] = 'taken'
+    if errors:
+        return Response({'error': 'invalid', 'fields': errors}, status=status.HTTP_400_BAD_REQUEST)
+    src.save()
+    return Response(store_row(src), status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH', 'DELETE'])
+@staff
+def admin_store(request, pk):
+    from .models import StoreSource
+    src = get_object_or_404(StoreSource, pk=pk)
+    if request.method == 'DELETE':
+        # Its products go quiet rather than vanish from wishlists and hunts.
+        src.products.update(active=False)
+        src.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    errors = _apply_store(src, request.data)
+    if errors:
+        return Response({'error': 'invalid', 'fields': errors}, status=status.HTTP_400_BAD_REQUEST)
+    src.save()
+    return Response(store_row(src))
+
+
+@api_view(['POST'])
+@staff
+def admin_store_test(request, pk):
+    """Fetch a few products without saving, to check the keys or feed: {ok, count, sample, error}."""
+    from . import stores
+    from .models import StoreSource
+    return Response(stores.test(get_object_or_404(StoreSource, pk=pk)))
+
+
+@api_view(['POST'])
+@staff
+def admin_store_sync(request, pk):
+    """Import now, in the background (a big feed takes minutes); the row's last_status tells the outcome."""
+    import threading
+    from . import stores
+    from .models import StoreSource
+    src = get_object_or_404(StoreSource, pk=pk)
+    if src.kind == 'links':
+        return Response(store_row(src))
+    src.last_status = 'Syncing…'
+    src.save(update_fields=['last_status'])
+
+    def work():
+        try:
+            stores.sync(StoreSource.objects.get(pk=pk))
+        except Exception:  # noqa: BLE001 - the error is already on the row
+            pass
+    if settings.TESTING:
+        work()
+    else:
+        threading.Thread(target=work, daemon=True).start()
+    return Response(store_row(StoreSource.objects.get(pk=pk)), status=status.HTTP_202_ACCEPTED)

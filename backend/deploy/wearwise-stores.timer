@@ -1,0 +1,10 @@
+# Install once: sudo cp wearwise-stores.* /etc/systemd/system/ && sudo systemctl enable --now wearwise-stores.timer
+[Unit]
+Description=Import WearWise store products daily
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

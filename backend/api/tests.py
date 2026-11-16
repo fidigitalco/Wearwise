@@ -2110,3 +2110,112 @@ class ErrorCodeTests(APITestCase):
         self.assertEqual(taken.data['codes']['email'], ['email_taken'])
         wrong = self.client.post('/api/auth/login/', {'email': 'ann@example.com', 'password': 'nope'}, format='json')
         self.assertEqual(wrong.data['code'], 'invalid_credentials')
+
+
+GOOGLE_FEED = '''<?xml version="1.0"?>
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel>
+<item><g:id>A1</g:id><g:title>Women's Black Wool Coat</g:title><g:link>https://shop.example/a1</g:link>
+<g:image_link>https://img.example/a1.jpg</g:image_link><g:price>199.00 TRY</g:price><g:sale_price>149.00 TRY</g:sale_price>
+<g:brand>Koton</g:brand><g:color>Black</g:color><g:gender>female</g:gender><g:size>S</g:size><g:size>M</g:size>
+<g:availability>in stock</g:availability></item>
+<item><g:id>A2</g:id><g:title>Phone case</g:title><g:link>https://shop.example/a2</g:link><g:price>5 TRY</g:price></item>
+<item><g:id>A3</g:id><g:title>Men jeans slim</g:title><g:link>https://shop.example/a3</g:link><g:price>89 TRY</g:price>
+<g:availability>out of stock</g:availability></item>
+</channel></rss>'''
+
+CSV_FEED = 'id,title,link,price,color,product_type,average_rating,reviews\nC1,Beyaz krossovka,https://s.example/c1,59.90,white,Women > Shoes,4.6,320\n'
+
+
+class StoreConnectorTests(APITestCase):
+    def source(self, kind='feed', **kw):
+        from .models import StoreSource
+        return StoreSource.objects.create(name=kw.pop('name', 'Test feed'), kind=kind, store=kw.pop('store', 'Koton'), config=kw.pop('config', {'url': 'https://feed.example/x.xml'}), **kw)
+
+    def test_google_feed_is_normalised_and_synced(self):
+        from unittest import mock
+        from . import stores
+        from .models import Product
+        src = self.source()
+        with mock.patch('api.stores.feed.download', return_value=GOOGLE_FEED):
+            out = stores.sync(src)
+        self.assertEqual((out['created'], out['skipped']), (1, 2))  # the phone case and the sold-out jeans are skipped
+        p = Product.objects.get(source=src, external_id='A1')
+        self.assertEqual((p.subcategory, p.color, p.gender, p.currency), ('coat', 'black', 'women', 'TRY'))
+        self.assertEqual((float(p.price), float(p.previous_price)), (149.0, 199.0))
+        self.assertEqual(p.sizes, ['S', 'M'])
+        # Gone from the feed → switched off on the next sync.
+        with mock.patch('api.stores.feed.download', return_value=GOOGLE_FEED.replace('<g:id>A1</g:id>', '<g:id>A9</g:id>')):
+            out = stores.sync(src)
+        p.refresh_from_db()
+        self.assertFalse(p.active)
+        self.assertEqual(out['deactivated'], 1)
+
+    def test_csv_feed(self):
+        from unittest import mock
+        from . import stores
+        from .models import Product
+        src = self.source(name='CSV', store='Shop')
+        with mock.patch('api.stores.feed.download', return_value=CSV_FEED):
+            stores.sync(src)
+        p = Product.objects.get(source=src)
+        self.assertEqual((p.subcategory, p.color, p.rating, p.review_count), ('sneakers', 'white', 4.6, 320))
+
+    def test_feed_error_is_recorded(self):
+        from unittest import mock
+        from . import stores
+        src = self.source(config={})
+        with self.assertRaises(stores.SourceError):
+            stores.sync(src)
+        src.refresh_from_db()
+        self.assertTrue(src.last_status.startswith('Error'))
+        with mock.patch('api.stores.feed.download', side_effect=stores.SourceError('The feed answered 404.')):
+            self.assertFalse(stores.test(self.source(name='Other'))['ok'])
+
+    def test_aliexpress_signature_and_fetch(self):
+        from unittest import mock
+        from .stores import aliexpress
+        self.assertEqual(aliexpress.sign({'b': '2', 'a': '1'}, 'secret'),
+                         __import__('hmac').new(b'secret', b'a1b2', __import__('hashlib').sha256).hexdigest().upper())
+        src = self.source(kind='aliexpress', name='AliExpress', store='AliExpress',
+                          config={'app_key': 'k', 'app_secret': 's', 'tracking_id': 't', 'keywords': ['women coat'], 'pages': 1})
+        reply = {'aliexpress_affiliate_product_query_response': {'resp_result': {'resp_code': 200, 'result': {'products': {'product': [
+            {'product_id': 1, 'product_title': 'Women long wool coat', 'promotion_link': 'https://s.click.aliexpress.com/e/x',
+             'product_main_image_url': 'https://ae.example/1.jpg', 'target_sale_price': '45.10', 'target_original_price': '60.00',
+             'target_sale_price_currency': 'USD', 'evaluate_rate': '96.0%'}]}}}}}
+        with mock.patch('api.stores.aliexpress.requests.post') as post:
+            post.return_value.json.return_value = reply
+            from . import stores
+            stores.sync(src)
+        p = src.products.get()
+        self.assertEqual((p.subcategory, p.rating, p.url), ('coat', 4.8, 'https://s.click.aliexpress.com/e/x'))
+        from .views import affiliate_url
+        self.assertEqual(affiliate_url(p, 'sub'), 'https://s.click.aliexpress.com/e/x')
+
+    def test_links_template_wraps_hand_added_products(self):
+        from decimal import Decimal
+        from .models import Product
+        from .views import affiliate_url
+        self.source(kind='links', name='Trendyol links', store='Trendyol', config={}, link_template='https://ty.gl/aff?u={url_encoded}')
+        p = Product.objects.create(name='Coat', store='Trendyol', price=Decimal(50), category='outerwear', subcategory='coat',
+                                   color='black', url='https://www.trendyol.com/x/coat-p-1')
+        self.assertEqual(affiliate_url(p, 's'), 'https://ty.gl/aff?u=https%3A%2F%2Fwww.trendyol.com%2Fx%2Fcoat-p-1')
+
+    def test_admin_masks_secrets_and_keeps_them(self):
+        from unittest import mock
+        boss = User.objects.create_user(email='boss@example.com', password='x', is_staff=True)
+        self.client.force_authenticate(boss)
+        r = self.client.post('/api/admin/stores/', {'name': 'Awin', 'kind': 'awin', 'config': {'api_key': 'abcdef123456', 'feed_ids': '1,2'}}, format='json')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data['config']['api_key'], '••••••3456')
+        # Sending the masked value back leaves the key alone.
+        self.client.patch(f"/api/admin/stores/{r.data['id']}/", {'config': {'api_key': '••••••3456', 'feed_ids': '1,2,3'}}, format='json')
+        from .models import StoreSource
+        src = StoreSource.objects.get()
+        self.assertEqual((src.config['api_key'], src.config['feed_ids']), ('abcdef123456', '1,2,3'))
+        self.assertEqual(self.client.post('/api/admin/stores/', {'name': 'X', 'kind': 'links', 'link_template': 'https://no-url'}, format='json').status_code, 400)
+        with mock.patch('api.stores.awin.download', return_value='aw_product_id,product_name,aw_deep_link,search_price,currency\n9,Men denim jacket,https://a.example/9,70,GBP\n'):
+            out = self.client.post(f'/api/admin/stores/{src.id}/sync/').data
+        self.assertTrue(out['last_status'].startswith('OK'), out)
+        self.assertEqual(out['product_count'], 1)
+        self.client.force_authenticate(None)
+        self.assertIn(self.client.get('/api/admin/stores/').status_code, (401, 403))
