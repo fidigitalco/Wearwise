@@ -578,6 +578,10 @@ export const en = {
   tour: {
     slides: [
       { title: "Getting to know your taste", body: "A few questions: gender, age, sizes. Then say yes or no to clothes and pick the styles you love from photos." },
+      { title: "Shop with an AI that knows you", body: "Search the stores in your own words. You only see well-rated pieces in your style, size and budget, no ads, and we show what we removed and why." },
+      { title: "Find it for me", body: "Describe what you want and get 10-12 real picks that deliver to your country, each with why it suits you." },
+      { title: "We keep looking", body: "Start a hunt for something you can't find. We check again every few hours and tell you when it appears." },
+      { title: "Picks for you and photo match", body: "A pick of the week and sales in your style. Saw something on Instagram? Send the photo and find the closest piece you can buy." },
       { title: "Today's look", body: "A ready look every day for the weather and your taste. Tap to see it large and open any piece in its store." },
       { title: "Your closet on your phone", body: "Snap your clothes or pick from your gallery. AI reads the type and colour and builds outfits from what you own." },
       { title: "Save and share", body: "Save with the heart and hear when prices drop. Share a photo or link of a look you love so we learn your taste." },

@@ -580,6 +580,10 @@ export const es: Strings = {
   tour: {
     slides: [
       { title: "Conocemos tu gusto", body: "Unas preguntas: género, edad, tallas. Luego di sí o no a prendas y elige con fotos los estilos que te encantan." },
+      { title: "Compra con una IA que te conoce", body: "Busca en las tiendas con tus palabras. Solo ves prendas bien valoradas en tu estilo, talla y presupuesto, sin anuncios, y te mostramos qué quitamos y por qué." },
+      { title: "Encuéntramelo", body: "Describe lo que quieres y recibe 10-12 opciones reales que envían a tu país, cada una con por qué te va bien." },
+      { title: "Seguimos buscando", body: "Empieza una búsqueda de algo que no encuentras. Volvemos a mirar cada pocas horas y te avisamos cuando aparezca." },
+      { title: "Selecciones para ti y búsqueda por foto", body: "La elección de la semana y ofertas en tu estilo. ¿Viste algo en Instagram? Envía la foto y encuentra la prenda más parecida que puedes comprar." },
       { title: "El look de hoy", body: "Cada día un look listo según el tiempo y tu gusto. Tócalo para verlo en grande y abre cualquier prenda en su tienda." },
       { title: "Tu armario en el móvil", body: "Fotografía tu ropa o elígela de la galería. La IA reconoce el tipo y el color y crea conjuntos con lo que tienes." },
       { title: "Guarda y comparte", body: "Guarda con el corazón y entérate cuando baje el precio. Comparte la foto o el enlace de un look que te guste para que aprendamos tu gusto." },

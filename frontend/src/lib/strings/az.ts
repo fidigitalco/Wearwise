@@ -579,6 +579,10 @@ export const az: Strings = {
   tour: {
     slides: [
       { title: "Zövqünü tanıyaq", body: "Bir neçə sual: cins, yaş, ölçülər. Sonra geyimlərə bəli və ya xeyr de, sevdiyin üslubları şəkillərdən seç." },
+      { title: "Səni tanıyan AI ilə alış-veriş", body: "Mağazalarda öz sözlərinlə axtar. Yalnız üslubuna, ölçünə və büdcənə uyğun, yaxşı reytinqli məhsulları görürsən, reklamsız. Nəyi niyə çıxardığımızı da göstəririk." },
+      { title: "Mənə tap", body: "Nə istədiyini yaz, ölkənə çatdırılan 10-12 real seçim al. Hər birinin sənə niyə uyğun olduğu yazılır." },
+      { title: "Biz axtarmağa davam edirik", body: "Tapa bilmədiyin şey üçün axtarış başlat. Bir neçə saatdan bir yenidən baxırıq və tapılanda xəbər veririk." },
+      { title: "Sənə tövsiyələr və şəkillə tap", body: "Həftənin seçimi və üslubunda endirimlər. Instagram-da bir şey gördün? Şəklini göndər, ala biləcəyin ən yaxın məhsulu tap." },
       { title: "Bu günün obrazı", body: "Hər gün hava və zövqünə görə hazır obraz. Toxun, böyüdüb bax, bəyəndiyin parçanı mağazada aç." },
       { title: "Qarderobun telefonunda", body: "Paltarının şəklini çək və ya qalereyadan seç. AI növünü və rəngini tanıyır, öz paltarlarından kombin qurur." },
       { title: "Saxla və paylaş", body: "Ürəklə saxla, endirim olanda bildiriş al. Bəyəndiyin obrazın şəklini və ya linkini paylaş ki, zövqünü daha yaxşı öyrənək." },

@@ -579,6 +579,10 @@ export const tr: Strings = {
   tour: {
     slides: [
       { title: "Zevkini tanıyalım", body: "Birkaç soru: cinsiyet, yaş, bedenler. Sonra kıyafetlere evet ya da hayır de, sevdiğin stilleri fotoğraflardan seç." },
+      { title: "Seni tanıyan yapay zekâyla alışveriş", body: "Mağazalarda kendi kelimelerinle ara. Yalnızca tarzına, bedenine ve bütçene uygun, iyi puanlı ürünleri görürsün, reklamsız; neyi neden çıkardığımızı da gösteririz." },
+      { title: "Benim için bul", body: "Ne istediğini yaz, ülkene teslim edilen 10-12 gerçek seçenek al; her birinin sana neden uygun olduğu yazar." },
+      { title: "Aramaya devam ediyoruz", body: "Bulamadığın bir şey için arama başlat. Birkaç saatte bir tekrar bakar, çıkınca haber veririz." },
+      { title: "Sana öneriler ve fotoğrafla bul", body: "Haftanın seçimi ve tarzında indirimler. Instagram'da bir şey mi gördün? Fotoğrafını gönder, alabileceğin en yakın parçayı bul." },
       { title: "Günün kombini", body: "Her gün havaya ve zevkine göre hazır bir kombin. Dokun, büyüterek bak, beğendiğin parçayı mağazada aç." },
       { title: "Gardırobun telefonunda", body: "Kıyafetinin fotoğrafını çek ya da galeriden seç. AI türünü ve rengini tanır, kendi kıyafetlerinden kombin kurar." },
       { title: "Kaydet ve paylaş", body: "Kalple kaydet, indirim olunca bildirim al. Beğendiğin kombinin fotoğrafını ya da linkini paylaş ki zevkini daha iyi öğrenelim." },

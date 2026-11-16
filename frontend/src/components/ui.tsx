@@ -31,7 +31,10 @@ export function FormScroll({ children, contentContainerStyle, style }: {
       {children}
     </ScrollView>
   );
-  return Platform.OS === 'ios' ? scroll : <KeyboardAvoidingView style={[{ flex: 1 }, style]} behavior="height">{scroll}</KeyboardAvoidingView>;
+  // Android draws edge to edge (SDK 54+), so the window no longer shrinks for the keyboard and
+  // "height" did nothing: the form stayed under it. "padding" lifts the scroll area above the
+  // keyboard, and the ScrollView then brings the focused field into view.
+  return Platform.OS === 'ios' ? scroll : <KeyboardAvoidingView style={[{ flex: 1 }, style]} behavior="padding">{scroll}</KeyboardAvoidingView>;
 }
 
 // ── Buttons ─────────────────────────────────────────────────────────────────
