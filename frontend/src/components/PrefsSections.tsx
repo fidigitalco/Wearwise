@@ -11,6 +11,9 @@ export type Prefs = Required<Pick<User, 'preferred_styles' | 'favorite_colors' |
   Pick<User, 'wardrobe_style' | 'gender' | 'birth_year' | 'height_cm' | 'weight_kg' | 'body_shape' | 'budget'> & { fit_preferences: string[] };
 
 const LETTER_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+// The same scales onboarding offers, so a saved size is always one of the choices.
+const EU_SIZES = ['32', '34', '36', '38', '40', '42', '44', '46', '48'];
+const WAIST_SIZES = ['28', '29', '30', '31', '32', '33', '34', '36', '38', '40'];
 
 export function prefsFromUser(u: User | null): Prefs {
   return {
@@ -181,6 +184,7 @@ export function AboutSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: 
 export function SizesSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: Prefs) => void }) {
   const t = useTheme();
   const { t: s } = useI18n();
+  const men = prefs.gender === 'male';
   const setSize = (k: 'top' | 'bottom' | 'length' | 'shoes' | 'jacket' | 'drop', v: string) => onChange({ ...prefs, sizes: { ...prefs.sizes, [k]: v.slice(0, 12) } });
   return (
     <>
@@ -190,30 +194,34 @@ export function SizesSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: 
           <Text style={[type.label, { color: t.textSub }]}>{s.prefs.sizeTop}</Text>
           <OneOf options={LETTER_SIZES} value={prefs.sizes.top} label={(x) => x} onChange={(v) => setSize('top', v)} />
         </View>
+        {/* Bottoms as onboarding asks for them: EU sizes, or waist inches for men. */}
         <View style={styles.field}>
-          <Text style={[type.label, { color: t.textSub }]}>{s.prefs.sizeBottom}</Text>
-          <OneOf options={LETTER_SIZES} value={prefs.sizes.bottom} label={(x) => x} onChange={(v) => setSize('bottom', v)} />
+          <Text style={[type.label, { color: t.textSub }]}>{men ? s.onb.bottomsWaist : s.onb.bottomsEu}</Text>
+          <OneOf options={men ? WAIST_SIZES : EU_SIZES} value={prefs.sizes.bottom} label={(x) => x} onChange={(v) => setSize('bottom', v)} />
         </View>
+        {/* Inputs sit on one line even when a label wraps to two. */}
         <View style={styles.sizes}>
           <View style={{ flex: 1 }}>
             <Field label={s.prefs.sizeShoes} value={prefs.sizes.shoes ?? ''} keyboardType="decimal-pad" maxLength={5}
-              onChangeText={(v) => setSize('shoes', v)} placeholder="42" />
+              onChangeText={(v) => setSize('shoes', v)} placeholder="39" />
           </View>
-          <View style={{ flex: 1 }}>
-            <Field label={s.onb.length} value={prefs.sizes.length ?? ''} keyboardType="number-pad" maxLength={2}
-              onChangeText={(v) => setSize('length', v)} placeholder="30" />
-          </View>
-        </View>
-        <View style={styles.sizes}>
           <View style={{ flex: 1 }}>
             <Field label={s.onb.jacket} value={prefs.sizes.jacket ?? ''} keyboardType="number-pad" maxLength={3}
-              onChangeText={(v) => setSize('jacket', v)} placeholder="50" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label={s.onb.drop} value={prefs.sizes.drop ?? ''} keyboardType="number-pad" maxLength={2}
-              onChangeText={(v) => setSize('drop', v)} placeholder="4" />
+              onChangeText={(v) => setSize('jacket', v)} placeholder={men ? '50' : '38'} />
           </View>
         </View>
+        {men ? (
+          <View style={styles.sizes}>
+            <View style={{ flex: 1 }}>
+              <Field label={s.onb.length} value={prefs.sizes.length ?? ''} keyboardType="number-pad" maxLength={2}
+                onChangeText={(v) => setSize('length', v)} placeholder="32" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field label={s.onb.drop} value={prefs.sizes.drop ?? ''} keyboardType="number-pad" maxLength={2}
+                onChangeText={(v) => setSize('drop', v)} placeholder="6" />
+            </View>
+          </View>
+        ) : null}
       </View>
       <View style={styles.section}>
         <Heading title={s.prefs.unitsTitle} />
@@ -229,6 +237,6 @@ export function SizesSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: 
 
 const styles = StyleSheet.create({
   section: { gap: space.md },
-  sizes: { flexDirection: 'row', gap: space.md },
+  sizes: { flexDirection: 'row', gap: space.md, alignItems: 'flex-end' },
   field: { gap: space.sm },
 });

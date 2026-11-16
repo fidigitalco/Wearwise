@@ -104,11 +104,12 @@ export const gutter = 20;
 
 // SF Pro is the iOS system font; Android falls back to its system sans.
 const family = Platform.select<TextStyle['fontFamily']>({ ios: 'System', default: undefined });
-// Big titles use a serif for an editorial, fashion-magazine voice; both ship with the OS.
-const serif = Platform.select<TextStyle['fontFamily']>({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
+// Big titles use a serif for an editorial voice on iOS (Georgia). Android's built-in serif
+// (Noto Serif) sat oddly next to the sans text there, so Android keeps one family, bolder.
+const serif = Platform.select<TextStyle['fontFamily']>({ ios: 'Georgia', android: undefined, default: 'Georgia' });
 
 export const type = {
-  display: { fontFamily: serif, fontSize: 30, lineHeight: 36, fontWeight: '500', letterSpacing: -0.3 },
+  display: { fontFamily: serif, fontSize: 30, lineHeight: 36, fontWeight: Platform.OS === 'android' ? '700' : '500', letterSpacing: -0.3 },
   title: { fontFamily: family, fontSize: 20, lineHeight: 26, fontWeight: '600', letterSpacing: -0.2 },
   subtitle: { fontFamily: family, fontSize: 17, lineHeight: 22, fontWeight: '600', letterSpacing: -0.1 },
   body: { fontFamily: family, fontSize: 15, lineHeight: 22, fontWeight: '400' },

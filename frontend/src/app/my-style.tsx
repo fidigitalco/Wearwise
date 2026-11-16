@@ -50,6 +50,12 @@ export default function MyStyleScreen() {
   const minRating = user?.min_rating ?? 4.2;
   const minReviews = user?.min_reviews ?? 200;
   const stores = user?.stores ?? [];
+  // Sizes and budget in the person's language, not the stored keys ("top M").
+  const sizeLabels: Record<string, string> = {
+    top: s.prefs.sizeTop, bottom: s.prefs.sizeBottom, shoes: s.prefs.sizeShoes, jacket: s.onb.jacket, length: s.onb.length, drop: s.onb.drop,
+  };
+  const sizeRows = Object.entries(profile?.sizes ?? {}).filter(([k, v]) => v && sizeLabels[k]).map(([k, v]) => [sizeLabels[k], v] as const);
+  const budget = (profile?.budget_ranges ?? []).map((b) => s.onb.budgets[b] ?? b).join(', ');
 
   return (
     <FormScroll style={{ backgroundColor: t.bg }} contentContainerStyle={styles.wrap}>
@@ -113,7 +119,8 @@ export default function MyStyleScreen() {
         <View style={styles.between}>
           <Text style={[type.body, { color: t.text, flex: 1 }]}>{s.myStyle.hideSponsored}</Text>
           <Switch value={user?.hide_sponsored ?? true} onValueChange={(v) => save({ hide_sponsored: v })}
-            trackColor={{ true: t.primary, false: t.border }} accessibilityLabel={s.myStyle.hideSponsored} />
+            trackColor={{ true: t.primary, false: t.border }} thumbColor={t.card} ios_backgroundColor={t.border}
+            accessibilityLabel={s.myStyle.hideSponsored} />
         </View>
       </Section>
 
@@ -127,9 +134,22 @@ export default function MyStyleScreen() {
       </Section>
 
       <Section title={s.myStyle.sizes}>
-        <Text style={[type.body, { color: t.textSub }]}>
-          {Object.entries(profile?.sizes ?? {}).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}
-        </Text>
+        {sizeRows.length || budget ? (
+          <View style={{ gap: space.xs }}>
+            {sizeRows.map(([k, v]) => (
+              <View key={k} style={styles.between}>
+                <Text style={[type.body, { color: t.textSub }]}>{k}</Text>
+                <Text style={[type.bodyStrong, { color: t.text }]}>{v}</Text>
+              </View>
+            ))}
+            {budget ? (
+              <View style={styles.between}>
+                <Text style={[type.body, { color: t.textSub }]}>{s.myStyle.budget}</Text>
+                <Text style={[type.bodyStrong, { color: t.text, flexShrink: 1, textAlign: 'right' }]}>{budget}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : <Text style={[type.body, { color: t.textMuted }]}>—</Text>}
         <Pressable onPress={() => router.push('/preferences')} accessibilityRole="button" hitSlop={8}>
           <Text style={[type.bodyStrong, { color: t.primary }]}>{s.myStyle.edit}</Text>
         </Pressable>

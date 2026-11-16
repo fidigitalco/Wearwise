@@ -170,7 +170,7 @@ export default function DatesScreen() {
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={[type.bodyStrong, { color: t.text }]} numberOfLines={1}>{o.title}</Text>
-                    <Text style={[type.caption, { color: t.textSub, textTransform: 'capitalize' }]} numberOfLines={1}>{longDate(o.date, locale)}</Text>
+                    <Text style={[type.caption, { color: t.textSub, textTransform: 'capitalize' }]} numberOfLines={2}>{longDate(o.date, locale)}</Text>
                     <Text style={[type.caption, { color: t.textMuted }]}>
                       {s.dates.kinds[o.kind]}{o.for_gift ? ` · ${s.dates.forGift}${o.person ? `: ${o.person}` : ''}` : ''}
                     </Text>
@@ -199,9 +199,10 @@ export default function DatesScreen() {
                 </View>
               </View>
             ) : null}
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}><Button title={s.dates.fromOutfits} variant="secondary" size="sm" icon={<Layers size={16} color={t.text} />} onPress={() => openSheet('outfits')} /></View>
-              <View style={{ flex: 1 }}><Button title={s.dates.fromCloset} variant="secondary" size="sm" icon={<Shirt size={16} color={t.text} />} onPress={() => openSheet('closet')} /></View>
+            {/* One under the other: side by side the labels were cut off on narrow phones. */}
+            <View style={{ gap: space.sm }}>
+              <Button title={s.dates.fromOutfits} variant="secondary" icon={<Layers size={18} color={t.text} />} onPress={() => openSheet('outfits')} />
+              <Button title={s.dates.fromCloset} variant="secondary" icon={<Shirt size={18} color={t.text} />} onPress={() => openSheet('closet')} />
             </View>
           </View>
         ) : null}

@@ -880,6 +880,7 @@ export const en = {
     examples: ['White sneakers under $90', 'A black wool coat', 'Jeans for every day', 'A dress for a wedding'],
   },
   myStyle: {
+    budget: 'Budget per piece',
     title: 'My style',
     axes: 'Your style',
     palette: 'Your colours',
