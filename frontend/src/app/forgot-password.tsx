@@ -7,7 +7,7 @@ import { Button, Field, FormScroll, PasswordField } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { passwordChecks } from '../lib/password';
-import { auth, errorMessage } from '../services/api';
+import { auth, errorMessage, fieldErrors } from '../services/api';
 import { gutter, space, type, useTheme } from '../theme';
 
 /** Forgot password: email → a 6-digit code by email → a new password, and the person is signed in. */
@@ -52,7 +52,7 @@ export default function ForgotPasswordScreen() {
       router.replace('/');
     } catch (e: any) {
       const d = e?.response?.data;
-      setError(d?.code === 'invalid_code' ? s.forgot.invalidCode : d?.password ? s.pw.notStrong : errorMessage(e));
+      setError(d?.code === 'invalid_code' ? s.forgot.invalidCode : fieldErrors(e).password ?? (d?.password ? s.pw.notStrong : null) ?? errorMessage(e));
       setBusy(false);
     }
   };

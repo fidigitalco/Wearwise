@@ -2088,3 +2088,22 @@ class PhotoMatchAndForYouTests(APITestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIsNotNone(r.data['weekly_pick'])
         self.assertTrue(all(x['previous_price'] > x['price'] for x in r.data['on_sale']))
+
+
+class ErrorCodeTests(APITestCase):
+    def test_validation_errors_carry_codes(self):
+        r = self.client.post('/api/auth/register/', {'email': 'not-an-email', 'password': '12345678', 'display_name': ''}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.data['codes']['email'], ['invalid'])
+        self.assertIn('blank', r.data['codes']['display_name'])
+        r = self.client.post('/api/auth/register/', {'email': 'ann@example.com', 'password': 'Example#123', 'display_name': 'Ann'}, format='json')
+        self.assertEqual(r.data['codes']['password'], ['password_too_similar'])
+        r = self.client.post('/api/auth/register/', {'email': 'ann@example.com', 'password': 'wardrobe12', 'display_name': 'Ann'}, format='json')
+        self.assertEqual(r.data['codes']['password'], ['password_too_simple'])
+        ok = self.client.post('/api/auth/register/', {'email': 'ann@example.com', 'password': 'Qarderob#2026', 'display_name': 'Ann'}, format='json')
+        self.assertEqual(ok.status_code, 201)
+        self.client.credentials()
+        taken = self.client.post('/api/auth/register/', {'email': 'ANN@example.com', 'password': 'Qarderob#2026', 'display_name': 'Ann'}, format='json')
+        self.assertEqual(taken.data['codes']['email'], ['email_taken'])
+        wrong = self.client.post('/api/auth/login/', {'email': 'ann@example.com', 'password': 'nope'}, format='json')
+        self.assertEqual(wrong.data['code'], 'invalid_credentials')

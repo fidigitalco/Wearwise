@@ -12,10 +12,12 @@ import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { passwordChecks } from '../lib/password';
 import { signInWithApple, signInWithGoogle, SocialUnavailable } from '../lib/social';
-import { errorMessage, legalUrl } from '../services/api';
+import { errorMessage, fieldErrors, legalUrl } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
 
 type Busy = 'email' | 'apple' | 'google' | null;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function AppleLogo({ color }: { color: string }) {
   return (
@@ -75,35 +77,38 @@ export default function AuthScreen() {
   const up = mode === 'up';
   const check = passwordChecks(password, { email, name });
 
+  const [fields, setFields] = useState<Record<string, string>>({});
+
   const submit = async () => {
     setError(null);
-    if (up && !name.trim()) {
-      setError(s.auth.nameRequired);
-      return;
-    }
-    if (!email.trim() || !password) {
-      setError(s.auth.enterBoth);
-      return;
-    }
-    if (up && check.failed.length) {
-      setError(s.pw.notStrong);
-      return;
-    }
+    // Check what can be checked here first, field by field, so nothing is a surprise after a round trip.
+    const local: Record<string, string> = {};
+    if (up && !name.trim()) local.display_name = s.errors.name_required;
+    if (!email.trim()) local.email = s.errors.email_required;
+    else if (!EMAIL_RE.test(email.trim())) local.email = s.errors.invalid_email;
+    if (!password) local.password = s.errors.password_required;
+    else if (up && check.failed.length) local.password = s.pw.notStrong;
+    setFields(local);
+    if (Object.keys(local).length) return;
     setBusy('email');
     try {
       if (up) await signUp(email, password, name);
       else await signIn(email, password);
     } catch (e: any) {
-      const d = e?.response?.data;
-      if (!up && e?.response?.status === 400) setError(s.auth.wrongCredentials);
-      else if (d?.display_name) setError(s.auth.nameRequired);
-      else if (d?.email) setError(s.auth.emailTaken);
-      else if (d?.password) setError(s.pw.notStrong);
-      else setError(errorMessage(e));
+      const byField = fieldErrors(e);
+      if (Object.keys(byField).length) {
+        setFields(byField);
+        if (byField.non_field_errors) setError(byField.non_field_errors);
+      } else {
+        setError(errorMessage(e));  // wrong password, too many tries, no connection, server fault
+      }
     } finally {
       setBusy(null);
     }
   };
+
+  // Typing in a field clears its message.
+  const clear = (field: string) => setFields((f) => (f[field] ? { ...f, [field]: '' } : f));
 
   const social = async (provider: 'apple' | 'google') => {
     setError(null);
@@ -155,11 +160,13 @@ export default function AuthScreen() {
           </View>
 
           <View style={{ gap: space.md }}>
-            {up ? <Field label={s.auth.name} value={name} onChangeText={setName} placeholder={s.auth.namePlaceholder} autoComplete="name" textContentType="name" /> : null}
+            {up ? <Field label={s.auth.name} value={name} onChangeText={(v) => { setName(v); clear('display_name'); }}
+              placeholder={s.auth.namePlaceholder} autoComplete="name" textContentType="name" error={fields.display_name} /> : null}
             <Field
               label={s.auth.email}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(v) => { setEmail(v); clear('email'); }}
+              error={fields.email}
               placeholder="sen@example.com"
               autoCapitalize="none"
               autoComplete="email"
@@ -170,7 +177,8 @@ export default function AuthScreen() {
               <PasswordField
                 label={s.auth.password}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(v) => { setPassword(v); clear('password'); }}
+                error={fields.password}
                 placeholder={up ? s.auth.passwordHint : ''}
                 autoComplete={up ? 'new-password' : 'current-password'}
                 textContentType={up ? 'newPassword' : 'password'}
@@ -195,6 +203,7 @@ export default function AuthScreen() {
               onPress={() => {
                 setMode(up ? 'in' : 'up');
                 setError(null);
+                setFields({});
               }}
               style={{ paddingVertical: space.sm }}
             >

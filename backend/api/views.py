@@ -83,7 +83,7 @@ def login(request):
     s.is_valid(raise_exception=True)
     user = authenticate(request, email=s.validated_data['email'].lower(), password=s.validated_data['password'])
     if not user:
-        return Response({'detail': 'Email or password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'code': 'invalid_credentials', 'detail': 'Email or password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
     return Response(_auth_payload(user))
 
 
@@ -173,7 +173,8 @@ def _validated_password(password, user):
     try:
         password_validation.validate_password(password, user=user)
     except DjangoValidationError as e:
-        return Response({'password': list(e.messages), 'detail': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'password': list(e.messages), 'detail': ' '.join(e.messages),
+                         'codes': {'password': [x.code or 'invalid' for x in e.error_list]}}, status=status.HTTP_400_BAD_REQUEST)
     return None
 
 

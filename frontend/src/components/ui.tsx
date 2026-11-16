@@ -223,27 +223,36 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
 
 // ── Inputs ──────────────────────────────────────────────────────────────────
 
-export function Field(props: TextInputProps & { label?: string }) {
+/** The message under a field that was refused; announced to screen readers. */
+function FieldError({ text }: { text?: string | null }) {
   const t = useTheme();
-  const { label, style, ...rest } = props;
+  if (!text) return null;
+  return <Text style={[type.caption, { color: t.danger }]} accessibilityLiveRegion="polite">{text}</Text>;
+}
+
+export function Field(props: TextInputProps & { label?: string; error?: string | null }) {
+  const t = useTheme();
+  const { label, style, error, ...rest } = props;
   return (
     <View style={{ gap: space.xs }}>
       {label ? <Text style={[type.label, { color: t.textSub }]}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={t.textMuted}
+        accessibilityLabel={label}
         {...rest}
-        style={[styles.input, type.body, { color: t.text, backgroundColor: t.card, borderColor: t.border }, style]}
+        style={[styles.input, type.body, { color: t.text, backgroundColor: t.card, borderColor: error ? t.danger : t.border }, style]}
       />
+      <FieldError text={error} />
     </View>
   );
 }
 
 /** A password field with an eye button that shows or hides what was typed. */
-export function PasswordField(props: Omit<TextInputProps, 'secureTextEntry'> & { label?: string }) {
+export function PasswordField(props: Omit<TextInputProps, 'secureTextEntry'> & { label?: string; error?: string | null }) {
   const t = useTheme();
   const { t: s } = useI18n();
   const [shown, setShown] = useState(false);
-  const { label, style, ...rest } = props;
+  const { label, style, error, ...rest } = props;
   return (
     <View style={{ gap: space.xs }}>
       {label ? <Text style={[type.label, { color: t.textSub }]}>{label}</Text> : null}
@@ -254,7 +263,8 @@ export function PasswordField(props: Omit<TextInputProps, 'secureTextEntry'> & {
           autoCorrect={false}
           {...rest}
           secureTextEntry={!shown}
-          style={[styles.input, type.body, { color: t.text, backgroundColor: t.card, borderColor: t.border, paddingRight: 48 }, style]}
+          accessibilityLabel={label}
+          style={[styles.input, type.body, { color: t.text, backgroundColor: t.card, borderColor: error ? t.danger : t.border, paddingRight: 48 }, style]}
         />
         <Pressable
           onPress={() => setShown((v) => !v)}
@@ -266,6 +276,7 @@ export function PasswordField(props: Omit<TextInputProps, 'secureTextEntry'> & {
           {shown ? <EyeOff size={20} color={t.textSecondary} /> : <Eye size={20} color={t.textSecondary} />}
         </Pressable>
       </View>
+      <FieldError text={error} />
     </View>
   );
 }

@@ -2,12 +2,19 @@ import axios, { AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { az as azStrings } from '../lib/strings/az';
+import { en as enStrings } from '../lib/strings/en';
+import { es as esStrings } from '../lib/strings/es';
+import { ru as ruStrings } from '../lib/strings/ru';
+import { tr as trStrings } from '../lib/strings/tr';
 import type {
   AssistantReply, CalendarDay, FitCheck, Garment, HomeFeed, Look, OccasionItem, Product, SavedItem, Meta, ShoppingSuggestion, Outfit, OutfitSet, Paged, Scores, Stats, User, VideoScan, Weather,
 } from '../types';
 
 // The deployed backend a standalone build talks to.
-const PROD_API_URL = 'https://api.wearwise.app/api';
+// The live server. api.wearwise.app was planned but never set up, so a build without
+// EXPO_PUBLIC_API_BASE_URL (an Xcode archive, for one) could not reach anything.
+const PROD_API_URL = 'https://wearwise.164.68.119.214.sslip.io/api';
 
 function isPrivateLanIp(host: string): boolean {
   const m = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
@@ -101,21 +108,59 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
   onUnauthorized = fn;
 }
 
+const ERRORS: Record<string, Record<string, string>> = { az: azStrings.errors, en: enStrings.errors, ru: ruStrings.errors, tr: trStrings.errors, es: esStrings.errors };
+
+/** A server error code (from api/errors.py) as a message in the app's language, or null if unknown. */
+function codeText(code: string, field?: string): string | null {
+  const m = ERRORS[language] ?? ERRORS.en;
+  if (code === 'invalid' && field === 'email') return m.invalid_email;
+  if (code === 'blank' || code === 'required') {
+    return field === 'display_name' ? m.name_required : field === 'password' ? m.password_required : field === 'email' ? m.email_required : m.required;
+  }
+  return m[code] ?? null;
+}
+
 /**
- * A message for an error the screen did not handle itself. Server texts are
- * English, so in Azerbaijani only the generic message is shown; screens map the
- * errors that matter (wrong password, unrecognised photo…) to their own strings.
+ * Per-field messages for a refused form, in the app's language: {email: "…", password: "…"}.
+ * Empty when the error is not a form error.
+ */
+export function fieldErrors(err: unknown): Record<string, string> {
+  const d = (err as AxiosError<any>)?.response?.data;
+  const out: Record<string, string> = {};
+  if (!d || typeof d !== 'object') return out;
+  const codes: Record<string, string[]> = d.codes ?? {};
+  for (const [field, list] of Object.entries(codes)) {
+    const text = list.map((c) => codeText(c, field)).find(Boolean);
+    const raw = Array.isArray(d[field]) ? String(d[field][0]) : '';
+    if (text || (language === 'en' && raw)) out[field] = text ?? raw;
+  }
+  return out;
+}
+
+/**
+ * A message for an error the screen did not handle itself, in the app's language:
+ * no connection, a server fault, too many tries, or the first known error code.
  */
 export function errorMessage(err: unknown): string {
   const g = GENERIC[language] ?? GENERIC.en;
+  const m = ERRORS[language] ?? ERRORS.en;
   const e = err as AxiosError<any>;
-  if (!e?.response) return e?.message === 'Network Error' || e?.code === 'ECONNABORTED' ? g.network : g.error;
+  if (!e?.response) return e?.message === 'Network Error' || e?.code === 'ECONNABORTED' ? m.network : g.error;
+  const status = e.response.status;
   const d = e.response.data;
-  if (language !== 'en' || !d || typeof d === 'string' || e.response.status >= 500) return g.error;
-  if (d.detail) return String(d.detail);
-  const first = Object.values(d)[0];
-  if (Array.isArray(first)) return String(first[0]);
-  if (typeof first === 'string') return first;
+  if (status >= 500) return m.server;
+  if (status === 429) return m.throttled;
+  if (d && typeof d === 'object') {
+    if (typeof d.code === 'string' && codeText(d.code)) return codeText(d.code)!;
+    const first = Object.values(fieldErrors(err))[0];
+    if (first) return first;
+    if (language === 'en') {
+      if (d.detail) return String(d.detail);
+      const v = Object.values(d).find((x) => Array.isArray(x) || typeof x === 'string');
+      if (Array.isArray(v)) return String(v[0]);
+      if (typeof v === 'string') return v;
+    }
+  }
   return g.error;
 }
 

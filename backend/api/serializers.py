@@ -138,7 +138,7 @@ class RegisterSerializer(serializers.Serializer):
     def validate_email(self, v):
         v = v.lower()
         if User.objects.filter(email=v).exists():
-            raise serializers.ValidationError('An account with this email already exists.')
+            raise serializers.ValidationError('An account with this email already exists.', code='email_taken')
         return v
 
     def validate(self, data):
@@ -147,7 +147,8 @@ class RegisterSerializer(serializers.Serializer):
         try:
             password_validation.validate_password(data['password'], user=probe)
         except DjangoValidationError as e:
-            raise serializers.ValidationError({'password': list(e.messages)})
+            from .errors import password_errors
+            raise serializers.ValidationError({'password': password_errors(e)})
         return data
 
     def create(self, data):

@@ -7,7 +7,7 @@ import { Button, FormScroll, PasswordField } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { passwordChecks } from '../lib/password';
-import { auth, errorMessage } from '../services/api';
+import { auth, errorMessage, fieldErrors } from '../services/api';
 import { gutter, space, type, useTheme } from '../theme';
 
 /**
@@ -40,7 +40,7 @@ export default function PasswordScreen() {
       router.back();
     } catch (e: any) {
       const d = e?.response?.data;
-      setError(d?.code === 'wrong_password' ? s.password.wrongCurrent : d?.password ? s.pw.notStrong : errorMessage(e));
+      setError(d?.code === 'wrong_password' ? s.password.wrongCurrent : fieldErrors(e).password ?? (d?.password ? s.pw.notStrong : null) ?? errorMessage(e));
       setBusy(false);
     }
   };
