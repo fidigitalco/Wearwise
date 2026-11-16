@@ -1942,3 +1942,149 @@ class SmartSearchTests(APITestCase):
         self.assertEqual(ok.data['never_list'], ['color:red', 'sub:crop_top'])
         bad = self.client.patch('/api/auth/me/', {'never_list': ['red']}, format='json')
         self.assertEqual(bad.status_code, 400)
+
+
+class HuntTests(APITestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'hunt@example.com', 'password': 'Wardrobe-123', 'display_name': 'Hal'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.user = User.objects.get(email='hunt@example.com')
+
+    def test_free_has_one_active_hunt_and_matches_come_at_once(self):
+        r = self.client.post('/api/hunts/', {'query': 'jacket', 'max_price': 500}, format='json')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertGreater(r.data['checked'], 0)
+        self.assertTrue(all(p['subcategory'] == 'jacket' for p in r.data['matches']))
+        self.assertEqual(self.client.post('/api/hunts/', {'query': 'boots'}, format='json').data['code'], 'hunt_limit')
+        # Pausing frees the slot; resuming the first one is then refused while the second is active.
+        self.client.patch(f"/api/hunts/{r.data['id']}/", {'status': 'paused'}, format='json')
+        second = self.client.post('/api/hunts/', {'query': 'boots'}, format='json')
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(self.client.patch(f"/api/hunts/{r.data['id']}/", {'status': 'searching'}, format='json').status_code, 402)
+        self.user.plan = 'premium'
+        self.user.save()
+        self.assertEqual(self.client.post('/api/hunts/', {'query': 'coat'}, format='json').status_code, 201)
+
+    def test_scheduled_run_pushes_only_new_matches(self):
+        from decimal import Decimal
+        from unittest import mock
+        from .hunts import run_all
+        from .models import Product, PushToken
+        self.client.post('/api/push-token/', {'token': 'ExponentPushToken[abc]', 'platform': 'android'}, format='json')
+        self.assertEqual(PushToken.objects.count(), 1)
+        self.client.post('/api/hunts/', {'query': 'jacket'}, format='json')
+        with mock.patch('api.hunts.requests.post') as post:
+            self.assertEqual(run_all(), 0)  # nothing new since creation
+            post.assert_not_called()
+            src = Product.objects.filter(subcategory='jacket').first()
+            Product.objects.create(name='Brand new jacket', store='Zara', price=Decimal(80), category='outerwear', subcategory='jacket',
+                                   color=src.color, gender=src.gender, url='https://x.example/new', rating=4.8)
+            post.return_value.ok = True
+            post.return_value.json.return_value = {'data': [{'status': 'ok'}]}
+            self.assertGreaterEqual(run_all(), 1)
+            self.assertEqual(post.call_args.kwargs['json'][0]['to'], 'ExponentPushToken[abc]')
+
+    def test_push_token_must_be_expo(self):
+        self.assertEqual(self.client.post('/api/push-token/', {'token': 'nope'}, format='json').status_code, 400)
+
+
+class FitTests(APITestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'fit@example.com', 'password': 'Wardrobe-123', 'display_name': 'Fia'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.user = User.objects.get(email='fit@example.com')
+
+    def test_steps(self):
+        from .fit import step
+        self.assertEqual(step('M', 1), 'L')
+        self.assertEqual(step('XXS', -1), 'XXS')
+        self.assertEqual(step('38', 1, 'bottom', 'female'), '40')
+        self.assertEqual(step('32', 1, 'bottom', 'male'), '33')
+        self.assertEqual(step('41', -1, 'shoes'), '40')
+
+    def test_fit_feedback_teaches_brand_size_and_fit_check_is_premium(self):
+        from .models import Product
+        p = Product.objects.filter(category='top').exclude(brand='').first() or Product.objects.filter(category='top').first()
+        bought = self.client.post('/api/purchases/', {'product': p.id, 'size': 'M'}, format='json')
+        self.assertEqual(bought.status_code, 201)
+        r = self.client.post(f"/api/purchases/{bought.data['id']}/fit/", {'fit': 'too_small'}, format='json')
+        self.assertEqual(r.data['brand_size']['size'], 'L')
+        self.assertEqual(self.client.get(f'/api/products/{p.id}/fit/').status_code, 402)
+        self.user.plan = 'premium'
+        self.user.save()
+        advice = self.client.get(f'/api/products/{p.id}/fit/').data['advice']
+        self.assertEqual((advice['size'], advice['source']), ('L', 'brand'))
+
+    def test_reviews_lean_on_profile_size(self):
+        from .fit import advise, review_lean
+        from .models import Product
+        self.assertEqual(review_lean(['Runs small, size up'] * 3 + ['love it']), 1)
+        self.user.sizes = {'top': 'S'}
+        p = Product.objects.filter(category='top').first()
+        p.brand = 'NoHistoryBrand'
+        self.assertEqual(advise(self.user, p, ['runs small'] * 4)['size'], 'M')
+
+
+class ReviewAuthenticityTests(APITestCase):
+    def test_honest_reviews_are_not_flagged(self):
+        from .reviews import analyse
+        reviews = [{'rating': r, 'text': f'Nice fabric and the fit is as described, review number {i}', 'date': f'2026-0{1 + i % 9}-1{i % 9}'}
+                   for i, r in enumerate([5, 4, 4, 5, 3, 4, 5, 4, 2, 4])]
+        out = analyse(reviews)
+        self.assertFalse(out['suspicious'])
+        self.assertAlmostEqual(out['verified_rating'], 4.0, places=1)
+
+    def test_burst_of_short_duplicate_five_stars_is_flagged_and_down_weighted(self):
+        from .reviews import analyse
+        fake = [{'rating': 5, 'text': 'Great', 'date': '2026-03-01'} for _ in range(12)]
+        real = [{'rating': 2, 'text': 'The seams broke after a week, poor quality fabric', 'date': f'2026-0{4 + i}-10'} for i in range(4)]
+        out = analyse(fake + real)
+        self.assertTrue(out['suspicious'])
+        self.assertIn('burst', out['signals'])
+        self.assertLess(out['verified_rating'], 4.25)  # the store would show 4.25
+
+    def test_too_few_reviews(self):
+        from .reviews import analyse
+        self.assertIsNone(analyse([{'rating': 5, 'text': 'ok'}]))
+
+
+class PhotoMatchAndForYouTests(APITestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'pm@example.com', 'password': 'Wardrobe-123', 'display_name': 'Pam'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.user = User.objects.get(email='pm@example.com')
+
+    def test_photo_match_and_monthly_allowance(self):
+        from unittest import mock
+        found = {'is_garment': True, 'subcategory': 'jacket', 'colors': [{'name': 'black'}], 'material': {'value': 'leather'}}
+        with mock.patch('api.views.analyse_garment', return_value=found):
+            for i in range(3):
+                img = SimpleUploadedFile('p.png', png((10, 10, 10)).read(), 'image/png')
+                r = self.client.post('/api/photo-match/', {'image': img}, format='multipart')
+                self.assertEqual(r.status_code, 200, r.data)
+                self.assertEqual(r.data['left'], 2 - i)
+            self.assertTrue(all(p['subcategory'] == 'jacket' and 55 <= p['alike'] <= 99 for p in r.data['results']))
+            img = SimpleUploadedFile('p.png', png((10, 10, 10)).read(), 'image/png')
+            self.assertEqual(self.client.post('/api/photo-match/', {'image': img}, format='multipart').data['code'], 'photo_limit')
+
+    def test_photo_not_recognised(self):
+        from unittest import mock
+        with mock.patch('api.views.analyse_garment', return_value=None):
+            img = SimpleUploadedFile('p.png', png((10, 10, 10)).read(), 'image/png')
+            self.assertEqual(self.client.post('/api/photo-match/', {'image': img}, format='multipart').status_code, 422)
+
+    def test_for_you(self):
+        from decimal import Decimal
+        from .models import Product
+        p = Product.objects.filter(rating__gte=4.5).first()
+        Product.objects.filter(pk=p.pk).update(previous_price=p.price + Decimal(20))
+        r = self.client.get('/api/for-you/')
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNotNone(r.data['weekly_pick'])
+        self.assertTrue(all(x['previous_price'] > x['price'] for x in r.data['on_sale']))

@@ -373,6 +373,43 @@ export const smartShop = {
   style: () => http.get<StyleProfile>('/style/').then((r) => r.data),
 };
 
+// ── Hunts, photo match, purchases, For you ─────────────────────────────────
+export type Hunt = {
+  id: number; query: string; max_price: number | null; scope: 'stores' | 'boutiques';
+  status: 'searching' | 'found' | 'paused'; checked: number; found: number; last_run_at: string | null; created_at: string;
+  matches?: Product[];
+};
+export type Purchase = { id: number; product: string | null; name: string; brand: string; category: string; size: string; fit: string; created_at: string };
+export const hunts = {
+  list: () => http.get<{ hunts: Hunt[]; limit: number | null }>('/hunts/').then((r) => r.data),
+  create: (body: { query: string; max_price?: number | null; scope?: 'stores' | 'boutiques' }) =>
+    http.post<Hunt>('/hunts/', body).then((r) => r.data),
+  get: (id: number) => http.get<Hunt>(`/hunts/${id}/`).then((r) => r.data),
+  setStatus: (id: number, status: 'paused' | 'searching') => http.patch<Hunt>(`/hunts/${id}/`, { status }).then((r) => r.data),
+  remove: (id: number) => http.delete(`/hunts/${id}/`).then(() => undefined),
+};
+export const purchases = {
+  list: () => http.get<{ purchases: Purchase[]; brand_sizes: { brand: string; kind: string; size: string }[] }>('/purchases/').then((r) => r.data),
+  add: (product: string, size: string) => http.post<Purchase>('/purchases/', { product, size }).then((r) => r.data),
+  fit: (id: number, fit: 'perfect' | 'too_small' | 'too_big' | 'returned') =>
+    http.post<Purchase & { brand_size: { brand: string; kind: string; size: string } | null }>(`/purchases/${id}/fit/`, { fit }).then((r) => r.data),
+  advice: (productId: string) =>
+    http.get<{ advice: { size: string; source: 'brand' | 'profile'; lean: number } | null }>(`/products/${productId}/fit/`).then((r) => r.data.advice),
+};
+export type PhotoMatchResult = {
+  detected: { subcategory: string; color: string; material: string };
+  results: (Product & { alike: number })[]; left: number | null;
+};
+export function photoMatch(image: LocalImage) {
+  const form = new FormData();
+  form.append('image', { uri: image.uri, name: image.fileName || 'photo.jpg', type: image.mimeType || 'image/jpeg' } as any);
+  return http.post<PhotoMatchResult>('/photo-match/', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 90000 }).then((r) => r.data);
+}
+export const forYou = () =>
+  http.get<{ weekly_pick: Product | null; on_sale: Product[]; hunts: Hunt[] }>('/for-you/').then((r) => r.data);
+export const registerPushToken = (token: string, platform: string) =>
+  http.post('/push-token/', { token, platform }).then(() => undefined);
+
 // ── Find it for me ─────────────────────────────────────────────────────────
 export type FinderPick = {
   name: string; store: string; url: string; image_url: string; price: number | null; currency: string;

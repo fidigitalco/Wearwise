@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '../components/Overlays';
 import { AuthProvider, useAuth } from '../lib/auth';
 import { installCrashReporter } from '../lib/crash';
+import { registerForPush } from '../lib/push';
 import { reportInstallSource } from '../lib/installReferrer';
 import { I18nProvider, useI18n } from '../lib/i18n';
 import { useTheme } from '../theme';
@@ -27,6 +28,11 @@ function AuthGate() {
   useEffect(() => {
     if (user?.id) void reportInstallSource(user.id);
   }, [user?.id]);
+
+  // Hunt alerts: re-register this phone's push token when notifications are already allowed.
+  useEffect(() => {
+    if (user?.id && !user.is_guest) void registerForPush(false);
+  }, [user?.id, user?.is_guest]);
 
   useEffect(() => {
     if (!ready) return;
@@ -85,6 +91,9 @@ function AuthGate() {
       <Stack.Screen name="find" options={{ title: s.finder.title }} />
       <Stack.Screen name="shop-search" options={{ title: s.smart.title }} />
       <Stack.Screen name="my-style" options={{ title: s.myStyle.title }} />
+      <Stack.Screen name="hunts" options={{ title: s.hunts.title }} />
+      <Stack.Screen name="photo-match" options={{ title: s.photo.title }} />
+      <Stack.Screen name="purchases" options={{ title: s.buy.purchases }} />
       <Stack.Screen name="password" options={{ title: user?.has_password === false ? s.password.titleSet : s.password.titleChange }} />
     </Stack>
   );

@@ -4,6 +4,7 @@ import os
 import secrets
 import threading
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib.auth import authenticate, password_validation
@@ -1293,4 +1294,200 @@ def style_profile(request):
         'sizes': user.sizes or {}, 'budget_ranges': user.budget_ranges or [],
         'stores': user.stores or [], 'all_stores': tx.STORES,
         'quality': {'min_rating': user.min_rating, 'min_reviews': user.min_reviews, 'hide_sponsored': user.hide_sponsored},
+    })
+
+
+# ── Hunts, push, fit and photo match (api/hunts.py, api/fit.py) ───────────
+
+def _hunt_row(h, request, matches=False):
+    row = {'id': h.id, 'query': h.query, 'max_price': float(h.max_price) if h.max_price is not None else None,
+           'scope': h.scope, 'status': h.status, 'checked': h.checked, 'found': h.matches.count(),
+           'last_run_at': h.last_run_at, 'created_at': h.created_at}
+    if matches:
+        products = [m.product for m in h.matches.select_related('product')[:30] if m.product.active]
+        row['matches'] = ProductSerializer(products, many=True, context=_product_ctx(request)).data
+    return row
+
+
+@api_view(['GET', 'POST'])
+def hunts(request):
+    """GET → {hunts, limit}; POST {query, max_price?, scope?} → the hunt, searched once right away.
+    402 {code: 'hunt_limit'} when a Free account already has its one active hunt."""
+    from . import hunts as h
+    from .models import Hunt
+    user = request.user
+    if request.method == 'GET':
+        return Response({'hunts': [_hunt_row(x, request) for x in user.hunts.all()], 'limit': h.active_limit(user)})
+    query = ' '.join(str(request.data.get('query', '')).split())[:200]
+    if len(query) < 3:
+        return Response({'code': 'query_short', 'detail': 'Describe what you want.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not h.can_activate(user):
+        return Response({'code': 'hunt_limit', 'detail': 'You have used your free hunt.'}, status=status.HTTP_402_PAYMENT_REQUIRED)
+    try:
+        max_price = Decimal(str(request.data['max_price'])) if request.data.get('max_price') not in (None, '') else None
+    except (InvalidOperation, ValueError):
+        raise ValidationError({'max_price': 'A number.'})
+    scope = request.data.get('scope') if request.data.get('scope') in Hunt.SCOPES else 'stores'
+    if scope == 'boutiques' and user.plan != 'premium':
+        scope = 'stores'  # boutiques are a Premium search
+    hunt = Hunt.objects.create(user=user, query=query, max_price=max_price, scope=scope)
+    h.run_hunt(hunt, notify=False)
+    return Response(_hunt_row(hunt, request, matches=True), status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+def hunt_detail(request, pk):
+    """GET with its matches; PATCH {status: paused|searching}; DELETE."""
+    from . import hunts as h
+    hunt = request.user.hunts.filter(pk=pk).first()
+    if not hunt:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'DELETE':
+        hunt.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    if request.method == 'PATCH':
+        want = request.data.get('status')
+        if want == 'paused':
+            hunt.status = 'paused'
+        elif want == 'searching':
+            if not h.can_activate(request.user, exclude_id=hunt.id):
+                return Response({'code': 'hunt_limit', 'detail': 'You have used your free hunt.'}, status=status.HTTP_402_PAYMENT_REQUIRED)
+            hunt.status = 'found' if hunt.matches.exists() else 'searching'
+        hunt.save(update_fields=['status'])
+    return Response(_hunt_row(hunt, request, matches=True))
+
+
+@api_view(['POST', 'DELETE'])
+def push_token(request):
+    """POST {token, platform?} registers this phone for pushes; DELETE {token} forgets it (sign-out)."""
+    from .models import PushToken
+    token = str(request.data.get('token', '')).strip()
+    if not token.startswith(('ExponentPushToken[', 'ExpoPushToken[')):
+        raise ValidationError({'token': 'An Expo push token.'})
+    if request.method == 'DELETE':
+        PushToken.objects.filter(user=request.user, token=token).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    PushToken.objects.update_or_create(token=token, defaults={'user': request.user, 'platform': str(request.data.get('platform', ''))[:10]})
+    return Response(status=status.HTTP_201_CREATED)
+
+
+def _purchase_row(p):
+    return {'id': p.id, 'product': p.product_id, 'name': p.product.name if p.product else '', 'brand': p.brand,
+            'category': p.category, 'size': p.size, 'fit': p.fit, 'created_at': p.created_at}
+
+
+@api_view(['GET', 'POST'])
+def purchases(request):
+    """GET → purchases still waiting for fit feedback and recent ones; POST {product, size} = "I bought it"."""
+    from .models import Purchase
+    user = request.user
+    if request.method == 'GET':
+        return Response({'purchases': [_purchase_row(p) for p in user.purchases.select_related('product')[:30]],
+                         'brand_sizes': list(user.brand_sizes.values('brand', 'kind', 'size'))})
+    product = Product.objects.filter(pk=request.data.get('product')).first()
+    size = str(request.data.get('size', '')).strip()[:10]
+    if not product or not size:
+        raise ValidationError({'detail': 'Send the product and the size you bought.'})
+    from .fit import brand_of
+    p = Purchase.objects.create(user=user, product=product, brand=brand_of(product), category=product.category, size=size)
+    return Response(_purchase_row(p), status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def purchase_fit(request, pk):
+    """{fit: perfect|too_small|too_big|returned} → updates the size that fits in that brand."""
+    from . import fit as fitmod
+    from .models import Purchase
+    p = request.user.purchases.filter(pk=pk).first()
+    if not p:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    value = request.data.get('fit')
+    if value not in Purchase.FITS:
+        raise ValidationError({'fit': f'One of {", ".join(Purchase.FITS)}.'})
+    bs = fitmod.record_fit(p, value)
+    return Response({**_purchase_row(p), 'brand_size': {'brand': bs.brand, 'kind': bs.kind, 'size': bs.size} if bs else None})
+
+
+@api_view(['GET'])
+def product_fit(request, pk):
+    """Fit check (Premium): which size to order in this product's brand."""
+    from . import fit as fitmod
+    product = Product.objects.filter(pk=pk).first()
+    if not product:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.user.plan != 'premium':
+        return Response({'code': 'premium', 'detail': 'Size advice is a Premium feature.'}, status=status.HTTP_402_PAYMENT_REQUIRED)
+    return Response({'advice': fitmod.advise(request.user, product)})
+
+
+PHOTO_FREE_PER_MONTH = 3
+
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def photo_match(request):
+    """
+    Photo match (§2.6): a screenshot or photo → the closest buyable pieces in the user's size,
+    with "% alike". Free accounts get 3 a month. The photo is analysed and not kept.
+    """
+    from . import pipeline
+    from .catalog import _wanted_gender
+    from .models import PhotoMatch
+    user = request.user
+    image = request.FILES.get('image')
+    if not image:
+        raise ValidationError({'image': 'required'})
+    month_ago = timezone.now() - timedelta(days=30)
+    used = user.photo_matches.filter(created_at__gte=month_ago).count()
+    if user.plan != 'premium' and used >= PHOTO_FREE_PER_MONTH:
+        return Response({'code': 'photo_limit', 'detail': 'You have used this month’s free photo matches.'},
+                        status=status.HTTP_402_PAYMENT_REQUIRED)
+    raw = analyse_garment(image, request_lang(request))
+    attrs = None
+    if raw and raw.get('is_garment') and raw.get('subcategory'):
+        attrs = {'subcategory': raw['subcategory'], 'color': (raw.get('colors') or [{}])[0].get('name', ''),
+                 'material': (raw.get('material') or {}).get('value', ''), 'styles': []}
+    if not attrs:
+        return Response({'code': 'not_recognised', 'detail': 'We could not tell what this piece is. Try a clearer photo.'},
+                        status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    PhotoMatch.objects.create(user=user, subcategory=attrs.get('subcategory', ''), color=attrs.get('color', ''))
+    intent = pipeline.merge_profile({'query': '', 'subcategories': [attrs['subcategory']], 'colors': [], 'styles': [], 'max_price': None}, user)
+    out = pipeline.run(Product.objects.filter(active=True, gender__in=_wanted_gender(user)), user, intent, limit=30)
+
+    def alike(p):
+        score = 55 + (25 if p.color == attrs.get('color') else 0) + (10 if p.material and p.material == attrs.get('material') else 0)
+        score += 10 if set(p.styles or []) & set(attrs.get('styles') or []) else 0
+        return min(99, score)
+    ranked = sorted(out['results'], key=lambda p: -alike(p))[:12]
+    data = ProductSerializer(ranked, many=True, context=_product_ctx(request)).data
+    for row, p in zip(data, ranked):
+        row['alike'] = alike(p)
+    return Response({
+        'detected': {k: attrs.get(k) for k in ('subcategory', 'color', 'material', 'styles')},
+        'results': data, 'stages': out['stages'],
+        'left': None if user.plan == 'premium' else max(0, PHOTO_FREE_PER_MONTH - used - 1),
+    })
+
+
+@api_view(['GET'])
+def for_you(request):
+    """For you (§2.4): the weekly pick, pieces on sale in your style and size, and your hunts."""
+    from . import pipeline
+    from .catalog import candidates, learned_taste
+    user = request.user
+    taste = learned_taste(user)
+    pool = candidates(user)
+    intent = pipeline.merge_profile({'query': '', 'subcategories': [], 'colors': [], 'styles': [], 'max_price': None}, user)
+    sizes = intent['sizes']
+    fits = [p for p in pool if not pipeline.quality_problem(p, user) and not pipeline.size_problem(p, sizes)]
+    ranked = sorted(fits, key=lambda p: -pipeline.rank_score(p, user, taste, intent))
+    # The same pick all week: the best piece, rotated by ISO week so it changes on Mondays.
+    week = timezone.localdate().isocalendar()[1]
+    weekly = ranked[week % min(len(ranked), 5)] if ranked else None
+    on_sale = [p for p in ranked if p.previous_price and p.previous_price > p.price][:10]
+    ctx = _product_ctx(request)
+    return Response({
+        'weekly_pick': ProductSerializer(weekly, context=ctx).data if weekly else None,
+        'on_sale': ProductSerializer(on_sale, many=True, context=ctx).data,
+        'hunts': [_hunt_row(x, request) for x in user.hunts.exclude(status='paused')[:5]],
     })

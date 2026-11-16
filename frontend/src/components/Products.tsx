@@ -1,10 +1,11 @@
 import { Image } from 'expo-image';
 import { ExternalLink, Heart, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, Linking, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '../lib/i18n';
-import { catalog, errorMessage } from '../services/api';
+import { useAuth } from '../lib/auth';
+import { catalog, errorMessage, purchases } from '../services/api';
 import { elevation, radius, space, type, useTheme } from '../theme';
 import type { Look, Product } from '../types';
 import { GarmentSketch } from './GarmentSketch';
@@ -103,8 +104,56 @@ export function ShopSheet({ products, onClose }: { products: Product[] | null; o
             <ExternalLink size={16} color={t.textSecondary} />
           </Pressable>
         ))}
+        {/* Keyed by product so its state starts fresh for each piece. */}
+        {products?.length === 1 ? <AfterBuying key={products[0].id} product={products[0]} /> : null}
       </View>
     </BottomSheet>
+  );
+}
+
+/** Under a single product: the size advice (Premium) and "I bought it", which later asks how it fit. */
+function AfterBuying({ product }: { product: Product }) {
+  const t = useTheme();
+  const { t: s } = useI18n();
+  const toast = useToast();
+  const { user } = useAuth();
+  const [advice, setAdvice] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  const premium = user?.plan === 'premium';
+  const wearable = ['top', 'bottom', 'outerwear', 'dress', 'shoes'].includes(product.category);
+
+  useEffect(() => {
+    if (premium && wearable) purchases.advice(product.id).then((a) => setAdvice(a?.size ?? null)).catch(() => {});
+  }, [product.id, premium, wearable]);
+
+  if (!wearable) return null;
+  const sizes = product.sizes?.length ? product.sizes : null;
+  const buy = (size: string) =>
+    purchases.add(product.id, size).then(() => { toast(s.buy.thanks); setAsking(false); }).catch((e) => toast(errorMessage(e), 'error'));
+
+  return (
+    <View style={{ gap: space.sm }}>
+      <View style={[styles.tag, { backgroundColor: t.highlightBg, alignSelf: 'stretch' }]}>
+        <Text style={[type.caption, { color: t.text, fontWeight: '600' }]}>
+          {s.buy.fitCheck}: {premium ? (advice ? s.buy.fitCheckBody(advice) : '—') : s.buy.fitPremium}
+        </Text>
+      </View>
+      {asking ? (
+        <View style={{ gap: space.xs }}>
+          <Text style={[type.label, { color: t.textSub }]}>{s.buy.whichSize}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs }}>
+            {(sizes ?? ['XS', 'S', 'M', 'L', 'XL']).map((sz) => (
+              <Pressable key={sz} onPress={() => buy(String(sz))} accessibilityRole="button"
+                style={[styles.sizeChip, { borderColor: t.border, backgroundColor: String(sz) === advice ? t.highlightBg : t.card }]}>
+                <Text style={[type.label, { color: t.text }]}>{sz}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <Button title={s.buy.bought} variant="secondary" onPress={() => setAsking(true)} />
+      )}
+    </View>
   );
 }
 
@@ -283,6 +332,7 @@ export function LookCard({ look, title, kicker, onShop }: { look: Look; title: s
 }
 
 const styles = StyleSheet.create({
+  sizeChip: { minWidth: 44, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1 },
   well: { borderRadius: 22, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   heart: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   heartPos: { position: 'absolute', top: 8, right: 8 },

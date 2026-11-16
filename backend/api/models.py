@@ -667,3 +667,86 @@ class FinderSearch(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class Hunt(models.Model):
+    """
+    "Find me this" (build prompt §2.5): a description and a max price that is re-searched on a
+    schedule (manage.py run_hunts) until matches appear; new matches are pushed to the phone.
+    Free accounts keep one active hunt, Premium any number.
+    """
+
+    STATUSES = ['searching', 'found', 'paused']
+    SCOPES = ['stores', 'boutiques']
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hunts')
+    query = models.CharField(max_length=200)
+    max_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    scope = models.CharField(max_length=10, default='stores', choices=tx.choices(SCOPES))
+    status = models.CharField(max_length=10, default='searching', choices=tx.choices(STATUSES))
+    checked = models.PositiveIntegerField(default=0)  # products looked at, over every run
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class HuntMatch(models.Model):
+    hunt = models.ForeignKey(Hunt, on_delete=models.CASCADE, related_name='matches')
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='+')
+    found_at = models.DateTimeField(auto_now_add=True)
+    notified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-found_at']
+        constraints = [models.UniqueConstraint(fields=['hunt', 'product'], name='one_match_per_hunt_product')]
+
+
+class PushToken(models.Model):
+    """An Expo push token for one of the user's phones."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='push_tokens')
+    token = models.CharField(max_length=200, unique=True)
+    platform = models.CharField(max_length=10, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Purchase(models.Model):
+    """A piece the user says they bought (or a tracked one), so we can ask how it fit (§2.8)."""
+
+    FITS = ['perfect', 'too_small', 'too_big', 'returned']
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases')
+    product = models.ForeignKey('Product', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    brand = models.CharField(max_length=60, blank=True)
+    category = models.CharField(max_length=16, blank=True)
+    size = models.CharField(max_length=10)
+    fit = models.CharField(max_length=10, blank=True, choices=tx.choices(FITS))
+    created_at = models.DateTimeField(auto_now_add=True)
+    fit_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class BrandSize(models.Model):
+    """The size that fits this user in one brand and kind of clothes, learned from fit feedback (§2.2)."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='brand_sizes')
+    brand = models.CharField(max_length=60)
+    kind = models.CharField(max_length=8)  # top | bottom | shoes
+    size = models.CharField(max_length=10)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'brand', 'kind'], name='one_size_per_brand_kind')]
+
+
+class PhotoMatch(models.Model):
+    """One photo match (§2.6); counted for the free allowance of 3 a month. The photo is not kept."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='photo_matches')
+    subcategory = models.CharField(max_length=24, blank=True)
+    color = models.CharField(max_length=16, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)

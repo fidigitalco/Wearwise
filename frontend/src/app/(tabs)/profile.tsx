@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Bookmark, CircleUserRound, Compass, Crown, FileText, Globe, Heart, ImagePlus, KeyRound, Lock, LogOut, MessageSquare, ShieldCheck, ShoppingBag, SlidersHorizontal, Star, Thermometer, Trash } from 'lucide-react-native';
+import { Bookmark, CircleUserRound, Compass, Crown, FileText, Globe, Heart, ImagePlus, KeyRound, Lock, LogOut, MessageSquare, Receipt, ShieldCheck, ShoppingBag, SlidersHorizontal, Star, Thermometer, Trash } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -123,6 +123,7 @@ export default function MyStyleScreen() {
             value={premium ? s.premium.premiumPlan : s.premium.freePlan} onPress={() => router.push('/premium')} />
           <Row icon={<SlidersHorizontal size={20} color={t.text} strokeWidth={1.6} />} title={s.myStyle.title} onPress={() => router.push('/my-style')} />
           <Row icon={<Heart size={20} color={t.text} strokeWidth={1.6} />} title={s.wishlist.title} onPress={() => router.push('/wishlist')} />
+          <Row icon={<Receipt size={20} color={t.text} strokeWidth={1.6} />} title={s.buy.purchases} onPress={() => router.push('/purchases')} />
           <Row icon={<Bookmark size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.saved} onPress={() => router.push('/saved')} />
           <Row icon={<ImagePlus size={20} color={t.text} strokeWidth={1.6} />} title={s.inspo.title} onPress={() => router.push('/inspiration')} />
           <Row icon={<ShoppingBag size={20} color={t.text} strokeWidth={1.6} />} title={s.shop.screen} onPress={() => router.push('/shop')} />

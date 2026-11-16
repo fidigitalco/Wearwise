@@ -1,14 +1,14 @@
 import { router, useFocusEffect } from 'expo-router';
-import { ChevronRight, Heart, ImagePlus, Search, ShoppingBag, ThumbsUp, X } from 'lucide-react-native';
+import { Camera, ChevronRight, Heart, ImagePlus, Radar, Search, ShoppingBag, ThumbsUp, X } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/AppHeader';
 import { useToast } from '../../components/Overlays';
-import { ProductCard, ShopSheet } from '../../components/Products';
+import { ProductCard, ProductTile, ShopSheet } from '../../components/Products';
 import { EmptyState, LoadingSkeleton } from '../../components/ui';
 import { LOCALES, useI18n } from '../../lib/i18n';
-import { catalog, errorMessage, type ProductAction } from '../../services/api';
+import { catalog, errorMessage, forYou, type ProductAction } from '../../services/api';
 import { gutter, radius, space, type, useTheme } from '../../theme';
 import type { Product } from '../../types';
 
@@ -24,6 +24,7 @@ export default function DiscoverScreen() {
   const [learned, setLearned] = useState(0);
   const [nextDrop, setNextDrop] = useState('');
   const [shop, setShop] = useState<Product[] | null>(null);
+  const [fy, setFy] = useState<Awaited<ReturnType<typeof forYou>> | null>(null);
   // State, not a ref: the value is read while rendering the card's transform.
   const [slide] = useState(() => new Animated.Value(0));
 
@@ -36,6 +37,7 @@ export default function DiscoverScreen() {
           setNextDrop(d.next_drop);
         })
         .catch(() => setDeck([]));
+      forYou().then(setFy).catch(() => {});
     }, []),
   );
 
@@ -75,27 +77,13 @@ export default function DiscoverScreen() {
           </View>
         </View>
 
-        {/* Smart search over the catalogue, with the filter funnel shown. */}
-        <Pressable onPress={() => router.push('/shop-search')} accessibilityRole="button"
-          style={({ pressed }) => [styles.share, { backgroundColor: t.card, borderWidth: 1, borderColor: t.border, opacity: pressed ? 0.85 : 1 }]}>
-          <ShoppingBag size={22} color={t.primary} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={[type.bodyStrong, { color: t.text }]}>{s.smart.cardTitle}</Text>
-            <Text style={[type.caption, { color: t.textSub }]}>{s.smart.cardSub}</Text>
-          </View>
-          <ChevronRight size={18} color={t.text} />
-        </Pressable>
-
-        {/* The personal shopper: say what you want, get real picks that deliver to you. */}
-        <Pressable onPress={() => router.push('/find')} accessibilityRole="button"
-          style={({ pressed }) => [styles.share, { backgroundColor: t.primary, opacity: pressed ? 0.9 : 1 }]}>
-          <Search size={22} color={t.onPrimary} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={[type.bodyStrong, { color: t.onPrimary }]}>{s.finder.cardTitle}</Text>
-            <Text style={[type.caption, { color: t.onPrimary, opacity: 0.85 }]}>{s.finder.cardSub}</Text>
-          </View>
-          <ChevronRight size={18} color={t.onPrimary} />
-        </Pressable>
+        {/* The shopping tools, one tap each: smart search, Find it for me, hunts and photo match. */}
+        <View style={styles.tools}>
+          <Tool icon={<Search size={20} color={t.onPrimary} />} title={s.finder.cardTitle} primary onPress={() => router.push('/find')} />
+          <Tool icon={<ShoppingBag size={20} color={t.primary} />} title={s.smart.cardTitle} onPress={() => router.push('/shop-search')} />
+          <Tool icon={<Radar size={20} color={t.primary} />} title={s.hunts.title} onPress={() => router.push('/hunts')} />
+          <Tool icon={<Camera size={20} color={t.primary} />} title={s.photo.title} onPress={() => router.push('/photo-match')} />
+        </View>
 
         {/* Sharing what they like teaches the profile as much as a few swipes. */}
         <Pressable onPress={() => router.push('/inspiration')} accessibilityRole="button"
@@ -125,9 +113,49 @@ export default function DiscoverScreen() {
         ) : (
           <EmptyState title={s.discover.doneTitle} body={s.discover.doneBody(day)} />
         )}
+
+        {fy?.weekly_pick ? (
+          <View style={{ gap: space.sm }}>
+            <Text style={[type.overline, { color: t.textMuted }]}>{s.fy.weekly}</Text>
+            <ProductTile product={fy.weekly_pick} width={200} onPress={() => setShop([fy.weekly_pick!])} />
+          </View>
+        ) : null}
+        {fy?.on_sale.length ? (
+          <View style={{ gap: space.sm }}>
+            <Text style={[type.overline, { color: t.textMuted }]}>{s.fy.onSale}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.md }}>
+              {fy.on_sale.map((p) => <ProductTile key={p.id} product={p} width={150} onPress={() => setShop([p])} />)}
+            </ScrollView>
+          </View>
+        ) : null}
+        {fy?.hunts.length ? (
+          <Pressable onPress={() => router.push('/hunts')} accessibilityRole="button" style={{ gap: space.xs }}>
+            <Text style={[type.overline, { color: t.textMuted }]}>{s.fy.hunts}</Text>
+            {fy.hunts.map((h) => (
+              <Text key={h.id} style={[type.body, { color: t.text }]} numberOfLines={1}>
+                {h.query} · <Text style={{ color: h.status === 'found' ? t.primary : t.textMuted }}>
+                  {h.status === 'found' ? s.hunts.found(h.found) : s.hunts.searching}
+                </Text>
+              </Text>
+            ))}
+          </Pressable>
+        ) : null}
       </ScrollView>
       <ShopSheet products={shop} onClose={() => setShop(null)} />
     </SafeAreaView>
+  );
+}
+
+function Tool({ icon, title, onPress, primary }: { icon: React.ReactNode; title: string; onPress: () => void; primary?: boolean }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}
+      style={({ pressed }) => [styles.tool, {
+        backgroundColor: primary ? t.primary : t.card, borderColor: primary ? t.primary : t.border, opacity: pressed ? 0.85 : 1,
+      }]}>
+      {icon}
+      <Text style={[type.bodyStrong, { color: primary ? t.onPrimary : t.text, fontSize: 14 }]} numberOfLines={2}>{title}</Text>
+    </Pressable>
   );
 }
 
@@ -145,6 +173,8 @@ function Action({ icon, label, onPress, primary }: { icon: React.ReactNode; labe
 }
 
 const styles = StyleSheet.create({
+  tools: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  tool: { flexBasis: '48%', flexGrow: 1, minHeight: 72, borderWidth: 1, borderRadius: radius.lg, padding: space.md, gap: space.xs, justifyContent: 'space-between' },
   wrap: { paddingHorizontal: gutter, paddingTop: space.lg, gap: space.xl, paddingBottom: space.xxl * 2 },
   meter: { height: 6, borderRadius: 3, overflow: 'hidden' },
   meterFill: { height: 6, borderRadius: 3 },
