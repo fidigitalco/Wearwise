@@ -133,8 +133,9 @@ def _profile(user):
     """The person, in plain words, for the prompt: only what they told us or showed by liking."""
     from .catalog import learned_taste
     lines = []
-    if user.gender:
-        lines.append(f'Shops for: {"women" if user.gender == "female" else "men" if user.gender == "male" else user.gender}')
+    from .catalog import _wanted_gender
+    depts = [g for g in _wanted_gender(user) if g != 'unisex']
+    lines.append(f'Shops for: {" and ".join(depts)} (and unisex)')
     if user.age_range:
         lines.append(f'Age: {user.age_range}')
     sizes = {k: v for k, v in (user.sizes or {}).items() if v}

@@ -105,6 +105,9 @@ class User(AbstractUser):
     # Shopping profile (build prompt §2.2): what never to show ("color:red", "sub:crop_top",
     # "material:polyester", "style:y2k") and the quality bar products must clear.
     never_list = models.JSONField(default=list, blank=True)
+    # Which departments to shop from: ["women"], ["men"] or both. Empty follows `gender`, so a
+    # woman who also likes menswear (or the other way round) can see both.
+    shop_for = models.JSONField(default=list, blank=True)
     min_rating = models.FloatField(default=4.2)
     min_reviews = models.PositiveIntegerField(default=200)
     hide_sponsored = models.BooleanField(default=True)

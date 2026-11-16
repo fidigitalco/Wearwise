@@ -31,7 +31,7 @@ class UserSerializer(serializers.ModelSerializer):
             'units', 'notifications_enabled', 'plan', 'is_guest', 'date_joined',
             'gender', 'birth_year', 'height_cm', 'weight_kg', 'body_shape', 'fit_preference', 'fit_preferences', 'budget', 'avoid_colors',
             'age_range', 'country', 'budget_ranges', 'stores', 'type_prefs', 'has_password',
-            'never_list', 'min_rating', 'min_reviews', 'hide_sponsored',
+            'never_list', 'min_rating', 'min_reviews', 'hide_sponsored', 'shop_for',
         ]
         read_only_fields = ['id', 'email', 'plan', 'is_guest', 'date_joined']
 
@@ -107,10 +107,24 @@ class UserSerializer(serializers.ModelSerializer):
         bad = sorted(set(v) - set(tx.SIZE_KEYS))
         if bad:
             raise serializers.ValidationError(f'Unknown size: {", ".join(bad)}')
+        out = {}
         for k, size in v.items():
-            if not isinstance(size, str) or len(size) > 12:
-                raise serializers.ValidationError({k: 'Must be text of at most 12 characters.'})
-        return {k: size.strip() for k, size in v.items()}
+            # Up to three sizes per kind ("M,L" or ["M", "L"]): many people wear two depending on the cut.
+            parts = size if isinstance(size, list) else str(size).split(',') if isinstance(size, str) else None
+            if parts is None:
+                raise serializers.ValidationError({k: 'Text or a list of sizes.'})
+            parts = [str(x).strip() for x in parts if str(x).strip()]
+            if any(len(x) > 10 for x in parts):
+                raise serializers.ValidationError({k: 'Each size is at most 10 characters.'})
+            if len(parts) > 3:
+                raise serializers.ValidationError({k: 'At most three sizes.'})
+            out[k] = ','.join(dict.fromkeys(parts))
+        return out
+
+    def validate_shop_for(self, v):
+        if not isinstance(v, list) or any(x not in ('women', 'men') for x in v):
+            raise serializers.ValidationError('A list of "women" and/or "men".')
+        return list(dict.fromkeys(v))
 
     def validate(self, data):
         # The scorer reads style_direction; keep it in step with the first preferred style.

@@ -292,9 +292,19 @@ def me(request):
     if request.method == 'PATCH':
         s = UserSerializer(request.user, data=request.data, partial=True)
         s.is_valid(raise_exception=True)
+        before = {f: getattr(request.user, f) for f in PICK_FIELDS}
         s.save()
+        if any(getattr(request.user, f) != v for f, v in before.items()):
+            # Today's Discovery picks were chosen for the old answers: choose again.
+            from .catalog import drop_key
+            from .models import DiscoveryDrop
+            DiscoveryDrop.objects.filter(user=request.user, key=drop_key()[0]).delete()
         return Response(s.data)
     return Response(UserSerializer(request.user).data)
+
+
+# Profile answers that change which products Discovery should show.
+PICK_FIELDS = ('gender', 'shop_for', 'preferred_styles', 'sizes', 'budget_ranges', 'never_list', 'favorite_colors', 'avoid_colors')
 
 
 @api_view(['GET'])

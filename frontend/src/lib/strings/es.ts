@@ -199,6 +199,7 @@ export const es: Strings = {
     seeAll: 'Ver todo',
   },
   onb: {
+    sizesMany: 'Elige hasta 3 tallas por fila: muchos usan dos según el corte.',
     later: 'Más tarde',
     exit: 'Salir',
     laterTitle: '¿Terminar más tarde?',

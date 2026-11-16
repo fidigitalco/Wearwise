@@ -237,7 +237,16 @@ def match_percent(p, user, taste):
 
 
 def _wanted_gender(user):
+    """Departments to show: what they chose under My style (shop_for), else their gender's, plus unisex."""
+    chosen = [g for g in (user.shop_for or []) if g in ('women', 'men')]
+    if chosen:
+        return chosen + ['unisex']
     return {'female': ['women', 'unisex'], 'male': ['men', 'unisex']}.get(user.gender, ['women', 'men', 'unisex'])
+
+
+def size_list(value):
+    """A stored size ("M" or "M,L") as a list; up to three sizes can be chosen per kind."""
+    return [x.strip() for x in str(value or '').split(',') if x.strip()]
 
 
 def candidates(user):

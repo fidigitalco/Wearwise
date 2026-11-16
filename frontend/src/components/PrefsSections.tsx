@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { ColorPicker } from './ColorPicker';
 import { useI18n, useLabel } from '../lib/i18n';
+import { sizeList, toggleSize } from '../lib/sizes';
 import { useMeta } from '../lib/meta';
 import { space, type, useTheme } from '../theme';
 import type { User } from '../types';
@@ -14,6 +15,7 @@ const LETTER_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 // The same scales onboarding offers, so a saved size is always one of the choices.
 const EU_SIZES = ['32', '34', '36', '38', '40', '42', '44', '46', '48'];
 const WAIST_SIZES = ['28', '29', '30', '31', '32', '33', '34', '36', '38', '40'];
+const SHOE_SIZES = Array.from({ length: 13 }, (_, i) => String(35 + i));
 
 export function prefsFromUser(u: User | null): Prefs {
   return {
@@ -62,6 +64,15 @@ function OneOf<T extends string>({ options, value, label, onChange }: {
   return (
     <ChipWrap>
       {options.map((o) => <Chip key={o} label={label(o)} selected={value === o} onPress={() => onChange(value === o ? '' : o)} />)}
+    </ChipWrap>
+  );
+}
+
+/** Size chips: up to three per kind (lib/sizes). */
+function SizeChips({ options, value, onChange }: { options: readonly string[]; value: string | undefined; onChange: (v: string) => void }) {
+  return (
+    <ChipWrap>
+      {options.map((o) => <Chip key={o} label={o} selected={sizeList(value).includes(o)} onPress={() => onChange(toggleSize(value, o))} />)}
     </ChipWrap>
   );
 }
@@ -189,26 +200,27 @@ export function SizesSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: 
   return (
     <>
       <View style={styles.section}>
-        <Heading title={s.prefs.sizesTitle} body={s.prefs.sizesBody} />
+        <Heading title={s.prefs.sizesTitle} body={s.onb.sizesMany} />
         <View style={styles.field}>
           <Text style={[type.label, { color: t.textSub }]}>{s.prefs.sizeTop}</Text>
-          <OneOf options={LETTER_SIZES} value={prefs.sizes.top} label={(x) => x} onChange={(v) => setSize('top', v)} />
+          <SizeChips options={LETTER_SIZES} value={prefs.sizes.top} onChange={(v) => setSize('top', v)} />
         </View>
         {/* Bottoms as onboarding asks for them: EU sizes, or waist inches for men. */}
         <View style={styles.field}>
           <Text style={[type.label, { color: t.textSub }]}>{men ? s.onb.bottomsWaist : s.onb.bottomsEu}</Text>
-          <OneOf options={men ? WAIST_SIZES : EU_SIZES} value={prefs.sizes.bottom} label={(x) => x} onChange={(v) => setSize('bottom', v)} />
+          <SizeChips options={men ? WAIST_SIZES : EU_SIZES} value={prefs.sizes.bottom} onChange={(v) => setSize('bottom', v)} />
+        </View>
+        <View style={styles.field}>
+          <Text style={[type.label, { color: t.textSub }]}>{s.prefs.sizeShoes}</Text>
+          <SizeChips options={SHOE_SIZES} value={prefs.sizes.shoes} onChange={(v) => setSize('shoes', v)} />
         </View>
         {/* Inputs sit on one line even when a label wraps to two. */}
         <View style={styles.sizes}>
           <View style={{ flex: 1 }}>
-            <Field label={s.prefs.sizeShoes} value={prefs.sizes.shoes ?? ''} keyboardType="decimal-pad" maxLength={5}
-              onChangeText={(v) => setSize('shoes', v)} placeholder="39" />
-          </View>
-          <View style={{ flex: 1 }}>
             <Field label={s.onb.jacket} value={prefs.sizes.jacket ?? ''} keyboardType="number-pad" maxLength={3}
               onChangeText={(v) => setSize('jacket', v)} placeholder={men ? '50' : '38'} />
           </View>
+          <View style={{ flex: 1 }} />
         </View>
         {men ? (
           <View style={styles.sizes}>

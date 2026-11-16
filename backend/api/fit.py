@@ -86,7 +86,8 @@ def advise(user, product, review_texts=()):
     if learned:
         # Their own experience with the brand already includes how it runs.
         return {'size': learned.size, 'source': 'brand', 'lean': 0}
-    usual = (user.sizes or {}).get(kind)
+    from .catalog import size_list
+    usual = (size_list((user.sizes or {}).get(kind)) or [None])[0]  # the first of their sizes
     if not usual:
         return None
     return {'size': step(usual, lean, kind, user.gender) if lean else usual, 'source': 'profile', 'lean': lean}

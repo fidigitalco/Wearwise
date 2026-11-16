@@ -199,6 +199,7 @@ export const az: Strings = {
     seeAll: 'Hamısı',
   },
   onb: {
+    sizesMany: 'Hər sətirdə 3-ə qədər ölçü seç: çoxları kəsimdən asılı olaraq iki ölçü geyinir.',
     later: 'Sonra',
     exit: 'Çıxış',
     laterTitle: 'Sonra davam etmək istəyirsən?',

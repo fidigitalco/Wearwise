@@ -197,6 +197,7 @@ export const en = {
     seeAll: 'See all',
   },
   onb: {
+    sizesMany: 'Pick up to 3 sizes per row: many people wear two depending on the cut.',
     later: 'Later',
     exit: 'Exit',
     laterTitle: 'Finish later?',

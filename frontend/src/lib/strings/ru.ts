@@ -209,6 +209,7 @@ export const ru: Strings = {
     seeAll: 'Все',
   },
   onb: {
+    sizesMany: 'Выбери до 3 размеров в строке: многие носят два, в зависимости от кроя.',
     later: 'Позже',
     exit: 'Выйти',
     laterTitle: 'Закончить позже?',

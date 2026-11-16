@@ -199,6 +199,7 @@ export const tr: Strings = {
     seeAll: 'Tümünü gör',
   },
   onb: {
+    sizesMany: 'Her satırda en fazla 3 beden seç: çoğu kişi kesime göre iki beden giyer.',
     later: 'Sonra',
     exit: 'Çıkış',
     laterTitle: 'Sonra devam etmek ister misin?',

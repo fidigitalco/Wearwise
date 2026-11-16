@@ -2219,3 +2219,43 @@ class StoreConnectorTests(APITestCase):
         self.assertEqual(out['product_count'], 1)
         self.client.force_authenticate(None)
         self.assertIn(self.client.get('/api/admin/stores/').status_code, (401, 403))
+
+
+class SizesAndDepartmentsTests(APITestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        call_command('load_catalog', verbosity=0)
+        r = self.client.post('/api/auth/register/', {'email': 'sd@example.com', 'password': 'Qarderob#2026', 'display_name': 'Sid'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.user = User.objects.get(email='sd@example.com')
+
+    def test_up_to_three_sizes(self):
+        ok = self.client.patch('/api/auth/me/', {'sizes': {'top': 'M, L', 'shoes': ['38', '39'], 'bottom': '38'}}, format='json')
+        self.assertEqual(ok.status_code, 200, ok.data)
+        self.assertEqual(ok.data['sizes'], {'top': 'M,L', 'shoes': '38,39', 'bottom': '38'})
+        self.assertEqual(self.client.patch('/api/auth/me/', {'sizes': {'top': 'S,M,L,XL'}}, format='json').status_code, 400)
+
+    def test_any_chosen_size_passes_the_size_filter(self):
+        from types import SimpleNamespace
+        from .pipeline import size_problem
+        p = SimpleNamespace(category='top', sizes=['L'])
+        self.assertIsNone(size_problem(p, {'top': 'M,L'}))
+        self.assertEqual(size_problem(p, {'top': 'S,M'}), 'size')
+
+    def test_departments_follow_gender_or_choice_and_refresh_discovery(self):
+        from .catalog import candidates
+        from .models import DiscoveryDrop
+        self.client.patch('/api/auth/me/', {'gender': 'female'}, format='json')
+        self.assertTrue(all(p.gender in ('women', 'unisex') for p in candidates(User.objects.get(pk=self.user.pk))))
+        self.client.get('/api/discover/')
+        self.assertEqual(DiscoveryDrop.objects.filter(user=self.user).count(), 1)
+        # Switching gender throws away today's picks so Discover chooses again.
+        self.client.patch('/api/auth/me/', {'gender': 'male'}, format='json')
+        self.assertEqual(DiscoveryDrop.objects.filter(user=self.user).count(), 0)
+        u = User.objects.get(pk=self.user.pk)
+        self.assertTrue(all(p.gender in ('men', 'unisex') for p in candidates(u)))
+        # A man who also likes womenswear can choose both departments.
+        self.client.patch('/api/auth/me/', {'shop_for': ['men', 'women']}, format='json')
+        genders = {p.gender for p in candidates(User.objects.get(pk=self.user.pk))}
+        self.assertTrue({'men', 'women'} <= genders)
+        self.assertEqual(self.client.patch('/api/auth/me/', {'shop_for': ['kids']}, format='json').status_code, 400)

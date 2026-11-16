@@ -9,6 +9,7 @@ import { SwipeDeck } from '../components/SwipeDeck';
 import { useAuth } from '../lib/auth';
 import { SWIPE_MEN, SWIPE_WOMEN } from '../lib/swipeItems';
 import { STYLE_COLOR, stylePhoto, stylesFor } from '../lib/styles';
+import { sizeList, toggleSize } from '../lib/sizes';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
 import { errorMessage } from '../services/api';
@@ -133,6 +134,10 @@ export default function OnboardingScreen() {
   const one = (options: readonly string[], value: string | undefined, onPick: (v: string) => void, name: (v: string) => string = (v) => v) => (
     <ChipWrap>{options.map((o) => <Chip key={o} label={name(o)} selected={value === o} onPress={() => onPick(o)} />)}</ChipWrap>
   );
+  // Up to three sizes per kind; tapping a fourth lets the oldest go.
+  const many = (options: readonly string[], value: string | undefined, onPick: (v: string) => void) => (
+    <ChipWrap>{options.map((o) => <Chip key={o} label={o} selected={sizeList(value).includes(o)} onPress={() => onPick(toggleSize(value, o))} />)}</ChipWrap>
+  );
   const h = (text: string) => <Text style={[type.label, { color: t.textSub, marginTop: space.sm }]}>{text}</Text>;
 
   return (
@@ -255,10 +260,11 @@ export default function OnboardingScreen() {
 
         {step === 1 ? (
           <View style={{ gap: space.sm }}>
+            <Text style={[type.caption, { color: t.textMuted }]}>{s.onb.sizesMany}</Text>
             {h(s.onb.tops)}
-            {one(TOPS, d.top, (v) => set({ top: v }))}
+            {many(TOPS, d.top, (v) => set({ top: v }))}
             {h(men ? s.onb.bottomsWaist : s.onb.bottomsEu)}
-            {one(men ? WAIST : EU, d.bottom, (v) => set({ bottom: v }))}
+            {many(men ? WAIST : EU, d.bottom, (v) => set({ bottom: v }))}
             {men ? (
               <>
                 {h(`${s.onb.length} · ${s.onb.optional}`)}
@@ -274,7 +280,7 @@ export default function OnboardingScreen() {
               </>
             ) : null}
             {h(s.onb.shoes)}
-            {one(SHOES, d.shoes, (v) => set({ shoes: v }))}
+            {many(SHOES, d.shoes, (v) => set({ shoes: v }))}
             {h(s.onb.fitMany)}
             <ChipWrap>
               {FITS.map((f) => <Chip key={f} label={label('fits', f)} selected={d.fits.includes(f)} onPress={() => set({ fits: toggle(d.fits, f) })} />)}

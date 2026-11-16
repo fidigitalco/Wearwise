@@ -183,8 +183,10 @@ def quality_problem(p, user):
 
 
 def size_problem(p, sizes):
-    want = sizes.get(_SIZE_KEY.get(p.category, ''))
-    if want and p.sizes and str(want) not in [str(x) for x in p.sizes]:
+    """'size' when none of the person's sizes for this kind (they may pick up to three) is in stock."""
+    from .catalog import size_list
+    want = set(size_list(sizes.get(_SIZE_KEY.get(p.category, ''))))
+    if want and p.sizes and not want & {str(x) for x in p.sizes}:
         return 'size'
     return None
 
