@@ -120,6 +120,8 @@ export interface User {
   min_rating?: number;
   min_reviews?: number;
   hide_sponsored?: boolean;
+  /** Departments to shop from; empty follows gender. */
+  shop_for?: ('women' | 'men')[];
   latitude: number | null;
   longitude: number | null;
   /** About you: what a stylist asks. All optional; never shown to admins. */

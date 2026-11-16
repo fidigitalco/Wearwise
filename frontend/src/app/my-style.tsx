@@ -7,6 +7,7 @@ import { Chip, ChipWrap, FormScroll } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n, useLabel } from '../lib/i18n';
 import { rgbCss, useMeta } from '../lib/meta';
+import { showSizes } from '../lib/sizes';
 import { errorMessage, smartShop, type StyleProfile } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
 import type { User } from '../types';
@@ -50,11 +51,14 @@ export default function MyStyleScreen() {
   const minRating = user?.min_rating ?? 4.2;
   const minReviews = user?.min_reviews ?? 200;
   const stores = user?.stores ?? [];
+  const departments: ('women' | 'men')[] = user?.shop_for?.length
+    ? user.shop_for
+    : user?.gender === 'male' ? ['men'] : user?.gender === 'female' ? ['women'] : ['women', 'men'];
   // Sizes and budget in the person's language, not the stored keys ("top M").
   const sizeLabels: Record<string, string> = {
     top: s.prefs.sizeTop, bottom: s.prefs.sizeBottom, shoes: s.prefs.sizeShoes, jacket: s.onb.jacket, length: s.onb.length, drop: s.onb.drop,
   };
-  const sizeRows = Object.entries(profile?.sizes ?? {}).filter(([k, v]) => v && sizeLabels[k]).map(([k, v]) => [sizeLabels[k], v] as const);
+  const sizeRows = Object.entries(profile?.sizes ?? {}).filter(([k, v]) => v && sizeLabels[k]).map(([k, v]) => [sizeLabels[k], showSizes(v)] as const);
   const budget = (profile?.budget_ranges ?? []).map((b) => s.onb.budgets[b] ?? b).join(', ');
 
   return (
@@ -91,6 +95,20 @@ export default function MyStyleScreen() {
           <ChipWrap>{profile.liked.map((x) => <Chip key={x} label={label('subcategories', x)} />)}</ChipWrap>
         </Section>
       ) : null}
+
+      {/* Which departments products come from: their gender's by default, both if they like. */}
+      <Section title={s.myStyle.shopFor}>
+        <ChipWrap>
+          {(['women', 'men'] as const).map((g) => (
+            <Chip key={g} label={s.myStyle[g]} selected={departments.includes(g)}
+              onPress={() => {
+                const next = departments.includes(g) ? departments.filter((x) => x !== g) : [...departments, g];
+                if (next.length) save({ shop_for: next });  // at least one department
+              }} />
+          ))}
+        </ChipWrap>
+        <Text style={[type.caption, { color: t.textMuted }]}>{s.myStyle.shopForHint}</Text>
+      </Section>
 
       <Section title={s.myStyle.never}>
         {never.length ? (
