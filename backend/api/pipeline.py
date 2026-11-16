@@ -50,7 +50,7 @@ SUB_WORDS = {
     'sweater': ['sweater', 'jumper', 'sviter', 'свитер', 'kazak', 'jersey'],
     'hoodie': ['hoodie', 'hudi', 'худи', 'kapüşonlu', 'sudadera'],
     'cardigan': ['cardigan', 'kardiqan', 'кардиган', 'hırka', 'chaqueta de punto'],
-    'jeans': ['jeans', 'cins şalvar', 'джинс', 'kot', 'vaquero', 'jean'],
+    'jeans': ['jeans', 'cins', 'джинс', 'kot', 'vaquero', 'jean'],
     'trousers': ['trousers', 'pants', 'şalvar', 'брюк', 'pantolon', 'pantalón', 'pantalon'],
     'shorts': ['shorts', 'şort', 'шорт', 'pantalón corto'],
     'skirt': ['skirt', 'ətək', 'юбк', 'etek', 'falda'],
@@ -59,6 +59,7 @@ SUB_WORDS = {
     'evening_dress': ['evening dress', 'axşam don', 'вечернее плать', 'abiye', 'vestido de noche'],
     'blazer': ['blazer', 'pencək', 'пиджак', 'blezer', 'americana'],
     'jacket': ['jacket', 'gödəkçə', 'kurtka', 'куртк', 'ceket', 'mont', 'chaqueta'],
+    'denim_jacket': ['denim jacket', 'cins gödəkçə', 'джинсовая куртк', 'kot ceket', 'chaqueta vaquera'],
     'coat': ['coat', 'palto', 'пальто', 'kaban', 'abrigo'],
     'puffer': ['puffer', 'down jacket', 'puxovik', 'пуховик', 'şişme mont', 'plumífero'],
     'trench': ['trench', 'trençkot', 'тренч', 'gabardina'],
@@ -109,6 +110,11 @@ def parse_intent(query):
         subs.remove('day_dress')
     if 'puffer' in subs and 'jacket' in subs:
         subs.remove('jacket')
+    # A denim jacket is not jeans plus a jacket; "cins şalvar" is jeans, not trousers too.
+    if 'denim_jacket' in subs:
+        subs = [x for x in subs if x not in ('jeans', 'jacket')]
+    if 'jeans' in subs and 'trousers' in subs and re.search(r'(cins|джинс)\w*\s+(şalvar|брюк)', q):
+        subs.remove('trousers')
     # "t-shirt" contains "shirt": only a shirt when "shirt" also stands on its own.
     if 't_shirt' in subs and 'shirt' in subs and not _has(re.sub(r't-?shirt', ' ', q), 'shirt'):
         subs.remove('shirt')

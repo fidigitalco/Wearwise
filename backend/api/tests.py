@@ -1867,6 +1867,9 @@ class SmartSearchTests(APITestCase):
         self.assertEqual((i['subcategories'], i['colors'], i['max_price']), (['boots'], ['black'], Decimal(120)))
         i = parse_intent('siyah kaban 2000 TL altı')
         self.assertEqual((i['subcategories'], i['colors'], i['max_price']), (['coat'], ['black'], Decimal(2000)))
+        self.assertEqual(parse_intent('qara cins')['subcategories'], ['jeans'])
+        self.assertEqual(parse_intent('cins gödəkçə')['subcategories'], ['denim_jacket'])
+        self.assertEqual(parse_intent('mavi cins şalvar')['subcategories'], ['jeans'])
         # Short words are whole words only.
         self.assertEqual(parse_intent("show me more, I don't mind")['colors'], [])
         self.assertEqual(parse_intent("show me more, I don't mind")['subcategories'], [])
