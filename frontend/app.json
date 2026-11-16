@@ -13,7 +13,9 @@
       "usesAppleSignIn": true,
       "runtimeVersion": {
         "policy": "appVersion"
-      }
+      },
+      "appleTeamId": "487J3W7W6Q",
+      "buildNumber": "2"
     },
     "android": {
       "package": "app.wearwise",
@@ -102,7 +104,10 @@
     },
     "owner": "fidigital",
     "updates": {
-      "url": "https://u.expo.dev/e04a4bf2-ad08-44b7-b598-a97371733695"
+      "url": "https://u.expo.dev/e04a4bf2-ad08-44b7-b598-a97371733695",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     }
   }
 }
