@@ -45,7 +45,9 @@ export default function StoresPage() {
     if (typeof config.keywords === 'string') config.keywords = config.keywords.split(',').map((x) => x.trim()).filter(Boolean)
     const body = { name: draft.name, store: draft.store, kind: draft.kind, config, link_template: draft.link_template, gender: draft.gender }
     try {
-      if (draft.id) await api.updateStore(draft.id, { ...body, active: true } as Partial<StoreConn>)
+      // Switch on only once something to connect with was filled in; an empty save keeps it waiting.
+      const filled = draft.kind === 'links' ? !!draft.link_template.trim() : Object.values(draft.config).some((v) => String(v ?? '').trim())
+      if (draft.id) await api.updateStore(draft.id, (filled ? { ...body, active: true } : body) as Partial<StoreConn>)
       else await api.addStore(body as Partial<StoreConn>)
       setDraft(null)
       load()
