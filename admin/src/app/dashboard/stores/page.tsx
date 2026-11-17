@@ -13,7 +13,7 @@ const FIELD_LABEL: Record<string, string> = {
   currency: 'Currency (USD…)', api_key: 'API key', feed_ids: 'Feed IDs', language: 'Language (en…)', url: 'Feed URL', format: 'Format (auto, xml, csv, tsv)',
 }
 
-type Draft = { id?: number; name: string; store: string; kind: StoreConn['kind']; config: Record<string, string>; link_template: string; gender: string }
+type Draft = { id?: number; name: string; store: string; kind: StoreConn['kind']; config: Record<string, string>; link_template: string; gender: string; notes?: string }
 const EMPTY: Draft = { name: '', store: '', kind: 'feed', config: {}, link_template: '', gender: '' }
 
 /** Store connections: the owner enters what each store or network gave them; products are imported daily. */
@@ -25,6 +25,7 @@ export default function StoresPage() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState<Record<number, { ok: boolean; text: string }>>({})
+  const [search, setSearch] = useState('')
 
   const load = useCallback(() => {
     setFailed(false)
@@ -33,7 +34,7 @@ export default function StoresPage() {
   useEffect(load, [load])
 
   const edit = (r: StoreConn) => setDraft({
-    id: r.id, name: r.name, store: r.store, kind: r.kind, link_template: r.link_template, gender: r.gender,
+    id: r.id, name: r.name, store: r.store, kind: r.kind, link_template: r.link_template, gender: r.gender, notes: r.notes,
     config: Object.fromEntries(Object.entries(r.config).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v])),
   })
 
@@ -44,7 +45,7 @@ export default function StoresPage() {
     if (typeof config.keywords === 'string') config.keywords = config.keywords.split(',').map((x) => x.trim()).filter(Boolean)
     const body = { name: draft.name, store: draft.store, kind: draft.kind, config, link_template: draft.link_template, gender: draft.gender }
     try {
-      if (draft.id) await api.updateStore(draft.id, body as Partial<StoreConn>)
+      if (draft.id) await api.updateStore(draft.id, { ...body, active: true } as Partial<StoreConn>)
       else await api.addStore(body as Partial<StoreConn>)
       setDraft(null)
       load()
@@ -84,12 +85,17 @@ export default function StoresPage() {
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium text-slate-600">{t('storeKind')}</span>
-              <select className={input} value={draft.kind} disabled={!!draft.id}
+              <select className={input} value={draft.kind}
                 onChange={(e) => setDraft({ ...draft, kind: e.target.value as StoreConn['kind'], config: {} })}>
                 {KINDS.map((k) => <option key={k} value={k}>{t(`storeKind_${k}` as Key)}</option>)}
               </select>
             </label>
           </div>
+          {draft.notes ? (
+            <div className="rounded-lg bg-indigo-50 px-3 py-2 text-xs text-slate-700 leading-relaxed">
+              <span className="font-semibold">{t('storeHowTo')}: </span>{draft.notes}
+            </div>
+          ) : null}
           <p className="text-xs text-slate-500 leading-relaxed">{t(`storeHelp_${draft.kind}` as Key)}</p>
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="space-y-1">
@@ -138,32 +144,51 @@ export default function StoresPage() {
         </div>
       ) : null}
 
-      <ul className="space-y-3">
-        {(rows ?? []).map((r) => (
-          <li key={r.id} className="bg-card rounded-xl border border-slate-200 p-4 space-y-2">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span className="text-sm font-semibold text-slate-900">{r.name}</span>
-              <Pill tone="neutral">{t(`storeKind_${r.kind}` as Key)}</Pill>
-              <Pill tone={r.active ? 'success' : 'neutral'}>{t(r.active ? 'storeActive' : 'storeInactive')}</Pill>
-              {r.kind !== 'links' && <span>· {t('storeProducts', { n: r.product_count })}</span>}
-              <span>· {r.last_sync_at ? formatDate(r.last_sync_at, lang, true) : t('storeNever')}</span>
-            </div>
-            {r.last_status && <p className={`text-xs ${r.last_status.startsWith('Error') ? 'text-red-600' : 'text-slate-600'}`}>{r.last_status}</p>}
-            {notes[r.id] && <p className={`text-xs ${notes[r.id].ok ? 'text-emerald-700' : 'text-red-600'}`}>{notes[r.id].text}</p>}
-            <div className="flex flex-wrap gap-2">
-              {r.kind !== 'links' && (
-                <>
-                  <button onClick={() => test(r)} className={`${btn} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}><Play size={13} /> {t('storeTest')}</button>
-                  <button onClick={() => sync(r)} className={`${btn} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}><RefreshCw size={13} /> {t('storeSync')}</button>
-                </>
-              )}
-              <button onClick={() => edit(r)} className={`${btn} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}><Pencil size={13} /> {t('storeEdit')}</button>
-              <button onClick={() => toggle(r)} className={`${btn} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}>{t(r.active ? 'storeInactive' : 'storeActive')}</button>
-              <button onClick={() => remove(r)} className={`${btn} bg-card border-red-200 text-red-700 hover:bg-red-50`}><Trash2 size={13} /> {t('delete')}</button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {rows?.length ? (
+        <input className={`${input} max-w-sm`} placeholder={t('storeSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
+      ) : null}
+
+      {([1, 2, 3] as const).map((wave) => {
+        const list = (rows ?? []).filter((r) => (wave === 3 ? r.priority >= 3 : r.priority === wave))
+          .filter((r) => !search || `${r.name} ${r.network}`.toLowerCase().includes(search.toLowerCase()))
+        if (!list.length) return null
+        return (
+          <section key={wave} className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t(`storeWave${wave}` as Key)} · {list.length}</h2>
+            <ul className="space-y-3">
+              {list.map((r) => (
+                <li key={r.id} className="bg-card rounded-xl border border-slate-200 p-4 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span className="text-sm font-semibold text-slate-900">{r.name}</span>
+                    <Pill tone="neutral">{t(`storeKind_${r.kind}` as Key)}</Pill>
+                    {r.network && <Pill tone="neutral">{t('storeNetwork')}: {r.network}</Pill>}
+                    {r.waiting ? <Pill tone="accent">{t('storeWaiting')}</Pill>
+                      : <Pill tone={r.active ? 'success' : 'neutral'}>{t(r.active ? 'storeActive' : 'storeInactive')}</Pill>}
+                    {r.kind !== 'links' && !r.waiting && <span>· {t('storeProducts', { n: r.product_count })}</span>}
+                    {!r.waiting && <span>· {r.last_sync_at ? formatDate(r.last_sync_at, lang, true) : t('storeNever')}</span>}
+                  </div>
+                  {r.waiting && r.notes && <p className="text-xs text-slate-500 leading-relaxed">{r.notes}</p>}
+                  {r.last_status && <p className={`text-xs ${r.last_status.startsWith('Error') ? 'text-red-600' : 'text-slate-600'}`}>{r.last_status}</p>}
+                  {notes[r.id] && <p className={`text-xs ${notes[r.id].ok ? 'text-emerald-700' : 'text-red-600'}`}>{notes[r.id].text}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    {r.kind !== 'links' && !r.waiting && (
+                      <>
+                        <button onClick={() => test(r)} className={`${btn} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}><Play size={13} /> {t('storeTest')}</button>
+                        <button onClick={() => sync(r)} className={`${btn} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}><RefreshCw size={13} /> {t('storeSync')}</button>
+                      </>
+                    )}
+                    <button onClick={() => edit(r)} className={`${btn} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}><Pencil size={13} /> {t('storeEdit')}</button>
+                    {!r.waiting && (
+                      <button onClick={() => toggle(r)} className={`${btn} bg-card border-slate-200 text-slate-700 hover:bg-slate-100`}>{t(r.active ? 'storeInactive' : 'storeActive')}</button>
+                    )}
+                    <button onClick={() => remove(r)} className={`${btn} bg-card border-red-200 text-red-700 hover:bg-red-50`}><Trash2 size={13} /> {t('delete')}</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })}
     </div>
   )
 }

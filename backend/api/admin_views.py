@@ -758,6 +758,9 @@ def store_row(src):
         'fields': list(STORE_FIELDS.get(src.kind, {}).keys()), 'secret_fields': [k for k, v in secrets.items() if v],
         'link_template': src.link_template, 'gender': src.gender, 'active': src.active,
         'last_sync_at': src.last_sync_at, 'last_status': src.last_status, 'product_count': src.product_count,
+        'network': src.network, 'notes': src.notes, 'priority': src.priority,
+        # Nothing filled in yet: waiting for the affiliate approval.
+        'waiting': src.kind == 'links' and not src.link_template or src.kind != 'links' and not any((src.config or {}).values()),
     }
 
 
@@ -773,6 +776,12 @@ def _apply_store(src, data):
             errors['kind'] = 'invalid'
         else:
             src.kind = data['kind']
+    if 'notes' in data:
+        src.notes = str(data['notes'] or '')[:2000]
+    if 'network' in data:
+        src.network = str(data['network'] or '').strip()[:40]
+    if 'priority' in data and str(data['priority']).isdigit():
+        src.priority = max(1, min(9, int(data['priority'])))
     for f in ('store', 'gender'):
         if f in data:
             setattr(src, f, str(data[f] or '').strip()[:40 if f == 'store' else 8])

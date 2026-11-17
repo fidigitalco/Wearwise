@@ -243,6 +243,11 @@ export interface StoreConn {
   last_sync_at: string | null
   last_status: string
   product_count: number
+  network: string
+  notes: string
+  priority: number
+  /** Nothing filled in yet: the affiliate approval has not come. */
+  waiting: boolean
 }
 
 // ── Calls ──────────────────────────────────────────────────────────────────

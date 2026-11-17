@@ -9,6 +9,7 @@ as_app "venv/bin/pip install -q -r backend/requirements.txt"
 as_app "cd backend && ../venv/bin/python manage.py migrate --noinput"
 as_app "cd backend && ../venv/bin/python manage.py collectstatic --noinput"
 as_app "cd backend && ../venv/bin/python manage.py load_catalog"
+as_app "cd backend && ../venv/bin/python manage.py seed_stores"
 systemctl restart wearwise-gunicorn
 # The admin panel, once setup-admin.sh has installed it.
 if systemctl list-unit-files wearwise-admin.service | grep -q wearwise-admin; then

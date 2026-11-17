@@ -2274,3 +2274,28 @@ class AccessoryFeedTests(APITestCase):
         self.assertEqual(out['created'], 4)
         self.assertEqual(sorted(src.products.values_list('subcategory', flat=True)), ['jewellery', 'jewellery', 'sunglasses', 'watch'])
         self.assertEqual(set(src.products.values_list('category', flat=True)), {'accessory'})
+
+
+class StoreTargetsTests(APITestCase):
+    def test_seed_creates_switched_off_places_once(self):
+        from .models import StoreSource
+        from .stores import sync_all
+        from .stores.targets import TARGETS, seed
+        self.assertEqual(seed(), len(TARGETS))
+        self.assertEqual(seed(), 0)  # a second run adds nothing and keeps what was filled in
+        self.assertFalse(StoreSource.objects.filter(active=True).exists())
+        trendyol = StoreSource.objects.get(name='Trendyol')
+        self.assertEqual((trendyol.kind, trendyol.priority), ('feed', 1))
+        self.assertIn('feed', trendyol.notes)
+        self.assertEqual(sync_all(), {})  # nothing switched on, nothing synced
+        boss = User.objects.create_user(email='boss@example.com', password='x', is_staff=True)
+        self.client.force_authenticate(boss)
+        rows = self.client.get('/api/admin/stores/').data['results']
+        self.assertEqual(rows[0]['priority'], 1)
+        self.assertTrue(all(r['waiting'] for r in rows))
+        # Filling in the feed URL and switching on is all it takes.
+        r = self.client.patch(f'/api/admin/stores/{trendyol.id}/', {'config': {'url': 'https://feed.example/t.xml'}, 'active': True}, format='json')
+        self.assertFalse(r.data['waiting'])
+        # The kind can change when a store offers something else (only links, say).
+        r = self.client.patch(f'/api/admin/stores/{trendyol.id}/', {'kind': 'links', 'link_template': 'https://ty.gl/a?u={url_encoded}'}, format='json')
+        self.assertEqual(r.data['kind'], 'links')

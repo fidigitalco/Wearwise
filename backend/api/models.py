@@ -781,6 +781,9 @@ class StoreSource(models.Model):
     # "{url_encoded}"), e.g. "https://ty.gl/abc?url={url_encoded}" or "{url}?aff_id=123".
     link_template = models.CharField(max_length=500, blank=True)
     gender = models.CharField(max_length=8, blank=True)        # default for feeds that do not say
+    network = models.CharField(max_length=40, blank=True)      # where to apply: Awin, CJ, Impact, direct …
+    notes = models.TextField(blank=True)                       # what to ask for; shown in the panel
+    priority = models.PositiveSmallIntegerField(default=3)     # 1 first wave, 2 next, 3 later: the panel's order
     active = models.BooleanField(default=True)
     last_sync_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=300, blank=True)
@@ -788,7 +791,7 @@ class StoreSource(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['name']
+        ordering = ['priority', 'name']
 
     def wrap(self, url):
         """The affiliate version of a product URL; the URL itself when there is no template."""
