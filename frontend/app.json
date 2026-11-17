@@ -15,7 +15,7 @@
         "policy": "appVersion"
       },
       "appleTeamId": "487J3W7W6Q",
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "package": "app.wearwise",
