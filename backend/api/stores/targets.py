@@ -20,6 +20,14 @@ HOW = {
                'formatı istə. Feed versələr "Feed URL"-ə yaz; yalnız link versələr növü "Yalnız affiliate link"-ə dəyiş və şablonu yaz.',
     'AliExpress': 'portals.aliexpress.com-da affiliate hesabı, open.aliexpress.com-da "Affiliates API" tətbiqi aç: App Key, App Secret, '
                   'Tracking ID-ni yaz.',
+    'Partnerize': 'Partnerize-də publisher hesabı aç → brendin proqramına müraciət et → product feed linkini "Feed URL"-ə yaz.',
+    'FlexOffers': 'FlexOffers-də publisher hesabı aç → proqrama müraciət et → product feed linkini "Feed URL"-ə yaz; '
+                  'yalnız link verirlərsə növü "Yalnız affiliate link"-ə dəyiş.',
+    'Skimlinks': 'skimlinks.com-da publisher qeydiyyatı (app kimi). Təsdiqdən sonra Publisher ID-ni al və link şablonunu yaz: '
+                 'https://go.skimresources.com/?id=SƏNİN-ID&xs=1&url={url_encoded} (formatı Skimlinks panelində yoxla). '
+                 'Bu "ümumi bükücü"dür: öz proqramı olmayan BÜTÜN mağazaların linkləri bununla açılır.',
+    'Sovrn': 'sovrn.com/commerce-də qeydiyyat. API key-i al və şablonu yaz: https://redirect.viglink.com?key=SƏNİN-KEY&u={url_encoded} '
+             '(formatı Sovrn panelində yoxla). Skimlinks-ə alternativ ümumi bükücü: ikisindən yalnız birini aktiv et.',
     'Amazon': 'Amazon Associates-ə qoşul və adi linklərlə satış et; 30 gündə 10 satışdan sonra Creators API açılır. O vaxta qədər '
               'növ "Yalnız affiliate link": şablon {url}?tag=SƏNİN-TAG.',
 }
@@ -28,11 +36,15 @@ INDITEX = ' ⚠️ Inditex-in açıq affiliate proqramı bilinmir: birbaşa soru
 # (store, network, kind, priority, extra note)
 TARGETS = [
     # First wave: the 15 picked in docs/partner-targets.md.
-    ('ASOS', 'Awin', 'awin', 1, ' Ölkəyə görə Partnerize də ola bilər.'),
-    ('H&M', 'Awin', 'awin', 1, ' Regional proqramları yoxla.'),
+    # One sign-up that wraps links for every store without its own programme (store '*').
+    ('Skimlinks', 'Skimlinks', 'links', 1, ''),
+    ('Sovrn Commerce', 'Sovrn', 'links', 2, ''),
+    ('ASOS', 'Awin', 'awin', 1, ' Vahid qlobal proqram yoxdur: Awin (IT), FlexOffers (US/Asiya), Rakuten. Öz bölgən üçün seç.'),
+    ('H&M', 'FlexOffers', 'feed', 1, ' Sovrn, Skimlinks və ya FlexOffers üzərindən; Skimlinks aktivdirsə ayrıca lazım olmaya bilər.'),
     ('Mango', 'Awin', 'awin', 1, ''),
     ('Zara', 'Birbaşa', 'feed', 1, INDITEX),
-    ('Trendyol', 'Birbaşa', 'feed', 1, ' Əvvəlcə product feed istə; verməsələr affiliate link formatını.'),
+    ('Trendyol', 'Birbaşa', 'feed', 1, ' Yeganə real yol B2B partnyorluqdur (məktub A, docs/affiliate-applications.md): feed + deep link + S2S. '
+                                             'TrendFam yalnız 10K+ influencer üçündür, Admitad TR bağlıdır, Trendyol DE FlexOffers-dədir.'),
     ('LC Waikiki', 'Admitad', 'feed', 1, ' Admitad-da yoxdursa birbaşa yaz.'),
     ('Koton', 'Admitad', 'feed', 1, ' Admitad-da yoxdursa birbaşa yaz.'),
     ('Nike', 'Impact', 'feed', 1, ' Ölkəyə görə Awin və ya CJ də ola bilər.'),
@@ -41,14 +53,14 @@ TARGETS = [
     ('Puma', 'Awin', 'awin', 1, ' CJ / Impact da ola bilər.'),
     ('Guess', 'Awin', 'awin', 1, ' Çanta, saat və eynək də var.'),
     ('Calvin Klein', 'Awin', 'awin', 1, ' CJ / Rakuten da ola bilər.'),
-    ('Farfetch', 'Birbaşa', 'feed', 1, ' Farfetch-in öz affiliate səhifəsindən müraciət et: feed və 30 günlük cookie verirlər.'),
+    ('Farfetch', 'Partnerize', 'feed', 1, ' 10%-ə qədər komissiya, 30 günlük cookie.'),
     ('SSENSE', 'Birbaşa', 'feed', 1, ' SSENSE-in öz affiliate proqramı var.'),
     ('AliExpress', 'AliExpress', 'aliexpress', 1, ''),
     # Next wave.
-    ('Zalando', 'Awin', 'awin', 2, ' Açıq olanlar adətən Lounge / Privé by Zalando proqramlarıdır.'),
-    ('Shein', 'Birbaşa', 'feed', 2, ' Shein-in öz affiliate proqramı və ya Awin.'),
+    ('Zalando', 'Awin', 'awin', 2, ' Əsas Zalando proqramları Awin-də bağlıdır; açıq olanlar Lounge / Privé by Zalando (outlet).'),
+    ('Shein', 'Birbaşa', 'feed', 1, ' SHEIN saytında birbaşa müraciət (CJ artıq qəbul etmir). Feed üçün məktub C. 10–20% komissiya.'),
     ('Temu', 'Impact', 'feed', 2, ' API/feed-i aktivləşdirmələrini xahiş et.'),
-    ('Hepsiburada', 'Birbaşa', 'feed', 2, ' Əvvəlcə product feed istə; verməsələr affiliate link formatını.'),
+    ('Hepsiburada', 'Birbaşa', 'feed', 2, ' "Link Gelir" proqramı (məktub B). Feed istə; verməsələr link formatını.'),
     ('DeFacto', 'Admitad', 'feed', 2, ''),
     ('Boyner', 'Birbaşa', 'feed', 2, ''),
     ('Mavi', 'Birbaşa', 'feed', 2, ''),
@@ -94,15 +106,28 @@ TARGETS = [
 ]
 
 
+WRAPPERS = {'Skimlinks', 'Sovrn Commerce'}  # these wrap links for all stores: their store is "*"
+
+
 def seed():
-    """Create the missing target connections, switched off; never touches ones that exist. Returns how many were created."""
+    """
+    Create the missing target connections, switched off. A connection still waiting for its keys
+    gets the latest network and instructions; one that has keys is never touched.
+    Returns how many were created.
+    """
     from ..models import StoreSource
     made = 0
     for store, network, kind, priority, extra in TARGETS:
-        _, created = StoreSource.objects.get_or_create(
+        fields = {'network': network, 'priority': priority, 'notes': (HOW.get(network, '') + extra).strip()}
+        src, created = StoreSource.objects.get_or_create(
             name=store,
-            defaults={'store': store, 'kind': kind, 'network': network, 'priority': priority, 'active': False,
-                      'notes': (HOW.get(network, '') + extra).strip()},
+            defaults={**fields, 'store': '*' if store in WRAPPERS else store, 'kind': kind, 'active': False},
         )
         made += created
+        if not created and not src.active and not any((src.config or {}).values()) and not src.link_template:
+            for k, v in fields.items():
+                setattr(src, k, v)
+            if src.kind != kind:
+                src.kind = kind
+            src.save()
     return made

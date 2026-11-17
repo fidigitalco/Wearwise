@@ -2299,3 +2299,33 @@ class StoreTargetsTests(APITestCase):
         # The kind can change when a store offers something else (only links, say).
         r = self.client.patch(f'/api/admin/stores/{trendyol.id}/', {'kind': 'links', 'link_template': 'https://ty.gl/a?u={url_encoded}'}, format='json')
         self.assertEqual(r.data['kind'], 'links')
+
+
+class GeneralWrapperTests(APITestCase):
+    def test_skimlinks_wraps_stores_without_their_own_programme(self):
+        from decimal import Decimal
+        from .models import Product, StoreSource
+        from .stores.targets import seed
+        from .views import affiliate_url
+        seed()
+        p = Product.objects.create(name='Coat', store='Mango', price=Decimal(80), category='outerwear', subcategory='coat',
+                                   color='black', url='https://shop.mango.com/coat-1')
+        self.assertIn('utm_source=wearwise', affiliate_url(p, 's'))  # nothing switched on yet
+        sk = StoreSource.objects.get(name='Skimlinks')
+        self.assertEqual((sk.store, sk.kind), ('*', 'links'))
+        sk.link_template, sk.active = 'https://go.skimresources.com/?id=1X&xs=1&url={url_encoded}', True
+        sk.save()
+        self.assertEqual(affiliate_url(p, 's'), 'https://go.skimresources.com/?id=1X&xs=1&url=https%3A%2F%2Fshop.mango.com%2Fcoat-1')
+        # A store's own link programme still comes first.
+        StoreSource.objects.create(name='Mango links', store='Mango', kind='links', active=True, link_template='https://m.example/?u={url_encoded}')
+        self.assertTrue(affiliate_url(p, 's').startswith('https://m.example/'))
+
+    def test_reseed_updates_only_waiting_stores(self):
+        from .models import StoreSource
+        from .stores.targets import seed
+        seed()
+        StoreSource.objects.filter(name='Farfetch').update(network='old', notes='old')
+        StoreSource.objects.filter(name='Mango').update(network='old', config={'api_key': 'k'})
+        seed()
+        self.assertEqual(StoreSource.objects.get(name='Farfetch').network, 'Partnerize')
+        self.assertEqual(StoreSource.objects.get(name='Mango').network, 'old')  # has keys: left alone

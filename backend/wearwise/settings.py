@@ -95,7 +95,7 @@ AUTH_PASSWORD_VALIDATORS = [
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 # Must be on a domain verified with the provider.
-EMAIL_FROM_ADDRESS = os.environ.get('EMAIL_FROM_ADDRESS', 'info@fabosoft.com')
+EMAIL_FROM_ADDRESS = os.environ.get('EMAIL_FROM_ADDRESS', 'info@fabo-soft.com')
 EMAIL_FROM_NAME = os.environ.get('EMAIL_FROM_NAME', 'WearWise AI')
 # Where in-app feedback is forwarded (it is also in the admin panel).
 FEEDBACK_EMAIL = os.environ.get('FEEDBACK_EMAIL', '') or os.environ.get('SUPPORT_EMAIL', '')

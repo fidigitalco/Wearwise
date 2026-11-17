@@ -973,6 +973,10 @@ def affiliate_url(product, sub):
         return source.wrap(product.url)
     if source and source.kind == 'aliexpress':
         return product.url
+    # A general wrapper (Skimlinks, Sovrn: store "*") covers every store without a programme of its own.
+    wrapper = StoreSource.objects.filter(kind='links', store='*', active=True).exclude(link_template='').first()
+    if wrapper:
+        return wrapper.wrap(product.url)
     sep = '&' if '?' in product.url else '?'
     return f'{product.url}{sep}utm_source=wearwise&utm_medium=affiliate&sub_id={sub}'
 

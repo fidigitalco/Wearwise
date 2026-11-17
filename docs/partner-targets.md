@@ -16,11 +16,11 @@ Vəziyyət sütununu müraciət etdikcə doldur: *göndərilməyib → göndəri
 
 | # | Mağaza | Ehtimal olunan yol | Paneldə növ | Vəziyyət | Qeyd |
 |---|---|---|---|---|---|
-| 1 | **ASOS** | Awin və ya Partnerize (ölkəyə görə) | Awin / Feed | göndərilməyib | Feed-də ölçülər adətən var |
-| 2 | **H&M** | Awin (bəzi ölkələr) | Awin / Feed | göndərilməyib | Regional proqramları yoxla |
+| 1 | **ASOS** | Regional: Awin (IT), FlexOffers (US/Asiya), Rakuten | Awin / Feed | göndərilməyib | Vahid qlobal proqram yoxdur |
+| 2 | **H&M** | Sovrn, Skimlinks, FlexOffers | Feed / ümumi bükücü | göndərilməyib | Skimlinks aktivdirsə ayrıca lazım olmaya bilər |
 | 3 | **Mango** | Awin və ya digər şəbəkə | Awin / Feed | göndərilməyib | |
 | 4 | **Zara** | Birbaşa Inditex | Feed / Link | göndərilməyib | ⚠️ Mənim bildiyimə görə Inditex-in açıq affiliate proqramı yoxdur. Awin siyahısında olub-olmadığını hesab açanda yoxla. Bershka, Pull&Bear, Stradivarius və Massimo Dutti üçün də eyni şey keçərlidir |
-| 5 | **Trendyol** | Birbaşa (partner/influencer proqramı) | Feed, olmasa Link | göndərilməyib | Əvvəlcə feed istə |
+| 5 | **Trendyol** | Birbaşa B2B partnyorluq (məktub A) | Feed, olmasa Link | göndərilməyib | TrendFam yalnız 10K+ influencer üçündür; Admitad TR bağlıdır; Trendyol DE FlexOffers-dədir |
 | 6 | **LC Waikiki** | Birbaşa və ya Admitad / türk şəbəkələri | Feed / Link | göndərilməyib | Azərbaycanda da mağazaları var |
 | 7 | **Koton** | Birbaşa və ya türk şəbəkələri | Feed / Link | göndərilməyib | |
 | 8 | **Nike** | Ölkəyə görə Awin, Impact və ya CJ | Awin / Feed | göndərilməyib | |
@@ -29,7 +29,7 @@ Vəziyyət sütununu müraciət etdikcə doldur: *göndərilməyib → göndəri
 | 11 | **Puma** | Awin, CJ və ya Impact | Awin / Feed | göndərilməyib | |
 | 12 | **Guess** | Awin, CJ və ya Rakuten | Awin / Feed | göndərilməyib | Çanta, saat, eynək də var |
 | 13 | **Calvin Klein** | Awin, CJ və ya Rakuten | Awin / Feed | göndərilməyib | |
-| 14 | **Farfetch** | Farfetch-in öz affiliate səhifəsi | Feed | göndərilməyib | Feed və 30 günlük cookie verdiklərini yazırlar |
+| 14 | **Farfetch** | Partnerize | Feed | göndərilməyib | 10%-ə qədər komissiya, 30 günlük cookie |
 | 15 | **SSENSE** | SSENSE-in öz affiliate proqramı | Feed | göndərilməyib | |
 
 "Ehtimal olunan yol" sütunu yoxlanmalıdır: brendlər şəbəkəni ölkəyə görə dəyişir. Ən dəqiq yol Awin, CJ, Impact və Rakuten-də hesab açıb içəridə brendi axtarmaqdır.
@@ -43,6 +43,10 @@ Vəziyyət sütununu müraciət etdikcə doldur: *göndərilməyib → göndəri
 - **Kütləvi:** Reserved, C&A, Uniqlo, COS.
 - ⚠️ **Matches (matchesfashion.com):** 2024-cü ildə bağlandığını bilirəm. Siyahıdan çıxar və ya yoxla.
 
+## Ən sürətli başlanğıc: Skimlinks (ümumi bükücü)
+
+Skimlinks-də bir qeydiyyatla 48 mindən çox mağazanın linki affiliate linkə çevrilir. Admin → Mağazalar → **Skimlinks** yerinə Publisher ID ilə link şablonunu yazanda, öz proqramı olmayan bütün mağazaların linkləri avtomatik bu yolla açılır. Mağazanın öz proqramı qoşulanda isə o öncəlik alır. **Sovrn Commerce** alternativdir; ikisindən yalnız birini aktiv et.
+
 ## Şəbəkələr: bir hesabla çoxlu brend
 
 Ən sürətli yol əvvəlcə bu şəbəkələrdə publisher hesabı açmaq, sonra içəridən brendlərə müraciət etməkdir. Brendlərin çoxu birbaşa yox, şəbəkə vasitəsilə cavab verir.
@@ -52,7 +56,9 @@ Vəziyyət sütununu müraciət etdikcə doldur: *göndərilməyib → göndəri
 | **Awin** | Avropa high-street və idman brendləri | Awin (hazırdır) |
 | **CJ Affiliate** | ABŞ və qlobal brendlər | Feed (CJ feed linki) |
 | **Impact** | Nike, Puma, Temu və başqaları (ölkəyə görə) | Feed |
-| **Rakuten Advertising** | Lüks və premium | Feed |
+| **Rakuten Advertising** | Lüks və premium (Nordstrom, Michael Kors…) | Feed |
+| **Partnerize** | Farfetch və bəzi lüks brendlər | Feed |
+| **FlexOffers** | Trendyol DE, ASOS (US), H&M | Feed |
 | **Admitad** | Türkiyə, MDB, regional mağazalar | Feed |
 
 Hamısı feed linki verir və hamısı paneldə hazır olan **"Məhsul feed faylı"** növü ilə işləyir. Əlavə kod lazım deyil.
