@@ -2259,3 +2259,18 @@ class SizesAndDepartmentsTests(APITestCase):
         genders = {p.gender for p in candidates(User.objects.get(pk=self.user.pk))}
         self.assertTrue({'men', 'women'} <= genders)
         self.assertEqual(self.client.patch('/api/auth/me/', {'shop_for': ['kids']}, format='json').status_code, 400)
+
+
+class AccessoryFeedTests(APITestCase):
+    def test_watches_glasses_and_jewellery_are_imported(self):
+        from unittest import mock
+        from . import stores
+        from .models import StoreSource
+        src = StoreSource.objects.create(name='Acc', kind='feed', store='Swarovski', config={'url': 'https://x.example/f.csv'})
+        feed = ('id,title,link,price\n1,Crystal necklace,https://s.example/1,129\n2,Aviator sunglasses,https://s.example/2,160\n'
+                '3,Leather strap watch,https://s.example/3,240\n4,Charm bracelet,https://s.example/4,89\n')
+        with mock.patch('api.stores.feed.download', return_value=feed):
+            out = stores.sync(src)
+        self.assertEqual(out['created'], 4)
+        self.assertEqual(sorted(src.products.values_list('subcategory', flat=True)), ['jewellery', 'jewellery', 'sunglasses', 'watch'])
+        self.assertEqual(set(src.products.values_list('category', flat=True)), {'accessory'})

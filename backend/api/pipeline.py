@@ -73,6 +73,19 @@ SUB_WORDS = {
     'backpack': ['backpack', 'bel çantası', 'рюкзак', 'sırt çantası', 'mochila'],
     'tote': ['tote', 'çanta', 'сумк', 'bolso'],
     'belt': ['belt', 'kəmər', 'ремень', 'kemer', 'cinturón'],
+    # Accessories and bags, so feeds from watch, eyewear and jewellery brands are understood too.
+    'watch': ['watch', 'wristwatch', 'saat', 'часы', 'kol saati', 'reloj'],
+    'sunglasses': ['sunglasses', 'eyewear', 'gün eynəyi', 'eynək', 'солнцезащитные очки', 'очки', 'güneş gözlüğü', 'gözlük', 'gafas de sol'],
+    'jewellery': ['jewellery', 'jewelry', 'necklace', 'bracelet', 'earring', 'ring', 'pendant', 'charm', 'zinət', 'boyunbağı', 'qolbaq',
+                  'sırğa', 'üzük', 'украшени', 'колье', 'браслет', 'серьг', 'кольц', 'kolye', 'bileklik', 'küpe', 'yüzük',
+                  'collar', 'pulsera', 'pendientes', 'anillo'],
+    'tie': ['necktie', 'qalstuk', 'галстук', 'kravat', 'corbata'],
+    'clutch': ['clutch', 'evening bag', 'клатч', 'portföy', 'cartera de mano'],
+    'crossbody': ['crossbody', 'shoulder bag', 'çiyin çantası', 'сумка через плечо', 'omuz çantası', 'bandolera'],
+    'briefcase': ['briefcase', 'laptop bag', 'portfel', 'портфель', 'evrak çantası', 'maletín'],
+    'oxfords': ['oxfords', 'oxford shoes', 'derby', 'klassik ayaqqabı', 'оксфорды', 'klasik ayakkabı'],
+    'flats': ['ballet flats', 'flats', 'balerina', 'балетки', 'babet', 'bailarinas'],
+    'tank_top': ['tank top', 'vest top', 'mayka', 'майка', 'atlet', 'camiseta de tirantes'],
 }
 
 STYLE_WORDS = {

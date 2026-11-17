@@ -81,6 +81,12 @@ STORES = [
     'Trendyol', 'ASOS', 'Zara', 'H&M', 'Mango', 'Amazon', 'Shein', 'COS', 'Massimo Dutti', 'Uniqlo', 'Nike', 'Farfetch',
     # Marketplaces and more high-street chains; their feeds can be added as affiliate deals arrive.
     'Temu', 'eBay', 'AliExpress', 'Zalando', 'Pull&Bear', 'Bershka', 'Stradivarius', 'Lacoste', 'Adidas', 'Boohoo',
+    # Partner targets (docs/partner-targets.md): Turkish, sport, accessories and luxury.
+    'Hepsiburada', 'LC Waikiki', 'Koton', 'DeFacto', 'Boyner', 'Mavi', 'FLO', 'Modanisa', 'Vakko', 'Derimod',
+    'Reserved', 'C&A', 'Puma', 'New Balance', 'Converse', 'Vans', 'Reebok', 'Skechers', 'Foot Locker', 'ASICS',
+    'Dr. Martens', 'Michael Kors', 'Coach', 'Guess', 'Calvin Klein', 'Tommy Hilfiger', 'Fossil', 'Ray-Ban',
+    'Oakley', 'Swarovski', 'Pandora', 'Tissot', 'SSENSE', 'NET-A-PORTER', 'MR PORTER', 'Mytheresa',
+    'LuisaViaRoma', 'END.', 'REVOLVE',
 ]
 TOP_SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
 EU_BOTTOM_SIZES = ['32', '34', '36', '38', '40', '42', '44', '46', '48']

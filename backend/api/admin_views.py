@@ -446,6 +446,15 @@ STORE_HOSTS = {
     'stradivarius.com': 'Stradivarius', 'lcwaikiki.com': 'LC Waikiki', 'defacto.com': 'DeFacto', 'koton.com': 'Koton',
     'boyner.com': 'Boyner', 'hepsiburada.com': 'Hepsiburada', 'adidas.': 'Adidas', 'ozon.': 'Ozon',
     'wildberries.': 'Wildberries', 'umico.az': 'Umico',
+    'mavi.com': 'Mavi', 'flo.com.tr': 'FLO', 'modanisa.com': 'Modanisa', 'vakko.com': 'Vakko', 'derimod.com': 'Derimod',
+    'reserved.com': 'Reserved', 'c-and-a.com': 'C&A', 'puma.com': 'Puma', 'newbalance.': 'New Balance', 'converse.com': 'Converse',
+    'vans.': 'Vans', 'reebok.': 'Reebok', 'skechers.': 'Skechers', 'footlocker.': 'Foot Locker', 'asics.com': 'ASICS',
+    'drmartens.com': 'Dr. Martens', 'michaelkors.': 'Michael Kors', 'coach.com': 'Coach', 'guess.': 'Guess',
+    'calvinklein.': 'Calvin Klein', 'tommy.com': 'Tommy Hilfiger', 'fossil.com': 'Fossil', 'ray-ban.com': 'Ray-Ban',
+    'oakley.com': 'Oakley', 'swarovski.com': 'Swarovski', 'pandora.net': 'Pandora', 'tissotwatches.com': 'Tissot',
+    'farfetch.com': 'Farfetch', 'ssense.com': 'SSENSE', 'net-a-porter.com': 'NET-A-PORTER', 'mrporter.com': 'MR PORTER',
+    'mytheresa.com': 'Mytheresa', 'luisaviaroma.com': 'LuisaViaRoma', 'endclothing.com': 'END.', 'revolve.com': 'REVOLVE',
+    'zalando.': 'Zalando', 'shein.': 'Shein', 'temu.com': 'Temu', 'ebay.': 'eBay',
 }
 CURRENCIES = ['AZN', 'TRY', 'USD', 'EUR', 'GBP', 'RUB']
 GENDERS = ['women', 'men', 'unisex']
