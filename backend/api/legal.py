@@ -25,3 +25,8 @@ def delete_account(request):
 
 def terms(request):
     return render(request, 'legal/terms.html', _context())
+
+
+def home(request):
+    """The public landing page: what WearWise is, for app reviewers and affiliate programmes."""
+    return render(request, 'legal/home.html', _context())

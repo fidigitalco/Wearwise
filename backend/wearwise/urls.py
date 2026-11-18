@@ -6,6 +6,7 @@ from django.urls import include, path
 from api import legal
 
 urlpatterns = [
+    path('', legal.home),
     path('privacy/', legal.privacy),
     path('terms/', legal.terms),
     path('delete-account/', legal.delete_account),

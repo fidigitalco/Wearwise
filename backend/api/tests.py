@@ -1595,7 +1595,8 @@ class TypeSwipeTests(APITestCase):
 
 class LegalPagesTests(APITestCase):
     def test_privacy_and_delete_pages_are_public(self):
-        for url, text in (('/privacy/', 'Privacy policy'), ('/delete-account/', 'Delete your WearWise AI account')):
+        for url, text in (('/', 'Your AI fashion shopping assistant'), ('/privacy/', 'Privacy policy'),
+                          ('/delete-account/', 'Delete your WearWise AI account')):
             r = self.client.get(url)
             self.assertEqual(r.status_code, 200)
             self.assertContains(r, text)
