@@ -12,12 +12,21 @@ Android has no native Apple sign-in, so it uses Apple's web flow: the app opens
 (APPLE_REDIRECT_URI, which must be a public https URL registered for the
 Services ID APPLE_SERVICES_ID), and the callback hands the identity token back
 to the app through its deep link.
+
+Apple also asks apps to revoke a user's Apple tokens when the account is deleted.
+That needs a Sign in with Apple key: APPLE_TEAM_ID, APPLE_KEY_ID and the .p8 key
+(APPLE_PRIVATE_KEY_PATH, or its text in APPLE_PRIVATE_KEY). With it, the
+authorization code the app sends at sign-in is exchanged for a refresh token,
+which `apple_revoke` revokes when the account goes. Without it, both are skipped.
 """
 import json
+import logging
 import os
+import time
 from urllib.parse import urlencode, urlsplit
 
 import jwt
+import requests
 from django.core import signing
 from django.db import transaction
 
@@ -25,9 +34,12 @@ from .models import SocialAccount, TasteProfile, User
 
 APPLE_ISSUER = 'https://appleid.apple.com'
 APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys'
+APPLE_TOKEN_URL = 'https://appleid.apple.com/auth/token'
+APPLE_REVOKE_URL = 'https://appleid.apple.com/auth/revoke'
 GOOGLE_ISSUERS = {'accounts.google.com', 'https://accounts.google.com'}
 
 _apple_keys = None
+log = logging.getLogger('api.social')
 
 
 class NotConfigured(Exception):
@@ -152,6 +164,8 @@ def apple_callback_target(form):
     params = {}
     if form.get('id_token'):
         params['id_token'] = form['id_token']
+        if form.get('code'):
+            params['code'] = form['code']
         # Apple sends the name only on the first sign-in, as JSON in "user".
         try:
             name = json.loads(form.get('user') or '{}').get('name') or {}
@@ -163,3 +177,74 @@ def apple_callback_target(form):
     else:
         params['error'] = form.get('error') or 'cancelled'
     return return_url + ('&' if '?' in return_url else '?') + urlencode(params)
+
+
+def _apple_signing_key():
+    """(team id, key id, private key) for signing Apple client secrets, or None when not set up."""
+    team = os.environ.get('APPLE_TEAM_ID', '').strip()
+    kid = os.environ.get('APPLE_KEY_ID', '').strip()
+    key = os.environ.get('APPLE_PRIVATE_KEY', '').strip().replace('\\n', '\n')
+    path = os.environ.get('APPLE_PRIVATE_KEY_PATH', '').strip()
+    if not key and path:
+        try:
+            with open(path) as f:
+                key = f.read().strip()
+        except OSError:
+            log.warning('Apple private key not readable at %s', path)
+            return None
+    return (team, kid, key) if team and kid and key else None
+
+
+def apple_client_secret(client_id):
+    """The short-lived ES256 JWT Apple takes as client_secret for `client_id`, or None when not set up."""
+    signing_key = _apple_signing_key()
+    if not signing_key:
+        return None
+    team, kid, key = signing_key
+    now = int(time.time())
+    return jwt.encode({'iss': team, 'iat': now, 'exp': now + 300, 'aud': APPLE_ISSUER, 'sub': client_id},
+                      key, algorithm='ES256', headers={'kid': kid})
+
+
+def apple_keep_refresh_token(claims, code):
+    """
+    Exchange the sign-in's authorization code for a refresh token and keep it on the linked account,
+    so deleting the account can revoke it. Best effort: sign-in never fails because of this.
+    """
+    client_id = claims.get('aud') or ''
+    if isinstance(client_id, list):
+        client_id = client_id[0] if client_id else ''
+    secret = client_id and apple_client_secret(client_id)
+    if not secret or not code:
+        return False
+    try:
+        r = requests.post(APPLE_TOKEN_URL, timeout=10, data={
+            'client_id': client_id, 'client_secret': secret, 'code': code, 'grant_type': 'authorization_code'})
+        token = r.json().get('refresh_token') if r.ok else None
+    except (requests.RequestException, ValueError):
+        token = None
+    if not token:
+        log.warning('Apple code exchange failed for %s', client_id)
+        return False
+    SocialAccount.objects.filter(provider='apple', sub=claims['sub']).update(
+        apple_refresh_token=token, apple_client_id=client_id)
+    return True
+
+
+def apple_revoke(user):
+    """Revoke the user's Apple tokens (on account deletion). Best effort; returns how many were revoked."""
+    revoked = 0
+    for acc in user.social_accounts.filter(provider='apple').exclude(apple_refresh_token=''):
+        secret = apple_client_secret(acc.apple_client_id)
+        if not secret:
+            break
+        try:
+            r = requests.post(APPLE_REVOKE_URL, timeout=10, data={
+                'client_id': acc.apple_client_id, 'client_secret': secret,
+                'token': acc.apple_refresh_token, 'token_type_hint': 'refresh_token'})
+            revoked += r.ok
+            if not r.ok:
+                log.warning('Apple token revoke failed (%s) for user %s', r.status_code, user.pk)
+        except requests.RequestException:
+            log.warning('Apple token revoke failed for user %s', user.pk)
+    return revoked

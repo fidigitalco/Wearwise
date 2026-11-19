@@ -109,6 +109,9 @@ def social_login(request):
     except social.InvalidToken:
         return Response({'detail': 'That sign-in could not be verified. Try again.', 'code': 'invalid_token'},
                         status=status.HTTP_400_BAD_REQUEST)
+    code = request.data.get('authorization_code')
+    if provider == 'apple' and isinstance(code, str) and code:
+        social.apple_keep_refresh_token(claims, code)
     return Response({**_auth_payload(user), 'created': created},
                     status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
@@ -287,6 +290,8 @@ def me(request):
         for shot in AppFeedbackShot.objects.filter(feedback__user=request.user):
             shot.image.delete(save=False)
             shot.delete()
+        # Apple asks apps to revoke the user's Sign in with Apple tokens when the account goes.
+        social.apple_revoke(request.user)
         request.user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     if request.method == 'PATCH':

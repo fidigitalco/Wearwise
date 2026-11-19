@@ -8,7 +8,7 @@ type AuthState = {
   ready: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
-  signInWith: (provider: 'apple' | 'google', idToken: string, name?: string) => Promise<void>;
+  signInWith: (provider: 'apple' | 'google', idToken: string, name?: string, code?: string) => Promise<void>;
   continueAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
@@ -77,8 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await setToken(r.token);
         setUser(r.user);
       },
-      signInWith: async (provider, idToken, name) => {
-        const r = await auth.social(provider, idToken, name);
+      signInWith: async (provider, idToken, name, code) => {
+        const r = await auth.social(provider, idToken, name, code);
         await setToken(r.token);
         setUser(r.user);
       },

@@ -149,6 +149,10 @@ class SocialAccount(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='social_accounts')
     provider = models.CharField(max_length=16, choices=PROVIDERS)
     sub = models.CharField(max_length=255)
+    # Apple only: the refresh token from exchanging the sign-in's authorization code, and the client id
+    # (bundle id or Services ID) it was issued to. Deleting the account revokes it, as Apple requires.
+    apple_refresh_token = models.TextField(blank=True, default='')
+    apple_client_id = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

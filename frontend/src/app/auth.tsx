@@ -115,7 +115,7 @@ export default function AuthScreen() {
     setBusy(provider);
     try {
       const r = provider === 'apple' ? await signInWithApple() : await signInWithGoogle();
-      if (r) await signInWith(provider, r.idToken, r.name);
+      if (r) await signInWith(provider, r.idToken, r.name, r.code);
     } catch (e: any) {
       if (e instanceof SocialUnavailable) {
         setError({ expo_go: s.auth.googleExpoGo, not_configured: s.auth.googleNotSetUp, apple_not_configured: s.auth.appleNotSetUp }[e.reason]);

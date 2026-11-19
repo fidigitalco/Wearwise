@@ -13,7 +13,8 @@ import { auth } from '../services/api';
  * needs a development build (its native module is not in Expo Go) and
  * EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.
  */
-export type SocialResult = { idToken: string; name?: string } | null;
+/** `code` is Apple's one-time authorization code; the server swaps it for a token it revokes when the account is deleted. */
+export type SocialResult = { idToken: string; name?: string; code?: string } | null;
 
 export class SocialUnavailable extends Error {
   constructor(public reason: 'expo_go' | 'not_configured' | 'apple_not_configured') {
@@ -39,7 +40,11 @@ async function signInWithAppleWeb(): Promise<SocialResult> {
   const q = Linking.parse(res.url).queryParams ?? {};
   const idToken = typeof q.id_token === 'string' ? q.id_token : null;
   if (!idToken) return null;
-  return { idToken, name: typeof q.name === 'string' ? q.name : undefined };
+  return {
+    idToken,
+    name: typeof q.name === 'string' ? q.name : undefined,
+    code: typeof q.code === 'string' ? q.code : undefined,
+  };
 }
 
 export async function signInWithApple(): Promise<SocialResult> {
@@ -53,7 +58,7 @@ export async function signInWithApple(): Promise<SocialResult> {
     if (!c.identityToken) return null;
     // Apple shares the name only on the very first sign-in.
     const name = [c.fullName?.givenName, c.fullName?.familyName].filter(Boolean).join(' ');
-    return { idToken: c.identityToken, name: name || undefined };
+    return { idToken: c.identityToken, name: name || undefined, code: c.authorizationCode ?? undefined };
   } catch (e: any) {
     if (e?.code === 'ERR_REQUEST_CANCELED') return null;
     throw e;

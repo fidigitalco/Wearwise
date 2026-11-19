@@ -949,6 +949,75 @@ class SocialLoginTests(APITestCase):
             self.assertEqual(self.post().status_code, 400)
 
 
+class AppleRevocationTests(APITestCase):
+    """With a Sign in with Apple key, the sign-in code becomes a refresh token that account deletion revokes."""
+
+    def setUp(self):
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
+        key = ec.generate_private_key(ec.SECP256R1())
+        self.pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                     serialization.NoEncryption()).decode()
+        self.public = key.public_key()
+        self.env = {'APPLE_TEAM_ID': 'TEAM123456', 'APPLE_KEY_ID': 'KEY1234567', 'APPLE_PRIVATE_KEY': self.pem}
+
+    def sign_in(self, code='c-1'):
+        from unittest import mock
+        claims = {'sub': 'apple-1', 'email': 'ap@example.com', 'email_verified': 'true', 'aud': 'app.wearwise'}
+        with mock.patch.dict('api.social.VERIFY', {'apple': lambda t: claims}):
+            return self.client.post('/api/auth/social/', {'provider': 'apple', 'id_token': 't', 'authorization_code': code},
+                                    format='json')
+
+    def test_code_is_exchanged_and_revoked_on_delete(self):
+        import jwt
+        from unittest import mock
+        from .models import SocialAccount
+        calls = []
+
+        def fake_post(url, data=None, timeout=None):
+            calls.append((url, data))
+            secret = jwt.decode(data['client_secret'], self.public, algorithms=['ES256'],
+                                audience='https://appleid.apple.com')
+            self.assertEqual((secret['iss'], secret['sub']), ('TEAM123456', 'app.wearwise'))
+            self.assertEqual(jwt.get_unverified_header(data['client_secret'])['kid'], 'KEY1234567')
+            return mock.Mock(ok=True, status_code=200, json=lambda: {'refresh_token': 'rt-1'})
+
+        with mock.patch.dict('os.environ', self.env), mock.patch('api.social.requests.post', fake_post):
+            r = self.sign_in()
+            self.assertEqual(r.status_code, 201, r.data)
+            acc = SocialAccount.objects.get(sub='apple-1')
+            self.assertEqual((acc.apple_refresh_token, acc.apple_client_id), ('rt-1', 'app.wearwise'))
+            self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+            self.assertEqual(self.client.delete('/api/auth/me/').status_code, 204)
+        self.assertEqual([c[0] for c in calls], ['https://appleid.apple.com/auth/token', 'https://appleid.apple.com/auth/revoke'])
+        self.assertEqual(calls[1][1]['token'], 'rt-1')
+        self.assertFalse(User.objects.filter(email='ap@example.com').exists())
+
+    def test_without_key_or_when_apple_fails_sign_in_still_works(self):
+        import requests
+        from unittest import mock
+        with mock.patch.dict('os.environ', {'APPLE_TEAM_ID': '', 'APPLE_KEY_ID': '', 'APPLE_PRIVATE_KEY': '',
+                                            'APPLE_PRIVATE_KEY_PATH': ''}), \
+                mock.patch('api.social.requests.post') as post:
+            self.assertEqual(self.sign_in().status_code, 201)
+            post.assert_not_called()
+
+        def down(*a, **k):
+            raise requests.ConnectionError('down')
+        with mock.patch.dict('os.environ', self.env), mock.patch('api.social.requests.post', down):
+            self.assertEqual(self.sign_in().status_code, 200)
+            r = self.sign_in()
+            self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+            self.assertEqual(self.client.delete('/api/auth/me/').status_code, 204)
+
+    def test_web_flow_passes_the_code_back(self):
+        from django.core import signing
+        from . import social
+        state = signing.dumps('wearwise://auth', salt='apple-web-signin')
+        url = social.apple_callback_target({'state': state, 'id_token': 'idt', 'code': 'abc'})
+        self.assertIn('code=abc', url)
+
+
 class ShoppingTests(APITestCase):
     def setUp(self):
         r = self.client.post('/api/auth/register/', {'email': 'shop@example.com', 'password': 'Wardrobe-123', 'display_name': 'Test'}, format='json')

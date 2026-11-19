@@ -185,8 +185,8 @@ export const auth = {
   login: (email: string, password: string) =>
     http.post<AuthResponse>('/auth/login/', { email, password }).then((r) => r.data),
   /** Sign in with Apple or Google using the identity token the provider returned. */
-  social: (provider: 'apple' | 'google', id_token: string, name?: string) =>
-    http.post<AuthResponse>('/auth/social/', { provider, id_token, name }).then((r) => r.data),
+  social: (provider: 'apple' | 'google', id_token: string, name?: string, authorization_code?: string) =>
+    http.post<AuthResponse>('/auth/social/', { provider, id_token, name, authorization_code }).then((r) => r.data),
   /** Apple's web sign-in page (Android), returning to the given app link. */
   appleStart: (returnUrl: string) =>
     http.get<{ url: string }>('/auth/apple/start/', { params: { return: returnUrl } }).then((r) => r.data.url),
