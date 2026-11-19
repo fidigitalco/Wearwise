@@ -287,7 +287,7 @@ const AZ = {
   conversion: 'Premium payı',
   premiumList: 'Premium istifadəçilər',
   noPremium: 'Hələ premium istifadəçi yoxdur',
-  priceNote: 'Qiymət: $4.99 / ay · $29.99 / il',
+  priceNote: 'Qiymət: $2.99 / ay · $19.99 / il',
 
   // ── taxonomy ──
   cat_top: 'Üst',
@@ -575,7 +575,7 @@ const EN: Record<Key, string> = {
   conversion: 'Premium share',
   premiumList: 'Premium users',
   noPremium: 'No premium users yet',
-  priceNote: 'Price: $4.99 / month · $29.99 / year',
+  priceNote: 'Price: $2.99 / month · $19.99 / year',
 
   cat_top: 'Top',
   cat_bottom: 'Bottom',
