@@ -96,11 +96,12 @@ export function AboutYouSection({ prefs, onChange }: { prefs: Prefs; onChange: (
         <Text style={[type.label, { color: t.textSub }]}>{s.about.gender}</Text>
         <Segmented options={['female', 'male', 'unsaid'] as const} value={prefs.gender} label={(g) => s.about.genders[g]} onChange={(gender) => set({ gender })} />
       </View>
-      <View style={styles.sizes}>
+      <View style={styles.measures}>
         <View style={{ flex: 1, gap: 4 }}>
           <Field label={s.about.birthYear} value={prefs.birth_year ? String(prefs.birth_year) : ''} keyboardType="number-pad" maxLength={4}
             onChangeText={(v) => set({ birth_year: toNumber(v) })} placeholder="1995" />
-          {age && age > 0 && age < 120 ? <Text style={[type.caption, { color: t.textMuted }]}>{s.about.age(age)}</Text> : null}
+          {/* The line is always there, so the age appearing does not push the form around while typing. */}
+          <Text style={[type.caption, { color: t.textMuted }]} numberOfLines={1}>{age && age > 0 && age < 120 ? s.about.age(age) : ' '}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Field label={s.about.heightCm} value={prefs.height_cm ? String(prefs.height_cm) : ''} keyboardType="number-pad" maxLength={3}
@@ -250,5 +251,7 @@ export function SizesSection({ prefs, onChange }: { prefs: Prefs; onChange: (p: 
 const styles = StyleSheet.create({
   section: { gap: space.md },
   sizes: { flexDirection: 'row', gap: space.md, alignItems: 'flex-end' },
+  // Top-aligned: the age line under the birth year must not shift the height and weight fields.
+  measures: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
   field: { gap: space.sm },
 });
