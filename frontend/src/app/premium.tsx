@@ -10,6 +10,7 @@ import { Button } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { formatPrice, PRICING, yearlySavings } from '../lib/pricing';
+import { FEATURES } from '../lib/features';
 import { legalUrl } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
 
@@ -58,7 +59,7 @@ export default function PremiumScreen() {
   const premium = user?.plan === 'premium';
   // Fresh plan on open, so a grant made meanwhile shows at once.
   useEffect(() => { void refreshUser(); }, [refreshUser]);
-  const [plan, setPlan] = useState<Plan>('year');
+  const [plan, setPlan] = useState<Plan>(FEATURES.yearlyPlan ? 'year' : 'month');
   const save = yearlySavings();
   const price = plan === 'year' ? `${formatPrice(PRICING.yearly)} ${s.premium.perYear}` : `${formatPrice(PRICING.monthly)} ${s.premium.perMonth}`;
 
@@ -102,8 +103,10 @@ export default function PremiumScreen() {
             </View>
           ) : (
           <View accessibilityRole="radiogroup" accessibilityLabel={s.premium.plans} style={{ gap: space.md, paddingTop: space.sm }}>
-            <PlanCard on={plan === 'year'} onPress={() => setPlan('year')} title={s.premium.yearly} note={s.premium.yearlyNote(formatPrice(PRICING.yearly / 12))}
-              amount={formatPrice(PRICING.yearly)} badge={save > 0 ? s.premium.best(save) : undefined} />
+            {FEATURES.yearlyPlan ? (
+              <PlanCard on={plan === 'year'} onPress={() => setPlan('year')} title={s.premium.yearly} note={s.premium.yearlyNote(formatPrice(PRICING.yearly / 12))}
+                amount={formatPrice(PRICING.yearly)} badge={save > 0 ? s.premium.best(save) : undefined} />
+            ) : null}
             <PlanCard on={plan === 'month'} onPress={() => setPlan('month')} title={s.premium.monthly} note={s.premium.monthlyNote} amount={formatPrice(PRICING.monthly)} />
           </View>
           )}

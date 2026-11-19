@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/AppHeader';
 import { GarmentImage } from '../../components/Garment';
+import { FEATURES } from '../../lib/features';
 import { isoDay, longDate, MonthPicker } from '../../components/MonthPicker';
 import { OutfitCollage } from '../../components/Outfit';
 import { BottomSheet, useToast } from '../../components/Overlays';
@@ -202,7 +203,9 @@ export default function DatesScreen() {
             {/* One under the other: side by side the labels were cut off on narrow phones. */}
             <View style={{ gap: space.sm }}>
               <Button title={s.dates.fromOutfits} variant="secondary" icon={<Layers size={18} color={t.text} />} onPress={() => openSheet('outfits')} />
-              <Button title={s.dates.fromCloset} variant="secondary" icon={<Shirt size={18} color={t.text} />} onPress={() => openSheet('closet')} />
+              {FEATURES.wardrobe ? (
+                <Button title={s.dates.fromCloset} variant="secondary" icon={<Shirt size={18} color={t.text} />} onPress={() => openSheet('closet')} />
+              ) : null}
             </View>
           </View>
         ) : null}

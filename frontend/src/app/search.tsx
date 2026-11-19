@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { FEATURES } from '../lib/features';
 import { router } from 'expo-router';
 import { Clock, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
@@ -129,7 +130,7 @@ export default function SearchScreen() {
             </View>
           ) : null}
 
-          {garments?.length ? (
+          {FEATURES.wardrobe && garments?.length ? (
             <View style={{ gap: space.md }}>
               <SectionHeader title={s.search.recentlyAdded} action={s.home.seeAll} onAction={() => router.push('/closet')} />
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.md }}>

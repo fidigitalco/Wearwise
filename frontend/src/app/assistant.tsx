@@ -12,6 +12,7 @@ import { useToast } from '../components/Overlays';
 import { AffiliateSheet, ShoppingCard, type ShopTarget } from '../components/Shopping';
 import { Button, Chip, ChipWrap, CompatibilityScore, EmptyState, IconButton } from '../components/ui';
 import { useI18n } from '../lib/i18n';
+import { FEATURES } from '../lib/features';
 import { assistant, errorMessage, garments as garmentsApi, type LocalImage } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
 import type { Garment, Outfit, ShoppingSuggestion } from '../types';
@@ -203,7 +204,7 @@ export default function AssistantScreen() {
                 )}
               />
             ) : null}
-            {item.piece && item.piecePhoto ? (
+            {FEATURES.wardrobe && item.piece && item.piecePhoto ? (
               <Button size="sm" variant={item.added ? 'ghost' : 'secondary'} title={item.added ? s.assistant.added : s.assistant.addToCloset}
                 disabled={item.added} loading={adding === item.id} onPress={() => addToCloset(item)} />
             ) : null}

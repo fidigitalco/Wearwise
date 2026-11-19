@@ -12,6 +12,7 @@ import { useAuth } from '../../lib/auth';
 import { LANGUAGES, useI18n, useLabel } from '../../lib/i18n';
 import { rgbCss, useMeta } from '../../lib/meta';
 import { openStoreReview } from '../../lib/rate';
+import { FEATURES } from '../../lib/features';
 import { errorMessage, legalUrl } from '../../services/api';
 import { gutter, space, type, useTheme } from '../../theme';
 import type { User } from '../../types';
@@ -126,7 +127,9 @@ export default function MyStyleScreen() {
           <Row icon={<Receipt size={20} color={t.text} strokeWidth={1.6} />} title={s.buy.purchases} onPress={() => router.push('/purchases')} />
           <Row icon={<Bookmark size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.saved} onPress={() => router.push('/saved')} />
           <Row icon={<ImagePlus size={20} color={t.text} strokeWidth={1.6} />} title={s.inspo.title} onPress={() => router.push('/inspiration')} />
-          <Row icon={<ShoppingBag size={20} color={t.text} strokeWidth={1.6} />} title={s.shop.screen} onPress={() => router.push('/shop')} />
+          {FEATURES.wardrobe ? (
+            <Row icon={<ShoppingBag size={20} color={t.text} strokeWidth={1.6} />} title={s.shop.screen} onPress={() => router.push('/shop')} />
+          ) : null}
           <Row icon={<Compass size={20} color={t.text} strokeWidth={1.6} />} title={s.profile.howItWorks} onPress={() => router.push('/tour')} />
         </Section>
 
