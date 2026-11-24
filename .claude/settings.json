@@ -24,7 +24,32 @@
       "Read(//Users/fuad/**)",
       "Bash(ls /Users/fuad/Projects/Wearwise/backend/api/sample_images/cutouts | wc -l; tail -c 300 /private/tmp/claude-501/-Users-fuad-Projects-Wearwise/34832b87-a613-44be-8691-8e821c5da532/tasks/ba5q8203u.output | tr '\\\\r' '\\\\n' | tail -3; ls -la ~/.u2net/)",
       "Bash(grep -q \"problem\\\\|error\\\\|✖\\\\|^$\" /private/tmp/claude-501/-Users-fuad-Projects-Wearwise/34832b87-a613-44be-8691-8e821c5da532/tasks/b7vgm57ft.output)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(lsof -iTCP -sTCP:LISTEN -P)",
+      "Bash(.venv/bin/python manage.py makemigrations api -n app_feedback)",
+      "Bash(.venv/bin/python manage.py migrate)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}\\\\n\" \"http://192.168.0.197:8081/node_modules/expo-router/entry.bundle?platform=ios&dev=true&minify=false\" --max-time 170)",
+      "Bash(curl -s -o /dev/null -w \"admin feedback page %{http_code}\\\\n\" http://localhost:3002/dashboard/feedback)",
+      "Bash(python3 -c \"import openpyxl\")",
+      "Bash(backend/.venv/bin/python -c \"import openpyxl; print\\('ok'\\)\")",
+      "Bash(cd /Users/fuad/Projects/Wearwise/backend/api && wc -l taxonomy.py shopping.py engine/*.py services.py; ls ../../frontend/src/app/\\\\\\(tabs\\\\\\); cat shopping.py | head -80)",
+      "Read(//Users/fuad/frontend/src/app/**)",
+      "Bash(.venv/bin/python manage.py test api.tests.ShoppingTests.test_garment_weather_fit)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(sysctl -n machdep.cpu.brand_string)",
+      "Bash(sysctl -n hw.ncpu)",
+      "Bash(sysctl -n sysctl.proc_translated)",
+      "Bash(.venv/bin/python -c \"import platform; print\\(platform.machine\\(\\)\\)\")",
+      "Read(//Library/Frameworks/Python.framework/Versions/3.13/bin/**)",
+      "Bash(cd /Users/fuad/Projects/Wearwise/backend/api && grep -c \"lang == 'az'\\\\|'az' if\\\\|== 'az'\\\\|az if\\\\|lang='az'\\\\|_AZ\\\\b\\\\|_AZ\\\\[\" *.py engine/*.py | grep -v \":0\"; grep -n \"def request_lang\" -A10 views.py; wc -l ../../frontend/src/lib/strings/en.ts; grep -n \"lang\" vision.py | head)",
+      "Read(//Users/fuad/frontend/src/lib/strings/**)",
+      "Bash(sed -i '' 's/from api.samples import SAMPLES/from api.samples import SAMPLE_WARDROBE/; s/for row in SAMPLES\\\\]/for row in SAMPLE_WARDROBE]/' api/management/commands/locale_catalog.py)",
+      "Bash(.venv/bin/python manage.py locale_catalog)",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('/Users/fuad/Projects/Wearwise/backend/api/locales/hi.json'\\)\\);s=json.load\\(open\\('/Users/fuad/Projects/Wearwise/backend/api/locales/_source.json'\\)\\);print\\(len\\(set\\(s['text']\\)-set\\(d['text']\\)\\), [k for k in s['names'] if set\\(s['names'][k]\\)-set\\(d['names'].get\\(k,{}\\)\\)]\\)\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('/Users/fuad/Projects/Wearwise/backend/api/locales/tr.json'\\)\\);s=json.load\\(open\\('/Users/fuad/Projects/Wearwise/backend/api/locales/_source.json'\\)\\);print\\(len\\(set\\(s['text']\\)-set\\(d['text']\\)\\), [k for k in s['names'] if set\\(s['names'][k]\\)-set\\(d['names'].get\\(k,{}\\)\\)]\\)\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('/Users/fuad/Projects/Wearwise/backend/api/locales/es.json'\\)\\);s=json.load\\(open\\('/Users/fuad/Projects/Wearwise/backend/api/locales/_source.json'\\)\\);print\\(len\\(set\\(s['text']\\)-set\\(d['text']\\)\\), [k for k in s['names'] if set\\(s['names'][k]\\)-set\\(d['names'].get\\(k,{}\\)\\)]\\)\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('/Users/fuad/Projects/Wearwise/backend/api/locales/ru.json'\\)\\);s=json.load\\(open\\('/Users/fuad/Projects/Wearwise/backend/api/locales/_source.json'\\)\\);print\\(len\\(set\\(s['text']\\)-set\\(d['text']\\)\\), [k for k in s['names'] if set\\(s['names'][k]\\)-set\\(d['names'].get\\(k,{}\\)\\)]\\)\")",
+      "Bash(python3 -c ' *)"
     ]
   }
 }
