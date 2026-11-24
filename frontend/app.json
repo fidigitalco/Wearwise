@@ -8,14 +8,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "app.wearwise",
       "usesAppleSignIn": true,
       "runtimeVersion": {
         "policy": "appVersion"
       },
       "appleTeamId": "487J3W7W6Q",
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "package": "app.wearwise",
