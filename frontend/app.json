@@ -15,7 +15,7 @@
         "policy": "appVersion"
       },
       "appleTeamId": "487J3W7W6Q",
-      "buildNumber": "5"
+      "buildNumber": "6"
     },
     "android": {
       "package": "app.wearwise",
@@ -88,7 +88,8 @@
           }
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true

@@ -41,6 +41,8 @@ urlpatterns = [
     path('auth/change-password/', views.change_password),
     path('auth/logout/', views.logout),
     path('auth/me/', views.me),
+    path('billing/apple/', views.apple_purchase),
+    path('billing/apple/notifications/', views.apple_notifications),
     path('meta/', views.meta),
     path('recommendations/', views.recommendations),
     path('recommendations/latest/', views.latest_recommendations),

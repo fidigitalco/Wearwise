@@ -28,12 +28,12 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'display_name', 'wardrobe_style', 'style_direction', 'main_occasion', 'onboarded',
             'latitude', 'longitude', 'preferred_styles', 'favorite_colors', 'sizes', 'typical_occasions',
-            'units', 'notifications_enabled', 'plan', 'is_guest', 'date_joined',
+            'units', 'notifications_enabled', 'plan', 'premium_until', 'is_guest', 'date_joined',
             'gender', 'birth_year', 'height_cm', 'weight_kg', 'body_shape', 'fit_preference', 'fit_preferences', 'budget', 'avoid_colors',
             'age_range', 'country', 'budget_ranges', 'stores', 'type_prefs', 'has_password',
             'never_list', 'min_rating', 'min_reviews', 'hide_sponsored', 'shop_for',
         ]
-        read_only_fields = ['id', 'email', 'plan', 'is_guest', 'date_joined']
+        read_only_fields = ['id', 'email', 'plan', 'premium_until', 'is_guest', 'date_joined']
 
     NEVER_KINDS = ('color', 'sub', 'material', 'style', 'store', 'brand')
 

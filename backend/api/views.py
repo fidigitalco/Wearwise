@@ -25,7 +25,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
-from . import emails, social, taxonomy as tx
+from . import billing, emails, social, taxonomy as tx
 from .assistant import answer, read_plan
 from .locale import lang_from_header
 from .colors import extract_colors, remove_background
@@ -305,7 +305,40 @@ def me(request):
             from .models import DiscoveryDrop
             DiscoveryDrop.objects.filter(user=request.user, key=drop_key()[0]).delete()
         return Response(s.data)
+    billing.expire_if_due(request.user)
     return Response(UserSerializer(request.user).data)
+
+
+@api_view(['POST'])
+def apple_purchase(request):
+    """
+    An App Store purchase or restore: {"jws": <StoreKit 2 signed transaction>} → the updated user.
+    The signature is checked against Apple's root certificate in billing.py.
+    """
+    jws = request.data.get('jws')
+    if not isinstance(jws, str) or not jws:
+        return Response({'detail': 'Send the signed transaction as jws.'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        user = billing.apply_transaction(request.user, billing.verify_jws(jws))
+    except billing.InvalidPurchase as e:
+        logger.warning('Rejected App Store purchase for user %s: %s', request.user.pk, e)
+        return Response({'detail': 'That purchase could not be verified.', 'code': 'invalid_purchase'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    return Response(UserSerializer(user).data)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([])
+def apple_notifications(request):
+    """App Store Server Notifications V2 (set as the Production and Sandbox URL in App Store Connect)."""
+    try:
+        logger.info('App Store notification: %s', billing.handle_notification(request.data.get('signedPayload') or ''))
+    except billing.InvalidPurchase as e:
+        logger.warning('Rejected App Store notification: %s', e)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+    return Response(status=status.HTTP_200_OK)
 
 
 # Profile answers that change which products Discovery should show.

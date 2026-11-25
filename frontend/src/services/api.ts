@@ -179,6 +179,11 @@ export function legalUrl(page: 'privacy' | 'terms' | 'delete-account'): string {
 // ── Auth ────────────────────────────────────────────────────────────────────
 export type AuthResponse = { token: string; user: User };
 
+/** App Store purchases: the server checks Apple's signature and returns the user with its new plan. */
+export const billing = {
+  apple: (jws: string) => http.post<User>('/billing/apple/', { jws }).then((r) => r.data),
+};
+
 export const auth = {
   register: (email: string, password: string, display_name?: string) =>
     http.post<AuthResponse>('/auth/register/', { email, password, display_name }).then((r) => r.data),

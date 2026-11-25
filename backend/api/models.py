@@ -117,8 +117,12 @@ class User(AbstractUser):
     units = models.CharField(max_length=8, default='metric', choices=tx.choices(tx.UNITS))
     notifications_enabled = models.BooleanField(default=True)
 
-    # Set by store billing once it is connected; everyone is on the free plan until then.
+    # Premium comes from an App Store subscription (api/billing.py) or is granted in the admin panel.
     plan = models.CharField(max_length=16, default='free', choices=[('free', 'Free'), ('premium', 'Premium')])
+    # App Store subscription: when the paid period ends, and the subscription's stable id, which
+    # Apple's server notifications (renewals, expiry, refunds) refer to. Empty for granted Premium.
+    premium_until = models.DateTimeField(null=True, blank=True)
+    apple_original_transaction_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
 
     # What the app says about itself on every request (api/middleware.py), for the admin panel only.
     # `country` above is where they shop, chosen in onboarding; these two are where the phone is set to

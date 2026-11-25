@@ -111,6 +111,8 @@ export interface User {
   units?: 'metric' | 'imperial';
   notifications_enabled?: boolean;
   plan?: 'free' | 'premium';
+  /** End of the paid App Store period; null for Premium granted by hand. */
+  premium_until?: string | null;
   /** Looking around without an account; signing up keeps everything. */
   is_guest?: boolean;
   /** False for a Google/Apple-only account: it can set a password but has none to change. */

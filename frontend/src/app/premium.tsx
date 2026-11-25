@@ -9,9 +9,10 @@ import { useToast } from '../components/Overlays';
 import { Button } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
+import { billingAvailable, buyPremium, premiumPrice, restorePremium } from '../lib/billing';
 import { formatPrice, PRICING, yearlySavings } from '../lib/pricing';
 import { FEATURES } from '../lib/features';
-import { legalUrl } from '../services/api';
+import { errorMessage, legalUrl } from '../services/api';
 import { gutter, radius, space, type, useTheme } from '../theme';
 
 const HERO = [
@@ -61,7 +62,41 @@ export default function PremiumScreen() {
   useEffect(() => { void refreshUser(); }, [refreshUser]);
   const [plan, setPlan] = useState<Plan>(FEATURES.yearlyPlan ? 'year' : 'month');
   const save = yearlySavings();
-  const price = plan === 'year' ? `${formatPrice(PRICING.yearly)} ${s.premium.perYear}` : `${formatPrice(PRICING.monthly)} ${s.premium.perMonth}`;
+  // The App Store's own price for the person's country once it has loaded; ours until then.
+  const [storePrice, setStorePrice] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'buy' | 'restore' | null>(null);
+  useEffect(() => { void premiumPrice().then(setStorePrice); }, []);
+  const monthly = storePrice ?? formatPrice(PRICING.monthly);
+  const price = plan === 'year' ? `${formatPrice(PRICING.yearly)} ${s.premium.perYear}` : `${monthly} ${s.premium.perMonth}`;
+
+  const subscribe = async () => {
+    if (!billingAvailable) return toast(s.premium.soon);
+    setBusy('buy');
+    try {
+      if (await buyPremium()) {
+        await refreshUser();
+        toast(s.premium.thanks);
+      }
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const restore = async () => {
+    if (!billingAvailable) return toast(s.premium.soon);
+    setBusy('restore');
+    try {
+      const restored = await restorePremium();
+      await refreshUser();
+      toast(restored?.plan === 'premium' ? s.premium.thanks : s.premium.nothingToRestore, restored?.plan === 'premium' ? undefined : 'error');
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -107,7 +142,7 @@ export default function PremiumScreen() {
               <PlanCard on={plan === 'year'} onPress={() => setPlan('year')} title={s.premium.yearly} note={s.premium.yearlyNote(formatPrice(PRICING.yearly / 12))}
                 amount={formatPrice(PRICING.yearly)} badge={save > 0 ? s.premium.best(save) : undefined} />
             ) : null}
-            <PlanCard on={plan === 'month'} onPress={() => setPlan('month')} title={s.premium.monthly} note={s.premium.monthlyNote} amount={formatPrice(PRICING.monthly)} />
+            <PlanCard on={plan === 'month'} onPress={() => setPlan('month')} title={s.premium.monthly} note={s.premium.monthlyNote} amount={monthly} />
           </View>
           )}
         </View>
@@ -119,10 +154,11 @@ export default function PremiumScreen() {
         </View>
       ) : (
       <View style={[styles.footer, { paddingBottom: insets.bottom + space.md, borderTopColor: t.border, backgroundColor: t.card }]}>
-        <Button title={s.premium.subscribe} onPress={() => toast(s.premium.soon)} />
+        <Button title={s.premium.subscribe} onPress={subscribe} loading={busy === 'buy'} disabled={busy !== null} />
         <Text style={[type.caption, { color: t.textMuted, textAlign: 'center' }]}>{s.premium.fine(price)}</Text>
+        {billingAvailable ? <Text style={[type.caption, { color: t.textMuted, textAlign: 'center' }]}>{s.premium.autoRenew}</Text> : null}
         <View style={styles.links}>
-          <Pressable accessibilityRole="button" hitSlop={6} onPress={() => toast(s.premium.soon)}>
+          <Pressable accessibilityRole="button" hitSlop={6} onPress={restore} disabled={busy !== null}>
             <Text style={[type.caption, { color: t.textMuted, textDecorationLine: 'underline' }]}>{s.premium.restore}</Text>
           </Pressable>
           <Pressable accessibilityRole="link" hitSlop={6} onPress={() => WebBrowser.openBrowserAsync(legalUrl('terms')).catch(() => {})}>

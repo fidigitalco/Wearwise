@@ -1,7 +1,8 @@
 import io
-from datetime import date
+from datetime import date, timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from PIL import Image
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
@@ -1016,6 +1017,108 @@ class AppleRevocationTests(APITestCase):
         state = signing.dumps('wearwise://auth', salt='apple-web-signin')
         url = social.apple_callback_target({'state': state, 'id_token': 'idt', 'code': 'abc'})
         self.assertIn('code=abc', url)
+
+
+def _apple_chain():
+    """A throwaway root → intermediate → leaf chain shaped like Apple's (for signing test JWS)."""
+    import datetime
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+    from . import billing
+
+    def cert(name, key, issuer_name, issuer_key, ca, oid=None):
+        now = datetime.datetime.now(datetime.timezone.utc)
+        b = (x509.CertificateBuilder().subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)]))
+             .issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, issuer_name)]))
+             .public_key(key.public_key()).serial_number(x509.random_serial_number())
+             .not_valid_before(now - datetime.timedelta(days=1)).not_valid_after(now + datetime.timedelta(days=30))
+             .add_extension(x509.BasicConstraints(ca=ca, path_length=None), critical=True))
+        if oid:
+            b = b.add_extension(x509.UnrecognizedExtension(oid, b'\x05\x00'), critical=False)
+        return b.sign(issuer_key, hashes.SHA256())
+
+    rk, ik, lk = (ec.generate_private_key(ec.SECP256R1()) for _ in range(3))
+    root = cert('Test Root', rk, 'Test Root', rk, True)
+    inter = cert('Test WWDR', ik, 'Test Root', rk, True, billing.INTERMEDIATE_OID)
+    leaf = cert('Test Signer', lk, 'Test WWDR', ik, False, billing.LEAF_OID)
+    return root, [leaf, inter, root], lk
+
+
+class AppStoreBillingTests(APITestCase):
+    def setUp(self):
+        import base64
+        import time
+        import jwt
+        from cryptography.hazmat.primitives.serialization import Encoding
+        self.root, chain, key = _apple_chain()
+        x5c = [base64.b64encode(c.public_bytes(Encoding.DER)).decode() for c in chain]
+        self.sign = lambda payload: jwt.encode(payload, key, algorithm='ES256', headers={'x5c': x5c})
+        self.now_ms = int(time.time() * 1000)
+        r = self.client.post('/api/auth/register/', {'email': 'buyer@example.com', 'password': 'Wardrobe-123', 'display_name': 'Buyer'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.user = User.objects.get(email='buyer@example.com')
+
+    def tx(self, days=30, **extra):
+        return {'bundleId': 'app.wearwise', 'productId': 'app.wearwise.premium.monthly', 'originalTransactionId': '1000',
+                'transactionId': '2000', 'expiresDate': self.now_ms + days * 86400000, **extra}
+
+    def buy(self, payload):
+        from unittest import mock
+        with mock.patch('api.billing.ROOT_CERT', self.root):
+            return self.client.post('/api/billing/apple/', {'jws': self.sign(payload)}, format='json')
+
+    def test_purchase_makes_premium_until_the_period_ends(self):
+        r = self.buy(self.tx())
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data['plan'], 'premium')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.apple_original_transaction_id, '1000')
+        # An old, already expired transaction replayed later does not undo it.
+        self.assertEqual(self.buy(self.tx(days=-5, transactionId='1999')).data['plan'], 'premium')
+
+    def test_expired_purchase_is_free_and_lapses_on_me(self):
+        self.assertEqual(self.buy(self.tx(days=-1)).data['plan'], 'free')
+        self.buy(self.tx(days=30))
+        User.objects.filter(pk=self.user.pk).update(premium_until=timezone.now() - timedelta(minutes=1))
+        self.assertEqual(self.client.get('/api/auth/me/').data['plan'], 'free')
+
+    def test_rejects_wrong_app_product_or_signer(self):
+        self.assertEqual(self.buy(self.tx(bundleId='com.other')).data['code'], 'invalid_purchase')
+        self.assertEqual(self.buy(self.tx(productId='coins')).status_code, 400)
+        # Signed by our test chain but checked against Apple's real root: refused.
+        r = self.client.post('/api/billing/apple/', {'jws': self.sign(self.tx())}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.plan, 'free')
+
+    def test_restore_on_another_account_moves_the_subscription(self):
+        self.buy(self.tx())
+        r = self.client.post('/api/auth/register/', {'email': 'second@example.com', 'password': 'Wardrobe-123', 'display_name': 'Second'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {r.data['token']}")
+        self.assertEqual(self.buy(self.tx()).data['plan'], 'premium')
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.plan, self.user.apple_original_transaction_id), ('free', ''))
+
+    def test_server_notifications_renew_and_expire(self):
+        from unittest import mock
+        self.buy(self.tx(days=1))
+
+        def notify(kind, tx):
+            body = {'notificationType': kind, 'data': {'bundleId': 'app.wearwise', 'signedTransactionInfo': self.sign(tx)}}
+            with mock.patch('api.billing.ROOT_CERT', self.root):
+                return self.client.post('/api/billing/apple/notifications/', {'signedPayload': self.sign(body)}, format='json')
+
+        self.client.credentials()
+        self.assertEqual(notify('DID_RENEW', self.tx(days=31, transactionId='2001')).status_code, 200)
+        self.user.refresh_from_db()
+        self.assertGreater(self.user.premium_until, timezone.now() + timedelta(days=30))
+        notify('REFUND', self.tx(days=31))
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.plan, self.user.premium_until), ('free', None))
+        r = self.client.post('/api/billing/apple/notifications/', {'signedPayload': 'junk'}, format='json')
+        self.assertEqual(r.status_code, 400)
 
 
 class ShoppingTests(APITestCase):
